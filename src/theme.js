@@ -3,44 +3,82 @@ import { createTheme } from "@mui/material/styles";
 const theme = createTheme({
   palette: {
     primary: {
-      main: "#0e8d45", // Vihiga green as primary color
-      light: "#40a86c", // Lighter variant
-      dark: "#0a6231", // Darker variant
+      main: "#D4AF37", // Gold as primary color
+      light: "#E8D5A3", // Light gold/pastel gold
+      dark: "#B8941F", // Darker gold
     },
     secondary: {
-      main: "#f1ea32", // Vihiga yellow as secondary color
-      light: "#f4ef5b", // Lighter variant
-      dark: "#c1bb28", // Darker variant
+      main: "#F5E6D3", // Pastel peach/beige
+      light: "#FAF5F0", // Very light pastel
+      dark: "#E8D5C4", // Darker pastel
     },
     info: {
-      main: "#2491cf", // Vihiga blue
-      light: "#4fa7d9", // Lighter variant
-      dark: "#1b73a5", // Darker variant
+      main: "#B8A9D9", // Pastel lavender
+      light: "#E5DFF0", // Light pastel lavender
+      dark: "#9B8AB8", // Darker pastel lavender
+    },
+    success: {
+      main: "#C7E9D0", // Pastel mint green
+      light: "#E8F5EB", // Light pastel mint
+      dark: "#A8D4B8", // Darker pastel mint
+    },
+    warning: {
+      main: "#FFD6CC", // Pastel coral/peach
+      light: "#FFEBE5", // Light pastel coral
+      dark: "#FFB8A3", // Darker pastel coral
     },
     background: {
-      default: "#ffffff",
-      paper: "#f9f9f9",
-      dark: "#090909", // Vihiga dark color
+      default: "#FFFFFF", // Pure white
+      paper: "#FAFAFA", // Off-white/very light gray
+      light: "#FFFEFB", // Warm white with slight tint
     },
     text: {
-      primary: "#090909", // Using Vihiga dark for text
-      secondary: "#555555",
+      primary: "#2C2C2C", // Dark gray for text
+      secondary: "#666666", // Medium gray for secondary text
     },
-    // Keep success color for notifications/status indicators
-    success: {
-      main: "#0e8d45", // Using Vihiga green for success states
-      light: "#40a86c",
-      dark: "#0a6231",
+    // Custom colors for TuVibe
+    gold: {
+      main: "#D4AF37",
+      light: "#E8D5A3",
+      dark: "#B8941F",
+      pastel: "#F5E6D3",
+    },
+    pastel: {
+      lavender: "#B8A9D9",
+      peach: "#F5E6D3",
+      mint: "#C7E9D0",
+      coral: "#FFD6CC",
+      pink: "#FFE5E5",
     },
   },
   typography: {
-    fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
+    fontFamily:
+      '"Poppins", "Inter", "Roboto", "Helvetica", "Arial", sans-serif',
     h1: {
-      fontWeight: 500,
+      fontWeight: 600,
+    },
+    h2: {
+      fontWeight: 600,
+    },
+    h3: {
+      fontWeight: 600,
+    },
+    h4: {
+      fontWeight: 600,
+    },
+    h5: {
+      fontWeight: 600,
+    },
+    h6: {
+      fontWeight: 600,
     },
     button: {
       textTransform: "none",
+      fontWeight: 500,
     },
+  },
+  shape: {
+    borderRadius: 16, // Rounded corners throughout
   },
 });
 

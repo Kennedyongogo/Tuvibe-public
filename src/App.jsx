@@ -15,13 +15,11 @@ import { theme } from "./theme";
 import "./App.css";
 import React, { useState, useEffect, Suspense, lazy } from "react";
 import PublicHeader from "./components/Header/PublicHeader";
-import Footer from "./components/Footer/Footer";
 import Chatbot from "./components/Chatbot/Chatbot";
+import PageRoutes from "./components/PageRoutes";
 
 // Lazy load components
 const Home = lazy(() => import("./pages/Home"));
-const ProjectDetails = lazy(() => import("./pages/ProjectDetails"));
-const TeamMemberDetail = lazy(() => import("./pages/TeamMemberDetail"));
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -31,13 +29,6 @@ function ScrollToTop() {
   }, [pathname]);
 
   return null;
-}
-
-function PrivateRoute({ user, children }) {
-  // if (!user) {
-  //   return <Navigate to="/login" replace />;
-  // }
-  return children;
 }
 
 function App() {
@@ -65,7 +56,7 @@ function App() {
           }
         >
           <Routes>
-            {/* Public routes */}
+            {/* Public landing page */}
             <Route
               path="/"
               element={
@@ -75,26 +66,8 @@ function App() {
                 </>
               }
             />
-            <Route
-              path="/project/:id"
-              element={
-                <>
-                  <PublicHeader />
-                  <ProjectDetails />
-                  <Footer />
-                </>
-              }
-            />
-            <Route
-              path="/team/:id"
-              element={
-                <>
-                  <PublicHeader />
-                  <TeamMemberDetail />
-                  <Footer />
-                </>
-              }
-            />
+            {/* Authenticated routes */}
+            <Route path="/*" element={<PageRoutes />} />
           </Routes>
         </Suspense>
         <Chatbot />
