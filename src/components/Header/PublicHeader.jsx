@@ -533,16 +533,19 @@ export default function PublicHeader() {
         elevation={0}
         sx={{
           backgroundColor: scrolled
-            ? "rgba(255, 255, 255, 0.98)"
-            : "rgba(245, 230, 211, 0.3)",
+            ? "rgba(255, 248, 220, 0.98)"
+            : "rgba(255, 236, 179, 0.5)",
           backdropFilter: scrolled ? "blur(20px)" : "blur(10px)",
           boxShadow: scrolled
-            ? "0 8px 32px rgba(212, 175, 55, 0.15)"
-            : "0 4px 20px rgba(212, 175, 55, 0.1)",
+            ? "0 8px 32px rgba(212, 175, 55, 0.25)"
+            : "0 4px 20px rgba(212, 175, 55, 0.2)",
           transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
           borderBottom: scrolled
-            ? "1px solid rgba(212, 175, 55, 0.2)"
-            : "1px solid rgba(255, 255, 255, 0.3)",
+            ? "2px solid rgba(212, 175, 55, 0.4)"
+            : "2px solid rgba(212, 175, 55, 0.3)",
+          backgroundImage: scrolled
+            ? "linear-gradient(135deg, rgba(255, 248, 220, 0.98) 0%, rgba(255, 236, 179, 0.95) 100%)"
+            : "linear-gradient(135deg, rgba(255, 236, 179, 0.5) 0%, rgba(245, 230, 211, 0.6) 100%)",
         }}
       >
         <Toolbar sx={{ px: { xs: 2, sm: 3, md: 4 }, py: 1 }}>
@@ -616,13 +619,12 @@ export default function PublicHeader() {
               <Fade in={true} timeout={1000}>
                 <Button
                   onClick={handleRegister}
-                  startIcon={<PersonAdd />}
+                  startIcon={<PersonAdd sx={{ color: "#D4AF37" }} />}
                   variant="outlined"
                   sx={{
-                    color: scrolled ? "primary.main" : "#2C2C2C",
-                    borderColor: scrolled
-                      ? "primary.main"
-                      : "rgba(212, 175, 55, 0.5)",
+                    color: "#D4AF37",
+                    borderColor: "#D4AF37",
+                    borderWidth: "2px",
                     fontSize: "1rem",
                     fontWeight: 600,
                     px: 3,
@@ -632,14 +634,14 @@ export default function PublicHeader() {
                     outline: "none",
                     transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
                     "&:hover": {
-                      backgroundColor: scrolled
-                        ? "rgba(212, 175, 55, 0.1)"
-                        : "rgba(245, 230, 211, 0.3)",
-                      borderColor: scrolled ? "primary.dark" : "primary.main",
+                      backgroundColor: "rgba(212, 175, 55, 0.15)",
+                      borderColor: "#B8941F",
+                      borderWidth: "2px",
                       transform: "translateY(-2px)",
-                      boxShadow: scrolled
-                        ? "0 8px 25px rgba(212, 175, 55, 0.3)"
-                        : "0 8px 25px rgba(212, 175, 55, 0.2)",
+                      boxShadow: "0 8px 25px rgba(212, 175, 55, 0.4)",
+                      "& .MuiSvgIcon-root": {
+                        color: "#B8941F",
+                      },
                     },
                     "&:focus": {
                       outline: "none",
@@ -661,12 +663,10 @@ export default function PublicHeader() {
               <Fade in={true} timeout={1200}>
                 <Button
                   onClick={handleLogin}
-                  startIcon={<Login />}
+                  startIcon={<Login sx={{ color: "white" }} />}
                   variant="contained"
                   sx={{
-                    backgroundColor: scrolled
-                      ? "primary.main"
-                      : "rgba(212, 175, 55, 0.9)",
+                    backgroundColor: "#D4AF37",
                     color: "white",
                     fontSize: "1rem",
                     fontWeight: 600,
@@ -675,14 +675,12 @@ export default function PublicHeader() {
                     borderRadius: "25px",
                     textTransform: "none",
                     outline: "none",
-                    background: scrolled
-                      ? "linear-gradient(45deg, #D4AF37, #B8941F)"
-                      : "linear-gradient(45deg, #D4AF37, #E8D5A3)",
+                    background: "linear-gradient(45deg, #D4AF37, #B8941F)",
                     transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
                     "&:hover": {
                       background: "linear-gradient(45deg, #B8941F, #D4AF37)",
                       transform: "translateY(-2px)",
-                      boxShadow: "0 8px 25px rgba(212, 175, 55, 0.4)",
+                      boxShadow: "0 8px 25px rgba(212, 175, 55, 0.5)",
                     },
                     "&:focus": {
                       outline: "none",
@@ -708,18 +706,17 @@ export default function PublicHeader() {
               <IconButton
                 sx={{
                   display: { xs: "flex", md: "none" },
-                  color: scrolled ? "primary.main" : "#2C2C2C",
+                  color: "#D4AF37",
                   transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
                   borderRadius: "12px",
                   outline: "none",
+                  border: "2px solid rgba(212, 175, 55, 0.3)",
                   "&:hover": {
-                    backgroundColor: scrolled
-                      ? "rgba(212, 175, 55, 0.1)"
-                      : "rgba(245, 230, 211, 0.3)",
+                    backgroundColor: "rgba(212, 175, 55, 0.15)",
+                    borderColor: "#D4AF37",
                     transform: "rotate(90deg) scale(1.1)",
-                    boxShadow: scrolled
-                      ? "0 8px 25px rgba(212, 175, 55, 0.3)"
-                      : "0 8px 25px rgba(212, 175, 55, 0.2)",
+                    boxShadow: "0 8px 25px rgba(212, 175, 55, 0.4)",
+                    color: "#B8941F",
                   },
                   "&:focus": {
                     outline: "none",
@@ -751,12 +748,12 @@ export default function PublicHeader() {
         sx={{
           "& .MuiDrawer-paper": {
             width: { xs: "280px", sm: "320px" },
-            backgroundColor: "background.paper",
+            backgroundColor: "rgba(255, 248, 220, 0.98)",
             backgroundImage:
-              "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.3) 100%)",
+              "linear-gradient(135deg, rgba(255, 248, 220, 0.98) 0%, rgba(255, 236, 179, 0.95) 100%)",
             backdropFilter: "blur(20px)",
-            borderLeft: "1px solid rgba(212, 175, 55, 0.2)",
-            boxShadow: "0 8px 32px rgba(212, 175, 55, 0.15)",
+            borderLeft: "3px solid rgba(212, 175, 55, 0.5)",
+            boxShadow: "0 8px 32px rgba(212, 175, 55, 0.25)",
             height: "auto",
             top: "80px",
             bottom: "auto",
@@ -897,12 +894,14 @@ export default function PublicHeader() {
         PaperProps={{
           sx: {
             borderRadius: "20px",
+            backgroundColor: "rgba(255, 248, 220, 0.98)",
             backgroundImage:
-              "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
+              "linear-gradient(135deg, rgba(255, 248, 220, 0.98) 0%, rgba(255, 236, 179, 0.95) 100%)",
             backdropFilter: "blur(20px)",
-            boxShadow: "0 20px 60px rgba(212, 175, 55, 0.15)",
+            boxShadow: "0 20px 60px rgba(212, 175, 55, 0.3)",
+            border: "2px solid rgba(212, 175, 55, 0.3)",
             maxHeight: "95vh",
-            width: "75%",
+            width: { xs: "90%", sm: "85%", md: "75%" },
             maxWidth: "700px",
             margin: "auto",
           },
@@ -915,16 +914,16 @@ export default function PublicHeader() {
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
             fontWeight: 700,
-            fontSize: "1.75rem",
+            fontSize: { xs: "1.5rem", sm: "1.75rem" },
             textAlign: "center",
             pb: 1,
-            pt: 2.5,
+            pt: { xs: 2, sm: 2.5 },
           }}
         >
           Create Account
         </DialogTitle>
         <form onSubmit={handleSubmit}>
-          <DialogContent sx={{ px: 4, py: 2.5, overflow: "auto" }}>
+          <DialogContent sx={{ px: { xs: 3, sm: 4 }, py: { xs: 2, sm: 2.5 }, overflow: "auto" }}>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {/* Required Fields */}
               <TextField
@@ -937,6 +936,16 @@ export default function PublicHeader() {
                 sx={{
                   "& .MuiOutlinedInput-root": {
                     borderRadius: "12px",
+                    "& fieldset": {
+                      borderColor: "rgba(212, 175, 55, 0.3)",
+                    },
+                    "&:hover fieldset": {
+                      borderColor: "rgba(212, 175, 55, 0.6)",
+                    },
+                    "&.Mui-focused fieldset": {
+                      borderColor: "#D4AF37",
+                      borderWidth: "2px",
+                    },
                   },
                   "& .MuiInputBase-input": {
                     py: 1.5,
@@ -946,6 +955,9 @@ export default function PublicHeader() {
                     transform: "translate(14px, 18px) scale(1)",
                     "&.MuiInputLabel-shrink": {
                       transform: "translate(14px, -9px) scale(0.75)",
+                    },
+                    "&.Mui-focused": {
+                      color: "#D4AF37",
                     },
                   },
                 }}
@@ -961,6 +973,16 @@ export default function PublicHeader() {
                 sx={{
                   "& .MuiOutlinedInput-root": {
                     borderRadius: "12px",
+                    "& fieldset": {
+                      borderColor: "rgba(212, 175, 55, 0.3)",
+                    },
+                    "&:hover fieldset": {
+                      borderColor: "rgba(212, 175, 55, 0.6)",
+                    },
+                    "&.Mui-focused fieldset": {
+                      borderColor: "#D4AF37",
+                      borderWidth: "2px",
+                    },
                   },
                   "& .MuiInputBase-input": {
                     py: 1.5,
@@ -970,6 +992,9 @@ export default function PublicHeader() {
                     transform: "translate(14px, 18px) scale(1)",
                     "&.MuiInputLabel-shrink": {
                       transform: "translate(14px, -9px) scale(0.75)",
+                    },
+                    "&.Mui-focused": {
+                      color: "#D4AF37",
                     },
                   },
                 }}
@@ -986,6 +1011,16 @@ export default function PublicHeader() {
                 sx={{
                   "& .MuiOutlinedInput-root": {
                     borderRadius: "12px",
+                    "& fieldset": {
+                      borderColor: "rgba(212, 175, 55, 0.3)",
+                    },
+                    "&:hover fieldset": {
+                      borderColor: "rgba(212, 175, 55, 0.6)",
+                    },
+                    "&.Mui-focused fieldset": {
+                      borderColor: "#D4AF37",
+                      borderWidth: "2px",
+                    },
                   },
                   "& .MuiInputBase-input": {
                     py: 1.5,
@@ -995,6 +1030,9 @@ export default function PublicHeader() {
                     transform: "translate(14px, 18px) scale(1)",
                     "&.MuiInputLabel-shrink": {
                       transform: "translate(14px, -9px) scale(0.75)",
+                    },
+                    "&.Mui-focused": {
+                      color: "#D4AF37",
                     },
                   },
                 }}
@@ -1010,6 +1048,16 @@ export default function PublicHeader() {
                 sx={{
                   "& .MuiOutlinedInput-root": {
                     borderRadius: "12px",
+                    "& fieldset": {
+                      borderColor: "rgba(212, 175, 55, 0.3)",
+                    },
+                    "&:hover fieldset": {
+                      borderColor: "rgba(212, 175, 55, 0.6)",
+                    },
+                    "&.Mui-focused fieldset": {
+                      borderColor: "#D4AF37",
+                      borderWidth: "2px",
+                    },
                   },
                   "& .MuiInputBase-input": {
                     py: 1.5,
@@ -1019,6 +1067,9 @@ export default function PublicHeader() {
                     transform: "translate(14px, 18px) scale(1)",
                     "&.MuiInputLabel-shrink": {
                       transform: "translate(14px, -9px) scale(0.75)",
+                    },
+                    "&.Mui-focused": {
+                      color: "#D4AF37",
                     },
                   },
                 }}
@@ -1039,7 +1090,9 @@ export default function PublicHeader() {
 
               {/* Optional Fields */}
               <FormControl fullWidth>
-                <InputLabel>Gender</InputLabel>
+                <InputLabel sx={{ "&.Mui-focused": { color: "#D4AF37" } }}>
+                  Gender
+                </InputLabel>
                 <Select
                   value={formData.gender}
                   onChange={handleInputChange("gender")}
@@ -1049,6 +1102,16 @@ export default function PublicHeader() {
                     "& .MuiSelect-select": {
                       py: 1.5,
                       lineHeight: 1.5,
+                    },
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "rgba(212, 175, 55, 0.3)",
+                    },
+                    "&:hover .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "rgba(212, 175, 55, 0.6)",
+                    },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#D4AF37",
+                      borderWidth: "2px",
                     },
                   }}
                 >
@@ -1069,6 +1132,16 @@ export default function PublicHeader() {
                 sx={{
                   "& .MuiOutlinedInput-root": {
                     borderRadius: "12px",
+                    "& fieldset": {
+                      borderColor: "rgba(212, 175, 55, 0.3)",
+                    },
+                    "&:hover fieldset": {
+                      borderColor: "rgba(212, 175, 55, 0.6)",
+                    },
+                    "&.Mui-focused fieldset": {
+                      borderColor: "#D4AF37",
+                      borderWidth: "2px",
+                    },
                   },
                   "& .MuiInputBase-input": {
                     py: 1.5,
@@ -1078,6 +1151,9 @@ export default function PublicHeader() {
                     transform: "translate(14px, 18px) scale(1)",
                     "&.MuiInputLabel-shrink": {
                       transform: "translate(14px, -9px) scale(0.75)",
+                    },
+                    "&.Mui-focused": {
+                      color: "#D4AF37",
                     },
                   },
                 }}
@@ -1093,6 +1169,16 @@ export default function PublicHeader() {
                 sx={{
                   "& .MuiOutlinedInput-root": {
                     borderRadius: "12px",
+                    "& fieldset": {
+                      borderColor: "rgba(212, 175, 55, 0.3)",
+                    },
+                    "&:hover fieldset": {
+                      borderColor: "rgba(212, 175, 55, 0.6)",
+                    },
+                    "&.Mui-focused fieldset": {
+                      borderColor: "#D4AF37",
+                      borderWidth: "2px",
+                    },
                   },
                   "& .MuiInputBase-input": {
                     py: 1.5,
@@ -1103,12 +1189,17 @@ export default function PublicHeader() {
                     "&.MuiInputLabel-shrink": {
                       transform: "translate(14px, -9px) scale(0.75)",
                     },
+                    "&.Mui-focused": {
+                      color: "#D4AF37",
+                    },
                   },
                 }}
               />
 
               <FormControl fullWidth>
-                <InputLabel>Category</InputLabel>
+                <InputLabel sx={{ "&.Mui-focused": { color: "#D4AF37" } }}>
+                  Category
+                </InputLabel>
                 <Select
                   value={formData.category}
                   onChange={handleInputChange("category")}
@@ -1118,6 +1209,16 @@ export default function PublicHeader() {
                     "& .MuiSelect-select": {
                       py: 1.5,
                       lineHeight: 1.5,
+                    },
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "rgba(212, 175, 55, 0.3)",
+                    },
+                    "&:hover .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "rgba(212, 175, 55, 0.6)",
+                    },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#D4AF37",
+                      borderWidth: "2px",
                     },
                   }}
                 >
@@ -1131,10 +1232,10 @@ export default function PublicHeader() {
           </DialogContent>
           <DialogActions
             sx={{
-              px: 4,
-              pb: 2.5,
-              pt: 1.5,
-              gap: 2,
+              px: { xs: 3, sm: 4 },
+              pb: { xs: 2, sm: 2.5 },
+              pt: { xs: 1, sm: 1.5 },
+              gap: { xs: 1.5, sm: 2 },
               justifyContent: "center",
             }}
           >
@@ -1143,10 +1244,11 @@ export default function PublicHeader() {
               variant="outlined"
               sx={{
                 borderRadius: "25px",
-                px: 4,
+                px: { xs: 3, sm: 4 },
                 py: 1,
                 textTransform: "none",
                 fontWeight: 600,
+                fontSize: { xs: "0.875rem", sm: "1rem" },
                 borderColor: "primary.main",
                 color: "primary.main",
                 "&:hover": {
@@ -1162,10 +1264,11 @@ export default function PublicHeader() {
               variant="contained"
               sx={{
                 borderRadius: "25px",
-                px: 4,
+                px: { xs: 3, sm: 4 },
                 py: 1,
                 textTransform: "none",
                 fontWeight: 600,
+                fontSize: { xs: "0.875rem", sm: "1rem" },
                 background: "linear-gradient(45deg, #D4AF37, #B8941F)",
                 "&:hover": {
                   background: "linear-gradient(45deg, #B8941F, #D4AF37)",
@@ -1186,15 +1289,17 @@ export default function PublicHeader() {
         PaperProps={{
           sx: {
             borderRadius: "20px",
+            backgroundColor: "rgba(255, 248, 220, 0.98)",
             backgroundImage:
-              "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
+              "linear-gradient(135deg, rgba(255, 248, 220, 0.98) 0%, rgba(255, 236, 179, 0.95) 100%)",
             backdropFilter: "blur(20px)",
-            boxShadow: "0 20px 60px rgba(212, 175, 55, 0.15)",
+            boxShadow: "0 20px 60px rgba(212, 175, 55, 0.3)",
+            border: "2px solid rgba(212, 175, 55, 0.3)",
             maxHeight: "95vh",
-            width: "56.25%",
+            width: { xs: "90%", sm: "75%", md: "56.25%" },
             maxWidth: "520px",
             margin: "auto",
-            minHeight: "320px",
+            minHeight: { xs: "auto", sm: "320px" },
           },
         }}
       >
@@ -1205,16 +1310,16 @@ export default function PublicHeader() {
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
             fontWeight: 700,
-            fontSize: "1.75rem",
+            fontSize: { xs: "1.5rem", sm: "1.75rem" },
             textAlign: "center",
             pb: 1,
-            pt: 2.5,
+            pt: { xs: 2, sm: 2.5 },
           }}
         >
           Login
         </DialogTitle>
         <form onSubmit={handleLoginSubmit}>
-          <DialogContent sx={{ px: 4, py: 2.5, overflow: "auto" }}>
+          <DialogContent sx={{ px: { xs: 3, sm: 4 }, py: { xs: 2, sm: 2.5 }, overflow: "auto" }}>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
               <TextField
                 required
@@ -1228,6 +1333,16 @@ export default function PublicHeader() {
                 sx={{
                   "& .MuiOutlinedInput-root": {
                     borderRadius: "12px",
+                    "& fieldset": {
+                      borderColor: "rgba(212, 175, 55, 0.3)",
+                    },
+                    "&:hover fieldset": {
+                      borderColor: "rgba(212, 175, 55, 0.6)",
+                    },
+                    "&.Mui-focused fieldset": {
+                      borderColor: "#D4AF37",
+                      borderWidth: "2px",
+                    },
                   },
                   "& .MuiInputBase-input": {
                     py: 1.5,
@@ -1237,6 +1352,9 @@ export default function PublicHeader() {
                     transform: "translate(14px, 18px) scale(1)",
                     "&.MuiInputLabel-shrink": {
                       transform: "translate(14px, -9px) scale(0.75)",
+                    },
+                    "&.Mui-focused": {
+                      color: "#D4AF37",
                     },
                   },
                 }}
@@ -1252,6 +1370,16 @@ export default function PublicHeader() {
                 sx={{
                   "& .MuiOutlinedInput-root": {
                     borderRadius: "12px",
+                    "& fieldset": {
+                      borderColor: "rgba(212, 175, 55, 0.3)",
+                    },
+                    "&:hover fieldset": {
+                      borderColor: "rgba(212, 175, 55, 0.6)",
+                    },
+                    "&.Mui-focused fieldset": {
+                      borderColor: "#D4AF37",
+                      borderWidth: "2px",
+                    },
                   },
                   "& .MuiInputBase-input": {
                     py: 1.5,
@@ -1261,6 +1389,9 @@ export default function PublicHeader() {
                     transform: "translate(14px, 18px) scale(1)",
                     "&.MuiInputLabel-shrink": {
                       transform: "translate(14px, -9px) scale(0.75)",
+                    },
+                    "&.Mui-focused": {
+                      color: "#D4AF37",
                     },
                   },
                 }}
@@ -1282,10 +1413,10 @@ export default function PublicHeader() {
           </DialogContent>
           <DialogActions
             sx={{
-              px: 4,
-              pb: 2.5,
-              pt: 1.5,
-              gap: 2,
+              px: { xs: 3, sm: 4 },
+              pb: { xs: 2, sm: 2.5 },
+              pt: { xs: 1, sm: 1.5 },
+              gap: { xs: 1.5, sm: 2 },
               justifyContent: "center",
             }}
           >
@@ -1294,12 +1425,13 @@ export default function PublicHeader() {
               variant="outlined"
               sx={{
                 borderRadius: "25px",
-                px: 4,
+                px: { xs: 3, sm: 4 },
                 py: 1,
                 textTransform: "none",
                 fontWeight: 600,
                 borderColor: "primary.main",
                 color: "primary.main",
+                fontSize: { xs: "0.875rem", sm: "1rem" },
                 "&:hover": {
                   borderColor: "primary.dark",
                   backgroundColor: "rgba(212, 175, 55, 0.1)",
@@ -1313,10 +1445,11 @@ export default function PublicHeader() {
               variant="contained"
               sx={{
                 borderRadius: "25px",
-                px: 4,
+                px: { xs: 3, sm: 4 },
                 py: 1,
                 textTransform: "none",
                 fontWeight: 600,
+                fontSize: { xs: "0.875rem", sm: "1rem" },
                 background: "linear-gradient(45deg, #D4AF37, #B8941F)",
                 "&:hover": {
                   background: "linear-gradient(45deg, #B8941F, #D4AF37)",

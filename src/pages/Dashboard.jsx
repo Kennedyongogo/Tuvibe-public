@@ -1,8 +1,10 @@
 import React from "react";
-import { Box, Typography, Card, Grid, Avatar } from "@mui/material";
-import { Home, Explore, Store, Wallet, Star } from "@mui/icons-material";
+import { Box, Typography, Card, Avatar } from "@mui/material";
+import { Explore, Store, Wallet, Star } from "@mui/icons-material";
+import { useNavigate } from "react-router-dom";
 
 export default function Dashboard({ user }) {
+  const navigate = useNavigate();
   const stats = [
     {
       title: "Token Balance",
@@ -12,7 +14,7 @@ export default function Dashboard({ user }) {
     },
     {
       title: "Profile Views",
-      value: "0",
+      value: user?.profile_views || "0",
       icon: <Explore />,
       color: "#B8A9D9",
     },
@@ -47,24 +49,33 @@ export default function Dashboard({ user }) {
       </Box>
 
       {/* Stats Cards */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
+      <Box
+        sx={{
+          display: "flex",
+          gap: 3,
+          mb: 4,
+          flexDirection: { xs: "column", sm: "row" },
+          width: "100%",
+        }}
+      >
         {stats.map((stat, index) => (
-          <Grid item xs={12} sm={6} md={4} key={index}>
-            <Card
-              sx={{
-                p: 3,
-                borderRadius: "16px",
-                background:
-                  "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
-                border: "1px solid rgba(212, 175, 55, 0.2)",
-                boxShadow: "0 4px 20px rgba(212, 175, 55, 0.1)",
-                transition: "all 0.3s ease",
-                "&:hover": {
-                  transform: "translateY(-4px)",
-                  boxShadow: "0 8px 32px rgba(212, 175, 55, 0.2)",
-                },
-              }}
-            >
+          <Card
+            key={index}
+            sx={{
+              p: 3,
+              borderRadius: "16px",
+              background:
+                "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
+              border: "1px solid rgba(212, 175, 55, 0.2)",
+              boxShadow: "0 4px 20px rgba(212, 175, 55, 0.1)",
+              transition: "all 0.3s ease",
+              flex: { xs: "0 0 100%", sm: "0 0 calc(33.333% - 16px)", md: "1 1 0%" },
+              "&:hover": {
+                transform: "translateY(-4px)",
+                boxShadow: "0 8px 32px rgba(212, 175, 55, 0.2)",
+              },
+            }}
+          >
               <Box
                 sx={{
                   display: "flex",
@@ -105,9 +116,8 @@ export default function Dashboard({ user }) {
                 </Avatar>
               </Box>
             </Card>
-          </Grid>
         ))}
-      </Grid>
+      </Box>
 
       {/* Quick Actions */}
       <Card
@@ -130,71 +140,76 @@ export default function Dashboard({ user }) {
         >
           Quick Actions
         </Typography>
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={4}>
-            <Box
-              sx={{
-                p: 2,
-                borderRadius: "12px",
-                backgroundColor: "rgba(212, 175, 55, 0.1)",
-                textAlign: "center",
-                cursor: "pointer",
-                transition: "all 0.3s ease",
-                "&:hover": {
-                  backgroundColor: "rgba(212, 175, 55, 0.15)",
-                  transform: "translateY(-2px)",
-                },
-              }}
-            >
-              <Explore sx={{ fontSize: 40, color: "#D4AF37", mb: 1 }} />
-              <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                Explore Profiles
-              </Typography>
-            </Box>
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <Box
-              sx={{
-                p: 2,
-                borderRadius: "12px",
-                backgroundColor: "rgba(212, 175, 55, 0.1)",
-                textAlign: "center",
-                cursor: "pointer",
-                transition: "all 0.3s ease",
-                "&:hover": {
-                  backgroundColor: "rgba(212, 175, 55, 0.15)",
-                  transform: "translateY(-2px)",
-                },
-              }}
-            >
-              <Store sx={{ fontSize: 40, color: "#D4AF37", mb: 1 }} />
-              <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                Browse Market
-              </Typography>
-            </Box>
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <Box
-              sx={{
-                p: 2,
-                borderRadius: "12px",
-                backgroundColor: "rgba(212, 175, 55, 0.1)",
-                textAlign: "center",
-                cursor: "pointer",
-                transition: "all 0.3s ease",
-                "&:hover": {
-                  backgroundColor: "rgba(212, 175, 55, 0.15)",
-                  transform: "translateY(-2px)",
-                },
-              }}
-            >
-              <Wallet sx={{ fontSize: 40, color: "#D4AF37", mb: 1 }} />
-              <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                Buy Tokens
-              </Typography>
-            </Box>
-          </Grid>
-        </Grid>
+        <Box
+          sx={{
+            display: "flex",
+            gap: 2,
+            flexDirection: { xs: "column", sm: "row" },
+            width: "100%",
+          }}
+        >
+          <Box
+            sx={{
+              p: 2,
+              borderRadius: "12px",
+              backgroundColor: "rgba(212, 175, 55, 0.1)",
+              textAlign: "center",
+              cursor: "pointer",
+              transition: "all 0.3s ease",
+              flex: { xs: "0 0 100%", sm: "0 0 calc(33.333% - 11px)", md: "1 1 0%" },
+              "&:hover": {
+                backgroundColor: "rgba(212, 175, 55, 0.15)",
+                transform: "translateY(-2px)",
+              },
+            }}
+          >
+            <Explore sx={{ fontSize: 40, color: "#D4AF37", mb: 1 }} />
+            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+              Explore Profiles
+            </Typography>
+          </Box>
+          <Box
+            sx={{
+              p: 2,
+              borderRadius: "12px",
+              backgroundColor: "rgba(212, 175, 55, 0.1)",
+              textAlign: "center",
+              cursor: "pointer",
+              transition: "all 0.3s ease",
+              flex: { xs: "0 0 100%", sm: "0 0 calc(33.333% - 11px)", md: "1 1 0%" },
+              "&:hover": {
+                backgroundColor: "rgba(212, 175, 55, 0.15)",
+                transform: "translateY(-2px)",
+              },
+            }}
+          >
+            <Store sx={{ fontSize: 40, color: "#D4AF37", mb: 1 }} />
+            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+              Browse Market
+            </Typography>
+          </Box>
+          <Box
+            onClick={() => navigate("/wallet")}
+            sx={{
+              p: 2,
+              borderRadius: "12px",
+              backgroundColor: "rgba(212, 175, 55, 0.1)",
+              textAlign: "center",
+              cursor: "pointer",
+              transition: "all 0.3s ease",
+              flex: { xs: "0 0 100%", sm: "0 0 calc(33.333% - 11px)", md: "1 1 0%" },
+              "&:hover": {
+                backgroundColor: "rgba(212, 175, 55, 0.15)",
+                transform: "translateY(-2px)",
+              },
+            }}
+          >
+            <Wallet sx={{ fontSize: 40, color: "#D4AF37", mb: 1 }} />
+            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+              Buy Tokens
+            </Typography>
+          </Box>
+        </Box>
       </Card>
     </Box>
   );

@@ -10,6 +10,9 @@ import { Box, CircularProgress } from "@mui/material";
 import Navbar from "./Navbar";
 import Dashboard from "../pages/Dashboard";
 import Profile from "../pages/Profile";
+import Explore from "../pages/Explore";
+import Wallet from "../pages/Wallet";
+import PremiumLounge from "../pages/PremiumLounge";
 
 function PageRoutes() {
   const navigate = useNavigate();
@@ -92,6 +95,47 @@ function PageRoutes() {
     };
   }, [navigate]);
 
+  // Keep-alive heartbeat to maintain online status
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token || !user) return;
+
+    // Function to refresh online status by calling /me endpoint
+    const refreshOnlineStatus = async () => {
+      try {
+        const response = await fetch("/api/public/me", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data) {
+            // Update user data in localStorage with latest info
+            const updatedUser = { ...data.data };
+            localStorage.setItem("user", JSON.stringify(updatedUser));
+            setUser(updatedUser);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to refresh online status:", error);
+      }
+    };
+
+    // Call immediately on mount (if user is logged in)
+    refreshOnlineStatus();
+
+    // Set up interval to refresh every 2 minutes (120000ms)
+    // This keeps logged_in_at timestamp updated, maintaining online status
+    const heartbeatInterval = setInterval(refreshOnlineStatus, 2 * 60 * 1000);
+
+    return () => {
+      clearInterval(heartbeatInterval);
+    };
+  }, [user]);
+
   return (
     <Box sx={{ display: "flex" }}>
       <Navbar user={user} setUser={setUser} />
@@ -121,11 +165,11 @@ function PageRoutes() {
             <Route path="home" element={<Dashboard user={user} />} />
             <Route
               path="explore"
-              element={<Box>Explore Page - Coming Soon</Box>}
+              element={<Explore user={user} />}
             />
             <Route
               path="premium"
-              element={<Box>Premium Lounge - Coming Soon</Box>}
+              element={<PremiumLounge user={user} />}
             />
             <Route
               path="market"
@@ -133,7 +177,7 @@ function PageRoutes() {
             />
             <Route
               path="wallet"
-              element={<Box>Token Wallet - Coming Soon</Box>}
+              element={<Wallet user={user} setUser={setUser} />}
             />
             <Route
               path="profile"

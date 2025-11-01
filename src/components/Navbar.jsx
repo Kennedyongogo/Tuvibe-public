@@ -29,6 +29,7 @@ import {
   Star,
   ChevronLeft,
   ChevronRight,
+  ArrowDropDown,
 } from "@mui/icons-material";
 import { useNavigate, useLocation } from "react-router-dom";
 import Swal from "sweetalert2";
@@ -85,8 +86,8 @@ export default function Navbar({ user, setUser }) {
     prevPathnameRef.current = currentPath;
   }, [location.pathname]);
 
-  const handleLogout = () => {
-    Swal.fire({
+  const handleLogout = async () => {
+    const result = await Swal.fire({
       title: "Logout?",
       text: "Are you sure you want to logout?",
       icon: "question",
@@ -95,10 +96,13 @@ export default function Navbar({ user, setUser }) {
       cancelButtonText: "Cancel",
       confirmButtonColor: "#D4AF37",
       cancelButtonColor: "#666",
+      allowOutsideClick: false,
+      allowEscapeKey: true,
       customClass: {
         popup: "swal-popup-gold",
       },
       didOpen: () => {
+        // Style the popup
         const swal = document.querySelector(".swal2-popup");
         if (swal) {
           swal.style.borderRadius = "20px";
@@ -106,15 +110,32 @@ export default function Navbar({ user, setUser }) {
           swal.style.boxShadow = "0 20px 60px rgba(212, 175, 55, 0.25)";
         }
       },
-    }).then((result) => {
-      if (result.isConfirmed) {
-        // Clear all localStorage (matching admin portal behavior)
-        localStorage.clear();
-        // Use React Router navigate with replace to prevent back button navigation
-        navigate("/", { replace: true });
-      }
     });
-    handleProfileMenuClose();
+    
+    if (result.isConfirmed) {
+      handleProfileMenuClose();
+      
+      const token = localStorage.getItem("token");
+      if (token) {
+        try {
+          // Call logout endpoint to update online status on server
+          await fetch("/api/public/logout", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          });
+        } catch (error) {
+          console.error("Logout API call failed:", error);
+          // Continue with logout even if API call fails
+        }
+      }
+      
+      // Clear all localStorage and navigate to home
+      localStorage.clear();
+      navigate("/", { replace: true });
+    }
   };
 
   const drawer = (
@@ -164,7 +185,13 @@ export default function Navbar({ user, setUser }) {
           return (
             <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
               <ListItemButton
-                onClick={() => navigate(item.path)}
+                onClick={() => {
+                  navigate(item.path);
+                  // Close mobile drawer when item is clicked
+                  if (isMobile) {
+                    setMobileOpen(false);
+                  }
+                }}
                 sx={{
                   borderRadius: "12px",
                   backgroundColor: isActive
@@ -289,9 +316,23 @@ export default function Navbar({ user, setUser }) {
             aria-controls={Boolean(anchorEl) ? "account-menu" : undefined}
             aria-haspopup="true"
             aria-expanded={Boolean(anchorEl) ? "true" : undefined}
-            sx={{ color: "#1a1a1a" }}
+            sx={{
+              color: "#1a1a1a",
+              transition: "all 0.3s ease",
+              "&:hover": {
+                backgroundColor: "rgba(212, 175, 55, 0.1)",
+                transform: "translateY(-2px)",
+              },
+            }}
           >
-            <AccountCircle sx={{ fontSize: 32 }} />
+            <ArrowDropDown
+              sx={{
+                fontSize: 32,
+                color: "#D4AF37",
+                transition: "transform 0.3s ease",
+                transform: Boolean(anchorEl) ? "rotate(180deg)" : "rotate(0deg)",
+              }}
+            />
           </IconButton>
           <Menu
             id="account-menu"
