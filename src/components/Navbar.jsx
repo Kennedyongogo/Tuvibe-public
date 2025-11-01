@@ -309,31 +309,52 @@ export default function Navbar({ user, setUser }) {
             <MenuIcon />
           </IconButton>
           <Box sx={{ flexGrow: 1 }} />
-          <IconButton
-            color="inherit"
-            onClick={handleProfileMenuOpen}
-            aria-label="account menu"
-            aria-controls={Boolean(anchorEl) ? "account-menu" : undefined}
-            aria-haspopup="true"
-            aria-expanded={Boolean(anchorEl) ? "true" : undefined}
+          <Box
             sx={{
-              color: "#1a1a1a",
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              cursor: "pointer",
+              px: 1,
+              py: 0.5,
+              borderRadius: "12px",
               transition: "all 0.3s ease",
               "&:hover": {
                 backgroundColor: "rgba(212, 175, 55, 0.1)",
-                transform: "translateY(-2px)",
               },
             }}
+            onClick={handleProfileMenuOpen}
           >
+            <Avatar
+              src={
+                user?.photo
+                  ? user.photo.startsWith("http")
+                    ? user.photo
+                    : user.photo.startsWith("/")
+                    ? user.photo
+                    : `/uploads/${user.photo}`
+                  : undefined
+              }
+              sx={{
+                width: 36,
+                height: 36,
+                bgcolor: "#D4AF37",
+                fontWeight: 600,
+                fontSize: "1rem",
+                border: "2px solid rgba(212, 175, 55, 0.3)",
+              }}
+            >
+              {user?.name?.charAt(0)?.toUpperCase() || "U"}
+            </Avatar>
             <ArrowDropDown
               sx={{
-                fontSize: 32,
+                fontSize: 28,
                 color: "#D4AF37",
                 transition: "transform 0.3s ease",
                 transform: Boolean(anchorEl) ? "rotate(180deg)" : "rotate(0deg)",
               }}
             />
-          </IconButton>
+          </Box>
           <Menu
             id="account-menu"
             anchorEl={anchorEl}

@@ -5,6 +5,11 @@ import { useNavigate } from "react-router-dom";
 
 export default function Dashboard({ user }) {
   const navigate = useNavigate();
+  
+  // Check if user is in premium category
+  const premiumCategories = ["Sugar Mummy", "Sponsor", "Ben 10"];
+  const isPremiumCategory = user?.category && premiumCategories.includes(user.category);
+  
   const stats = [
     {
       title: "Token Balance",
@@ -19,10 +24,10 @@ export default function Dashboard({ user }) {
       color: "#B8A9D9",
     },
     {
-      title: "Premium Status",
+      title: isPremiumCategory ? "Premium Status" : "Account Category",
       value: user?.category || "Regular",
       icon: <Star />,
-      color: "#FFD6CC",
+      color: isPremiumCategory ? "#FFD6CC" : "#B8A9D9",
     },
   ];
 
@@ -149,6 +154,7 @@ export default function Dashboard({ user }) {
           }}
         >
           <Box
+            onClick={() => navigate("/explore")}
             sx={{
               p: 2,
               borderRadius: "12px",
@@ -169,6 +175,7 @@ export default function Dashboard({ user }) {
             </Typography>
           </Box>
           <Box
+            onClick={() => navigate("/market")}
             sx={{
               p: 2,
               borderRadius: "12px",
