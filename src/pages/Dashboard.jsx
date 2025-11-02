@@ -20,6 +20,11 @@ import {
   Star as StarIcon,
   WhatsApp as WhatsAppIcon,
   LocalOffer as TagIcon,
+  Person,
+  LocationOn,
+  Cake,
+  Verified,
+  TrendingUp,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
@@ -28,14 +33,17 @@ export default function Dashboard({ user }) {
   const navigate = useNavigate();
   const [featuredItems, setFeaturedItems] = useState([]);
   const [loadingFeatured, setLoadingFeatured] = useState(false);
+  const [featuredUsers, setFeaturedUsers] = useState([]);
+  const [loadingFeaturedUsers, setLoadingFeaturedUsers] = useState(false);
   
   // Check if user is in premium category
   const premiumCategories = ["Sugar Mummy", "Sponsor", "Ben 10"];
   const isPremiumCategory = user?.category && premiumCategories.includes(user.category);
 
-  // Fetch featured market items
+  // Fetch featured market items and users
   useEffect(() => {
     fetchFeaturedItems();
+    fetchFeaturedUsers();
   }, []);
 
   const fetchFeaturedItems = async () => {
@@ -55,6 +63,32 @@ export default function Dashboard({ user }) {
       console.error("Error fetching featured items:", err);
     } finally {
       setLoadingFeatured(false);
+    }
+  };
+
+  const fetchFeaturedUsers = async () => {
+    try {
+      setLoadingFeaturedUsers(true);
+      const token = localStorage.getItem("token");
+      const headers = {
+        "Content-Type": "application/json",
+      };
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      const response = await fetch("/api/public/featured", {
+        headers,
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        setFeaturedUsers(data.data || []);
+      }
+    } catch (err) {
+      console.error("Error fetching featured users:", err);
+    } finally {
+      setLoadingFeaturedUsers(false);
     }
   };
 
@@ -202,6 +236,183 @@ export default function Dashboard({ user }) {
             </Card>
         ))}
       </Box>
+
+      {/* Featured Users Carousel */}
+      <Card
+        sx={{
+          p: 4,
+          mb: 4,
+          borderRadius: "16px",
+          background:
+            "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
+          border: "1px solid rgba(212, 175, 55, 0.2)",
+          boxShadow: "0 4px 20px rgba(212, 175, 55, 0.1)",
+        }}
+      >
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 700,
+              color: "#1a1a1a",
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+            }}
+          >
+            <TrendingUp sx={{ color: "#D4AF37" }} />
+            Featured Profiles
+          </Typography>
+          <Button
+            variant="text"
+            onClick={() => navigate("/explore")}
+            sx={{
+              color: "#D4AF37",
+              fontWeight: 600,
+              textTransform: "none",
+              "&:hover": {
+                backgroundColor: "rgba(212, 175, 55, 0.1)",
+              },
+            }}
+          >
+            View All
+          </Button>
+        </Box>
+        {loadingFeaturedUsers ? (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+            <CircularProgress sx={{ color: "#D4AF37" }} />
+          </Box>
+        ) : featuredUsers.length > 0 ? (
+          <Box
+            sx={{
+              display: "flex",
+              gap: 2,
+              flexDirection: { xs: "column", sm: "row" },
+              flexWrap: "wrap",
+            }}
+          >
+            {featuredUsers.slice(0, 10).map((featuredUser) => {
+              const getUserImageUrl = (imagePath) => {
+                if (!imagePath) return null;
+                if (imagePath.startsWith("http")) return imagePath;
+                if (imagePath.startsWith("/")) return imagePath;
+                return `/uploads/${imagePath}`;
+              };
+
+              return (
+                <Card
+                  key={featuredUser.id}
+                  sx={{
+                    flex: { 
+                      xs: "0 0 100%", 
+                      sm: "0 0 calc(50% - 8px)", 
+                      md: "0 0 calc(20% - 16px)" 
+                    },
+                    display: "flex",
+                    flexDirection: "column",
+                    borderRadius: "12px",
+                    overflow: "hidden",
+                    transition: "all 0.3s ease",
+                    border: "1px solid rgba(212, 175, 55, 0.2)",
+                    cursor: "pointer",
+                    "&:hover": {
+                      transform: "translateY(-4px)",
+                      boxShadow: "0 8px 24px rgba(212, 175, 55, 0.3)",
+                    },
+                  }}
+                  onClick={() => navigate(`/explore`)}
+                >
+                  {featuredUser.photo && featuredUser.photo_moderation_status === "approved" ? (
+                    <Box
+                      component="img"
+                      src={getUserImageUrl(featuredUser.photo)}
+                      alt={featuredUser.name}
+                      sx={{
+                        width: "100%",
+                        height: 200,
+                        objectFit: "cover",
+                      }}
+                    />
+                  ) : (
+                    <Box
+                      sx={{
+                        width: "100%",
+                        height: 200,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        bgcolor: "rgba(212, 175, 55, 0.1)",
+                      }}
+                    >
+                      <Person sx={{ fontSize: 64, color: "#D4AF37", opacity: 0.3 }} />
+                    </Box>
+                  )}
+                  <CardContent sx={{ p: 2 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1 }}>
+                      <Typography
+                        variant="subtitle2"
+                        sx={{
+                          fontWeight: 700,
+                          color: "#1a1a1a",
+                          fontSize: "0.9rem",
+                        }}
+                      >
+                        {featuredUser.name}
+                      </Typography>
+                      {featuredUser.isVerified && (
+                        <Verified sx={{ fontSize: 16, color: "#D4AF37" }} />
+                      )}
+                    </Box>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.5 }}>
+                      <LocationOn sx={{ fontSize: 12, color: "rgba(26, 26, 26, 0.6)" }} />
+                      <Typography variant="caption" sx={{ color: "rgba(26, 26, 26, 0.7)" }}>
+                        {featuredUser.city}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                      <Cake sx={{ fontSize: 12, color: "rgba(26, 26, 26, 0.6)" }} />
+                      <Typography variant="caption" sx={{ color: "rgba(26, 26, 26, 0.7)" }}>
+                        {featuredUser.age} years
+                      </Typography>
+                    </Box>
+                    {featuredUser.is_featured_until && new Date(featuredUser.is_featured_until) > new Date() && (
+                      <Chip
+                        label="Boosted"
+                        size="small"
+                        sx={{
+                          mt: 1,
+                          bgcolor: "#D4AF37",
+                          color: "#1a1a1a",
+                          fontWeight: 600,
+                          fontSize: "0.65rem",
+                          height: 20,
+                        }}
+                        icon={<TrendingUp sx={{ fontSize: 12, color: "#1a1a1a" }} />}
+                      />
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </Box>
+        ) : (
+          <Box
+            sx={{
+              textAlign: "center",
+              py: 4,
+              px: 2,
+            }}
+          >
+            <Person sx={{ fontSize: 64, color: "#D4AF37", opacity: 0.3, mb: 2 }} />
+            <Typography variant="h6" sx={{ color: "#666", mb: 1 }}>
+              No featured profiles yet
+            </Typography>
+            <Typography variant="body2" sx={{ color: "#999" }}>
+              Boost your profile to appear here!
+            </Typography>
+          </Box>
+        )}
+      </Card>
 
       {/* Featured Items Carousel */}
       <Card

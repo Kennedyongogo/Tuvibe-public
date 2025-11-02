@@ -17,6 +17,11 @@ import {
   Select,
   CircularProgress,
   Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Alert,
 } from "@mui/material";
 import {
   Edit,
@@ -39,10 +44,14 @@ import {
   Add,
   Delete,
   Visibility,
+  TrendingUp,
+  AccessTime,
 } from "@mui/icons-material";
 import Swal from "sweetalert2";
+import { useNavigate } from "react-router-dom";
 
 export default function Profile({ user, setUser }) {
+  const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
@@ -56,6 +65,9 @@ export default function Profile({ user, setUser }) {
   const [editingPostId, setEditingPostId] = useState(null);
   const [postContent, setPostContent] = useState("");
   const [showPostForm, setShowPostForm] = useState(false);
+  const [boostDialogOpen, setBoostDialogOpen] = useState(false);
+  const [boosting, setBoosting] = useState(false);
+  const [boostTimeRemaining, setBoostTimeRemaining] = useState(null);
   const [formData, setFormData] = useState({
     name: user?.name || "",
     gender: user?.gender || "",
@@ -88,6 +100,34 @@ export default function Profile({ user, setUser }) {
       });
     }
   }, [user, isEditing]);
+
+  // Calculate boost time remaining
+  useEffect(() => {
+    if (!user?.is_featured_until) {
+      setBoostTimeRemaining(null);
+      return;
+    }
+
+    const calculateTimeRemaining = () => {
+      const now = new Date();
+      const until = new Date(user.is_featured_until);
+      const diff = until - now;
+
+      if (diff <= 0) {
+        setBoostTimeRemaining(null);
+        return;
+      }
+
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      setBoostTimeRemaining({ hours, minutes });
+    };
+
+    calculateTimeRemaining();
+    const interval = setInterval(calculateTimeRemaining, 60000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, [user?.is_featured_until]);
 
   // Fetch verification status
   useEffect(() => {
@@ -358,8 +398,116 @@ export default function Profile({ user, setUser }) {
     }
   };
 
+  const handleBoostProfile = async (hours = 24, cost = 20) => {
+    setBoosting(true);
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        Swal.fire({
+          icon: "error",
+          title: "Authentication Required",
+          text: "Please login to boost your profile.",
+          confirmButtonColor: "#D4AF37",
+        });
+        return;
+      }
+
+      const response = await fetch("/api/tokens/boost", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ hours, cost }),
+      });
+
+      const data = await response.json();
+
+      if (response.status === 402) {
+        // Close boost dialog first so buy tokens dialog appears on top
+        setBoostDialogOpen(false);
+        
+        // Small delay to ensure dialog is closed before showing Swal
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        Swal.fire({
+          icon: "warning",
+          title: "Insufficient Tokens",
+          text: `You need ${cost} tokens to boost your profile. Please purchase more tokens.`,
+          confirmButtonColor: "#D4AF37",
+          showCancelButton: true,
+          cancelButtonColor: "#999",
+          confirmButtonText: "Buy Tokens",
+          cancelButtonText: "Cancel",
+          didOpen: () => {
+            const swal = document.querySelector(".swal2-popup");
+            if (swal) {
+              swal.style.borderRadius = "20px";
+              swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
+            }
+          },
+        }).then((result) => {
+          if (result.isConfirmed) {
+            // Navigate to wallet page using React Router
+            navigate("/wallet");
+          }
+        });
+        return;
+      }
+
+      if (data.success) {
+        // Refresh user data
+        const userResponse = await fetch("/api/public/me", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const userData = await userResponse.json();
+        if (userData.success) {
+          setUser(userData.data);
+        }
+
+        Swal.fire({
+          icon: "success",
+          title: "Profile Boosted!",
+          html: `Your profile is now boosted for ${hours} hours!<br/>
+                 <small>Boost expires: ${new Date(data.data.is_featured_until).toLocaleString()}</small>`,
+          confirmButtonColor: "#D4AF37",
+          didOpen: () => {
+            const swal = document.querySelector(".swal2-popup");
+            if (swal) {
+              swal.style.borderRadius = "20px";
+              swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
+              swal.style.boxShadow = "0 20px 60px rgba(212, 175, 55, 0.25)";
+            }
+          },
+        });
+        setBoostDialogOpen(false);
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Boost Failed",
+          text: data.message || "Failed to boost profile. Please try again.",
+          confirmButtonColor: "#D4AF37",
+        });
+      }
+    } catch (err) {
+      console.error("Boost profile error:", err);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Failed to boost profile. Please try again later.",
+        confirmButtonColor: "#D4AF37",
+      });
+    } finally {
+      setBoosting(false);
+    }
+  };
+
   const handleEdit = () => {
     setIsEditing(true);
+    // Close boost dialog when entering edit mode
+    if (boostDialogOpen) {
+      setBoostDialogOpen(false);
+    }
   };
 
   const handleCancel = () => {
@@ -1485,7 +1633,7 @@ export default function Profile({ user, setUser }) {
                 {user?.token_balance || "0.00"}
               </Typography>
             </Box>
-            <Box>
+            <Box sx={{ mb: 2 }}>
               <Typography
                 variant="caption"
                 sx={{
@@ -1507,6 +1655,72 @@ export default function Profile({ user, setUser }) {
                 {user?.boost_score || 0}
               </Typography>
             </Box>
+            {boostTimeRemaining && (
+              <Box sx={{ mb: 2, p: 1.5, borderRadius: "8px", bgcolor: "rgba(212, 175, 55, 0.1)", border: "1px solid rgba(212, 175, 55, 0.3)" }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: "rgba(26, 26, 26, 0.6)",
+                    fontWeight: 600,
+                    fontSize: { xs: "0.7rem", sm: "0.75rem" },
+                    display: "block",
+                    mb: 0.5,
+                  }}
+                >
+                  Active Boost Status
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 600,
+                    color: "#D4AF37",
+                    fontSize: { xs: "0.875rem", sm: "1rem" },
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 0.5,
+                    mb: 0.5,
+                  }}
+                >
+                  <AccessTime sx={{ fontSize: "1rem" }} />
+                  {boostTimeRemaining.hours}h {boostTimeRemaining.minutes}m remaining
+                </Typography>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: "rgba(26, 26, 26, 0.7)",
+                    fontSize: { xs: "0.7rem", sm: "0.75rem" },
+                    display: "block",
+                  }}
+                >
+                  ✓ Featured in homepage carousel • ✓ Priority ranking in search
+                </Typography>
+              </Box>
+            )}
+            <Button
+              variant="contained"
+              fullWidth
+              startIcon={<TrendingUp />}
+              onClick={() => setBoostDialogOpen(true)}
+              disabled={isEditing}
+              sx={{
+                mt: 1,
+                background: isEditing 
+                  ? "rgba(212, 175, 55, 0.3)" 
+                  : "linear-gradient(45deg, #D4AF37, #B8941F)",
+                color: "#1a1a1a",
+                fontWeight: 700,
+                borderRadius: "12px",
+                py: 1.5,
+                "&:hover": {
+                  background: isEditing
+                    ? "rgba(212, 175, 55, 0.3)"
+                    : "linear-gradient(45deg, #B8941F, #9A7A1A)",
+                  boxShadow: isEditing ? "none" : "0 8px 24px rgba(212, 175, 55, 0.4)",
+                },
+              }}
+            >
+              {boostTimeRemaining ? "Extend Boost" : "Boost Profile"}
+            </Button>
           </Box>
         </Card>
 
@@ -2097,6 +2311,199 @@ export default function Profile({ user, setUser }) {
           </Box>
         </Card>
       </Box>
+
+      {/* Boost Profile Dialog */}
+      <Dialog
+        open={boostDialogOpen && !isEditing}
+        onClose={() => !boosting && setBoostDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: "20px",
+            border: "1px solid rgba(212, 175, 55, 0.3)",
+            boxShadow: "0 20px 60px rgba(212, 175, 55, 0.25)",
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            background: "linear-gradient(45deg, #D4AF37, #B8941F)",
+            color: "#1a1a1a",
+            fontWeight: 700,
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+            py: 2,
+          }}
+        >
+          <TrendingUp />
+          {boostTimeRemaining ? "Extend Profile Boost" : "Boost Your Profile"}
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          <Alert
+            severity="info"
+            sx={{
+              mb: 3,
+              borderRadius: "12px",
+              bgcolor: "rgba(212, 175, 55, 0.1)",
+              border: "1px solid rgba(212, 175, 55, 0.3)",
+            }}
+          >
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: "#1a1a1a" }}>
+              Why Boost Your Profile?
+            </Typography>
+            <Box component="ul" sx={{ m: 0, pl: 2.5, "& li": { mb: 1, fontSize: "0.875rem" } }}>
+              <li><strong>Higher Visibility:</strong> Boosted profiles appear FIRST in search results and Explore page</li>
+              <li><strong>Featured Section:</strong> Your profile appears in the homepage featured carousel for maximum exposure</li>
+              <li><strong>More Profile Views:</strong> Increased visibility means more people discover and view your profile</li>
+              <li><strong>Boost Score:</strong> Each boost permanently increases your boost score, providing long-term ranking benefits</li>
+              <li><strong>Active Boost Priority:</strong> Profiles with active boosts rank above non-boosted profiles, even after your boost expires</li>
+            </Box>
+            {boostTimeRemaining && (
+              <Box sx={{ mt: 2, pt: 2, borderTop: "1px solid rgba(212, 175, 55, 0.3)" }}>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  <strong>Active Boost:</strong> {boostTimeRemaining.hours}h {boostTimeRemaining.minutes}m remaining
+                </Typography>
+                <Typography variant="caption" sx={{ color: "rgba(26, 26, 26, 0.6)", display: "block", mt: 0.5 }}>
+                  Extending now will add time to your current boost
+                </Typography>
+              </Box>
+            )}
+          </Alert>
+
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, color: "#1a1a1a" }}>
+              Boost Options
+            </Typography>
+            <Stack spacing={2}>
+              <Card
+                sx={{
+                  p: 2,
+                  border: "2px solid #D4AF37",
+                  borderRadius: "12px",
+                  cursor: "pointer",
+                  transition: "all 0.3s",
+                  position: "relative",
+                  "&:hover": {
+                    boxShadow: "0 4px 12px rgba(212, 175, 55, 0.3)",
+                  },
+                }}
+                onClick={() => handleBoostProfile(24, 20)}
+              >
+                <Chip
+                  label="POPULAR"
+                  size="small"
+                  sx={{
+                    position: "absolute",
+                    top: 8,
+                    right: 8,
+                    bgcolor: "#D4AF37",
+                    color: "#1a1a1a",
+                    fontWeight: 700,
+                    fontSize: "0.7rem",
+                  }}
+                />
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <Box sx={{ pr: 6 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 700, color: "#1a1a1a" }}>
+                      24 Hours
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: "rgba(26, 26, 26, 0.6)", mb: 0.5 }}>
+                      Standard boost duration
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: "rgba(26, 26, 26, 0.7)", display: "block" }}>
+                      Best value for regular visibility boost
+                    </Typography>
+                  </Box>
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: "#D4AF37" }}>
+                    20 Tokens
+                  </Typography>
+                </Box>
+              </Card>
+
+              <Card
+                sx={{
+                  p: 2,
+                  border: "1px solid rgba(212, 175, 55, 0.3)",
+                  borderRadius: "12px",
+                  cursor: "pointer",
+                  transition: "all 0.3s",
+                  "&:hover": {
+                    borderColor: "#D4AF37",
+                    boxShadow: "0 4px 12px rgba(212, 175, 55, 0.2)",
+                  },
+                }}
+                onClick={() => handleBoostProfile(48, 38)}
+              >
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <Box>
+                    <Typography variant="h6" sx={{ fontWeight: 700, color: "#1a1a1a" }}>
+                      48 Hours
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: "rgba(26, 26, 26, 0.6)" }}>
+                      Extended visibility
+                    </Typography>
+                  </Box>
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: "#D4AF37" }}>
+                    38 Tokens
+                  </Typography>
+                </Box>
+              </Card>
+
+              <Card
+                sx={{
+                  p: 2,
+                  border: "1px solid rgba(212, 175, 55, 0.3)",
+                  borderRadius: "12px",
+                  cursor: "pointer",
+                  transition: "all 0.3s",
+                  "&:hover": {
+                    borderColor: "#D4AF37",
+                    boxShadow: "0 4px 12px rgba(212, 175, 55, 0.2)",
+                  },
+                }}
+                onClick={() => handleBoostProfile(72, 55)}
+              >
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <Box>
+                    <Typography variant="h6" sx={{ fontWeight: 700, color: "#1a1a1a" }}>
+                      72 Hours
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: "rgba(26, 26, 26, 0.6)" }}>
+                      Maximum visibility
+                    </Typography>
+                  </Box>
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: "#D4AF37" }}>
+                    55 Tokens
+                  </Typography>
+                </Box>
+              </Card>
+            </Stack>
+          </Box>
+
+          <Alert severity="warning" sx={{ borderRadius: "12px", bgcolor: "rgba(255, 152, 0, 0.1)" }}>
+            <Typography variant="body2">
+              <strong>Current Balance:</strong> {user?.token_balance || "0.00"} Tokens
+            </Typography>
+          </Alert>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 2 }}>
+          <Button
+            onClick={() => setBoostDialogOpen(false)}
+            disabled={boosting}
+            sx={{
+              color: "rgba(26, 26, 26, 0.7)",
+              fontWeight: 600,
+            }}
+          >
+            Cancel
+          </Button>
+          {boosting && (
+            <CircularProgress size={24} sx={{ color: "#D4AF37", ml: 2 }} />
+          )}
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
