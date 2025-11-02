@@ -16,6 +16,10 @@ import {
   TableHead,
   TableRow,
   Paper,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
 import {
   AccountBalanceWallet,
@@ -33,6 +37,8 @@ export default function Wallet({ user, setUser }) {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState(null);
   const navigate = useNavigate();
 
   const quickBuyOptions = [
@@ -179,6 +185,28 @@ export default function Wallet({ user, setUser }) {
     });
   };
 
+  const handleRowClick = async (transactionId) => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`/api/tokens/transactions/${transactionId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSelectedTransaction(data.data);
+        setDialogOpen(true);
+      }
+    } catch (error) {
+      console.error("Error fetching transaction:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Failed to load transaction details",
+        confirmButtonColor: "#D4AF37",
+      });
+    }
+  };
+
   return (
     <Box>
       {/* Header */}
@@ -188,6 +216,7 @@ export default function Wallet({ user, setUser }) {
           sx={{
             fontWeight: 700,
             mb: 1,
+            fontSize: { xs: "1.5rem", sm: "2rem", md: "2.125rem" },
             background: "linear-gradient(45deg, #D4AF37, #B8941F)",
             backgroundClip: "text",
             WebkitBackgroundClip: "text",
@@ -196,7 +225,13 @@ export default function Wallet({ user, setUser }) {
         >
           Token Wallet
         </Typography>
-        <Typography variant="body1" sx={{ color: "rgba(26, 26, 26, 0.7)" }}>
+        <Typography 
+          variant="body1" 
+          sx={{ 
+            color: "rgba(26, 26, 26, 0.7)",
+            fontSize: { xs: "0.875rem", sm: "1rem" }
+          }}
+        >
           Manage your tokens and view transaction history
         </Typography>
       </Box>
@@ -227,7 +262,7 @@ export default function Wallet({ user, setUser }) {
       {/* Balance Card */}
       <Card
         sx={{
-          p: 4,
+          p: { xs: 2, sm: 3, md: 4 },
           mb: 3,
           borderRadius: "16px",
           background:
@@ -236,25 +271,30 @@ export default function Wallet({ user, setUser }) {
           boxShadow: "0 8px 32px rgba(212, 175, 55, 0.15)",
         }}
       >
-        <Stack direction="row" spacing={3} alignItems="center">
+        <Stack direction="row" spacing={{ xs: 2, sm: 3 }} alignItems="center">
           <Box
             sx={{
-              width: 80,
-              height: 80,
+              width: { xs: 60, sm: 70, md: 80 },
+              height: { xs: 60, sm: 70, md: 80 },
               borderRadius: "50%",
               background: "linear-gradient(135deg, #D4AF37, #B8941F)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               boxShadow: "0 4px 20px rgba(212, 175, 55, 0.3)",
+              flexShrink: 0,
             }}
           >
-            <AccountBalanceWallet sx={{ fontSize: 40, color: "#1a1a1a" }} />
+            <AccountBalanceWallet sx={{ fontSize: { xs: 30, sm: 35, md: 40 }, color: "#1a1a1a" }} />
           </Box>
-          <Box sx={{ flex: 1 }}>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography
               variant="body2"
-              sx={{ color: "rgba(26, 26, 26, 0.7)", mb: 1 }}
+              sx={{ 
+                color: "rgba(26, 26, 26, 0.7)", 
+                mb: 1,
+                fontSize: { xs: "0.75rem", sm: "0.875rem" }
+              }}
             >
               Current Balance
             </Typography>
@@ -265,16 +305,25 @@ export default function Wallet({ user, setUser }) {
                 variant="h3"
                 sx={{
                   fontWeight: 700,
+                  fontSize: { xs: "1.5rem", sm: "2rem", md: "3rem" },
                   background: "linear-gradient(45deg, #D4AF37, #B8941F)",
                   backgroundClip: "text",
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
+                  wordBreak: "break-word",
                 }}
               >
                 {Number(balance || 0).toFixed(2)} Tokens
               </Typography>
             )}
-            <Typography variant="body2" sx={{ color: "rgba(26, 26, 26, 0.6)", mt: 0.5 }}>
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                color: "rgba(26, 26, 26, 0.6)", 
+                mt: 0.5,
+                fontSize: { xs: "0.75rem", sm: "0.875rem" }
+              }}
+            >
               1 Token = KES 1
             </Typography>
           </Box>
@@ -284,7 +333,7 @@ export default function Wallet({ user, setUser }) {
       {/* Quick Buy Section */}
       <Card
         sx={{
-          p: 4,
+          p: { xs: 2, sm: 3, md: 4 },
           mb: 3,
           borderRadius: "16px",
           background:
@@ -302,9 +351,10 @@ export default function Wallet({ user, setUser }) {
             display: "flex",
             alignItems: "center",
             gap: 1,
+            fontSize: { xs: "1rem", sm: "1.125rem", md: "1.25rem" },
           }}
         >
-          <Add sx={{ color: "#D4AF37" }} />
+          <Add sx={{ fontSize: { xs: "1.2rem", md: "1.5rem" }, color: "#D4AF37" }} />
           Quick Buy Tokens
         </Typography>
         <Box
@@ -325,7 +375,7 @@ export default function Wallet({ user, setUser }) {
               onClick={() => handlePurchase(option.amount)}
               disabled={purchasing}
               sx={{
-                p: 2.5,
+                p: { xs: 1.5, sm: 2, md: 2.5 },
                 borderRadius: "12px",
                 borderColor: "rgba(212, 175, 55, 0.5)",
                 color: "#1a1a1a",
@@ -342,12 +392,22 @@ export default function Wallet({ user, setUser }) {
               }}
             >
               <Box sx={{ textAlign: "center", width: "100%" }}>
-                <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
+                <Typography 
+                  variant="h6" 
+                  sx={{ 
+                    fontWeight: 700, 
+                    mb: 0.5,
+                    fontSize: { xs: "0.875rem", sm: "1rem", md: "1.25rem" }
+                  }}
+                >
                   {option.label}
                 </Typography>
                 <Typography
                   variant="body2"
-                  sx={{ color: "rgba(26, 26, 26, 0.7)" }}
+                  sx={{ 
+                    color: "rgba(26, 26, 26, 0.7)",
+                    fontSize: { xs: "0.75rem", sm: "0.875rem" }
+                  }}
                 >
                   {option.price}
                 </Typography>
@@ -368,7 +428,7 @@ export default function Wallet({ user, setUser }) {
       {/* Transaction History */}
       <Card
         sx={{
-          p: 4,
+          p: { xs: 2, sm: 3, md: 4 },
           borderRadius: "16px",
           background:
             "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
@@ -385,9 +445,10 @@ export default function Wallet({ user, setUser }) {
             display: "flex",
             alignItems: "center",
             gap: 1,
+            fontSize: { xs: "1rem", sm: "1.125rem", md: "1.25rem" },
           }}
         >
-          <TrendingUp sx={{ color: "#D4AF37" }} />
+          <TrendingUp sx={{ fontSize: { xs: "1.2rem", md: "1.5rem" }, color: "#D4AF37" }} />
           Transaction History
         </Typography>
 
@@ -405,49 +466,25 @@ export default function Wallet({ user, setUser }) {
             </Typography>
           </Box>
         ) : (
-          <TableContainer component={Paper} sx={{ boxShadow: "none", bgcolor: "transparent" }}>
-            <Table>
+          <TableContainer component={Paper} sx={{ boxShadow: "none", bgcolor: "transparent", overflowX: "auto" }}>
+            <Table size="small" sx={{ minWidth: 400 }}>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a1a1a" }}>Date</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a1a1a" }}>Type</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a1a1a" }}>Amount</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a1a1a" }}>Description</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a1a1a" }}>Method</TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: "#1a1a1a", fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>Date</TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: "#1a1a1a", fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>Amount</TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: "#1a1a1a", fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>Method</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {transactions.map((transaction) => (
-                  <TableRow key={transaction.id} hover>
-                    <TableCell sx={{ color: "rgba(26, 26, 26, 0.7)" }}>
+                  <TableRow 
+                    key={transaction.id} 
+                    hover 
+                    onClick={() => handleRowClick(transaction.id)}
+                    sx={{ cursor: "pointer" }}
+                  >
+                    <TableCell sx={{ color: "rgba(26, 26, 26, 0.7)", fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>
                       {formatDate(transaction.createdAt)}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={
-                          transaction.transaction_type === "purchase"
-                            ? "Purchase"
-                            : transaction.transaction_type === "deduction"
-                            ? "Deduction"
-                            : "Bonus"
-                        }
-                        size="small"
-                        sx={{
-                          bgcolor:
-                            transaction.transaction_type === "purchase"
-                              ? "rgba(76, 175, 80, 0.15)"
-                              : transaction.transaction_type === "deduction"
-                              ? "rgba(244, 67, 54, 0.15)"
-                              : "rgba(212, 175, 55, 0.15)",
-                          color:
-                            transaction.transaction_type === "purchase"
-                              ? "#4caf50"
-                              : transaction.transaction_type === "deduction"
-                              ? "#f44336"
-                              : "#D4AF37",
-                          fontWeight: 600,
-                        }}
-                      />
                     </TableCell>
                     <TableCell>
                       <Typography
@@ -456,14 +493,12 @@ export default function Wallet({ user, setUser }) {
                           fontWeight: 600,
                           color:
                             Number(transaction.amount) > 0 ? "#4caf50" : "#f44336",
+                          fontSize: { xs: "0.75rem", sm: "0.875rem" },
                         }}
                       >
                         {Number(transaction.amount) > 0 ? "+" : ""}
                         {Number(transaction.amount).toFixed(2)} Tokens
                       </Typography>
-                    </TableCell>
-                    <TableCell sx={{ color: "rgba(26, 26, 26, 0.7)" }}>
-                      {transaction.description || "N/A"}
                     </TableCell>
                     <TableCell>
                       <Chip
@@ -473,6 +508,8 @@ export default function Wallet({ user, setUser }) {
                         sx={{
                           borderColor: "rgba(212, 175, 55, 0.3)",
                           color: "rgba(26, 26, 26, 0.7)",
+                          fontSize: { xs: "0.7rem", sm: "0.75rem" },
+                          height: { xs: 24, sm: 28 },
                         }}
                       />
                     </TableCell>
@@ -483,6 +520,245 @@ export default function Wallet({ user, setUser }) {
           </TableContainer>
         )}
       </Card>
+
+      {/* Transaction Details Dialog */}
+      <Dialog
+        open={dialogOpen}
+        onClose={() => {
+          setDialogOpen(false);
+          setSelectedTransaction(null);
+        }}
+        maxWidth="sm"
+        fullWidth
+        sx={{
+          "& .MuiDialog-paper": {
+            borderRadius: "16px",
+            background:
+              "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
+            border: "1px solid rgba(212, 175, 55, 0.3)",
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            background: "linear-gradient(135deg, #D4AF37, #B8941F)",
+            color: "#1a1a1a",
+            fontWeight: 700,
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+            pb: 2,
+          }}
+        >
+          <AccountBalanceWallet sx={{ color: "#1a1a1a" }} />
+          Transaction Details
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          {selectedTransaction && (
+            <Box>
+              <Stack spacing={2}>
+                <Box>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "rgba(26, 26, 26, 0.6)",
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      fontSize: "0.7rem",
+                    }}
+                  >
+                    Type
+                  </Typography>
+                  <Chip
+                    label={
+                      selectedTransaction.transaction_type === "purchase"
+                        ? "Purchase"
+                        : selectedTransaction.transaction_type === "deduction"
+                        ? "Deduction"
+                        : "Bonus"
+                    }
+                    size="small"
+                    sx={{
+                      mt: 0.5,
+                      bgcolor:
+                        selectedTransaction.transaction_type === "purchase"
+                          ? "rgba(76, 175, 80, 0.15)"
+                          : selectedTransaction.transaction_type === "deduction"
+                          ? "rgba(244, 67, 54, 0.15)"
+                          : "rgba(212, 175, 55, 0.15)",
+                      color:
+                        selectedTransaction.transaction_type === "purchase"
+                          ? "#4caf50"
+                          : selectedTransaction.transaction_type === "deduction"
+                          ? "#f44336"
+                          : "#D4AF37",
+                      fontWeight: 600,
+                    }}
+                  />
+                </Box>
+
+                <Divider />
+
+                <Box>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "rgba(26, 26, 26, 0.6)",
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      fontSize: "0.7rem",
+                    }}
+                  >
+                    Amount
+                  </Typography>
+                  <Typography
+                    variant="h5"
+                    sx={{
+                      fontWeight: 700,
+                      color: Number(selectedTransaction.amount) > 0 ? "#4caf50" : "#f44336",
+                      mt: 0.5,
+                    }}
+                  >
+                    {Number(selectedTransaction.amount) > 0 ? "+" : ""}
+                    {Number(selectedTransaction.amount).toFixed(2)} Tokens
+                  </Typography>
+                </Box>
+
+                <Divider />
+
+                {selectedTransaction.description && (
+                  <Box>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: "rgba(26, 26, 26, 0.6)",
+                        fontWeight: 600,
+                        textTransform: "uppercase",
+                        fontSize: "0.7rem",
+                      }}
+                    >
+                      Description
+                    </Typography>
+                    <Typography
+                      variant="body1"
+                      sx={{
+                        color: "#1a1a1a",
+                        mt: 0.5,
+                      }}
+                    >
+                      {selectedTransaction.description}
+                    </Typography>
+                  </Box>
+                )}
+
+                <Divider />
+
+                <Box>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "rgba(26, 26, 26, 0.6)",
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      fontSize: "0.7rem",
+                    }}
+                  >
+                    Payment Method
+                  </Typography>
+                  <Chip
+                    label={selectedTransaction.payment_method || "system"}
+                    variant="outlined"
+                    sx={{
+                      mt: 0.5,
+                      borderColor: "rgba(212, 175, 55, 0.3)",
+                      color: "rgba(26, 26, 26, 0.7)",
+                      fontWeight: 600,
+                    }}
+                  />
+                </Box>
+
+                {selectedTransaction.reference && (
+                  <>
+                    <Divider />
+                    <Box>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: "rgba(26, 26, 26, 0.6)",
+                          fontWeight: 600,
+                          textTransform: "uppercase",
+                          fontSize: "0.7rem",
+                        }}
+                      >
+                        Reference
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: "rgba(26, 26, 26, 0.7)",
+                          mt: 0.5,
+                          fontFamily: "monospace",
+                        }}
+                      >
+                        {selectedTransaction.reference}
+                      </Typography>
+                    </Box>
+                  </>
+                )}
+
+                <Divider />
+
+                <Box>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "rgba(26, 26, 26, 0.6)",
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      fontSize: "0.7rem",
+                    }}
+                  >
+                    Date
+                  </Typography>
+                  <Typography
+                    variant="body1"
+                    sx={{
+                      color: "#1a1a1a",
+                      mt: 0.5,
+                    }}
+                  >
+                    {formatDate(selectedTransaction.createdAt)}
+                  </Typography>
+                </Box>
+              </Stack>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions
+          sx={{
+            p: 2,
+            borderTop: "1px solid rgba(212, 175, 55, 0.2)",
+            backgroundColor: "rgba(212, 175, 55, 0.05)",
+          }}
+        >
+          <Button
+            onClick={() => {
+              setDialogOpen(false);
+              setSelectedTransaction(null);
+            }}
+            sx={{
+              color: "#1a1a1a",
+              fontWeight: 600,
+              textTransform: "none",
+              "&:hover": {
+                backgroundColor: "rgba(212, 175, 55, 0.1)",
+              },
+            }}
+          >
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

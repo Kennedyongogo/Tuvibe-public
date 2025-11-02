@@ -13,6 +13,7 @@ import Profile from "../pages/Profile";
 import Explore from "../pages/Explore";
 import Wallet from "../pages/Wallet";
 import PremiumLounge from "../pages/PremiumLounge";
+import Market from "../pages/Market";
 
 function PageRoutes() {
   const navigate = useNavigate();
@@ -173,7 +174,7 @@ function PageRoutes() {
             />
             <Route
               path="market"
-              element={<Box>TuVibe Market - Coming Soon</Box>}
+              element={<Market user={user} />}
             />
             <Route
               path="wallet"

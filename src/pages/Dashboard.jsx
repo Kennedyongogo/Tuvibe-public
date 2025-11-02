@@ -1,14 +1,93 @@
-import React from "react";
-import { Box, Typography, Card, Avatar } from "@mui/material";
-import { Explore, Store, Wallet, Star } from "@mui/icons-material";
+import React, { useState, useEffect } from "react";
+import {
+  Box,
+  Typography,
+  Card,
+  Avatar,
+  Grid,
+  CardMedia,
+  CardContent,
+  Button,
+  Chip,
+  CircularProgress,
+} from "@mui/material";
+import {
+  Explore,
+  Store,
+  Store as StoreIcon,
+  Wallet,
+  Star,
+  Star as StarIcon,
+  WhatsApp as WhatsAppIcon,
+  LocalOffer as TagIcon,
+} from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
 
 export default function Dashboard({ user }) {
   const navigate = useNavigate();
+  const [featuredItems, setFeaturedItems] = useState([]);
+  const [loadingFeatured, setLoadingFeatured] = useState(false);
   
   // Check if user is in premium category
   const premiumCategories = ["Sugar Mummy", "Sponsor", "Ben 10"];
   const isPremiumCategory = user?.category && premiumCategories.includes(user.category);
+
+  // Fetch featured market items
+  useEffect(() => {
+    fetchFeaturedItems();
+  }, []);
+
+  const fetchFeaturedItems = async () => {
+    try {
+      setLoadingFeatured(true);
+      const response = await fetch("/api/market");
+      const data = await response.json();
+
+      if (data.success) {
+        // Filter and get only featured items, limit to 6
+        const featured = (data.data || [])
+          .filter((item) => item.is_featured)
+          .slice(0, 6);
+        setFeaturedItems(featured);
+      }
+    } catch (err) {
+      console.error("Error fetching featured items:", err);
+    } finally {
+      setLoadingFeatured(false);
+    }
+  };
+
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return null;
+    if (imagePath.startsWith("http")) return imagePath;
+    if (imagePath.startsWith("/")) return imagePath;
+    return `/uploads/${imagePath}`;
+  };
+
+  const handleWhatsAppClick = (item) => {
+    const phoneNumber = item.whatsapp_number || "";
+    const cleanedNumber = phoneNumber.replace(/[^0-9+]/g, "");
+    const message = encodeURIComponent(
+      `Hi! I'm interested in ${item.title} (KES ${parseFloat(item.price).toLocaleString()}). Can you provide more details?`
+    );
+
+    if (cleanedNumber) {
+      const whatsappUrl = `https://wa.me/${cleanedNumber}?text=${message}`;
+      window.open(whatsappUrl, "_blank");
+    } else {
+      Swal.fire({
+        icon: "warning",
+        title: "No WhatsApp Number",
+        text: "This item doesn't have a WhatsApp contact. Please contact support.",
+        confirmButtonColor: "#D4AF37",
+      });
+    }
+  };
+
+  const handleViewMarket = () => {
+    navigate("/market");
+  };
   
   const stats = [
     {
@@ -123,6 +202,206 @@ export default function Dashboard({ user }) {
             </Card>
         ))}
       </Box>
+
+      {/* Featured Items Carousel */}
+      <Card
+        sx={{
+          p: 4,
+          mb: 4,
+          borderRadius: "16px",
+          background:
+            "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
+          border: "1px solid rgba(212, 175, 55, 0.2)",
+          boxShadow: "0 4px 20px rgba(212, 175, 55, 0.1)",
+        }}
+      >
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 700,
+              color: "#1a1a1a",
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+            }}
+          >
+            <StarIcon sx={{ color: "#FFD700" }} />
+            Featured Items
+          </Typography>
+          <Button
+            variant="text"
+            onClick={handleViewMarket}
+            sx={{
+              color: "#D4AF37",
+              fontWeight: 600,
+              textTransform: "none",
+              "&:hover": {
+                backgroundColor: "rgba(212, 175, 55, 0.1)",
+              },
+            }}
+          >
+            View All
+          </Button>
+        </Box>
+        {loadingFeatured ? (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+            <CircularProgress sx={{ color: "#D4AF37" }} />
+          </Box>
+        ) : featuredItems.length > 0 ? (
+          <Box
+            sx={{
+              display: "flex",
+              gap: 2,
+              flexDirection: { xs: "column", sm: "row" },
+              flexWrap: "wrap",
+            }}
+          >
+            {featuredItems.map((item) => (
+              <Card
+                key={item.id}
+                sx={{
+                  flex: { xs: "0 0 100%", sm: "0 0 calc(50% - 8px)", md: "0 0 calc(33.333% - 14px)" },
+                  display: "flex",
+                  flexDirection: "column",
+                  borderRadius: "12px",
+                  overflow: "hidden",
+                  transition: "all 0.3s ease",
+                  border: "1px solid rgba(212, 175, 55, 0.2)",
+                  "&:hover": {
+                    transform: "translateY(-4px)",
+                    boxShadow: "0 8px 24px rgba(212, 175, 55, 0.3)",
+                  },
+                }}
+              >
+                  {item.image ? (
+                    <CardMedia
+                      component="img"
+                      height="180"
+                      image={getImageUrl(item.image)}
+                      alt={item.title}
+                      sx={{ objectFit: "cover" }}
+                    />
+                  ) : (
+                    <Box
+                      sx={{
+                        height: 180,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        bgcolor: "rgba(212, 175, 55, 0.1)",
+                      }}
+                    >
+                      <StoreIcon sx={{ fontSize: 48, color: "#D4AF37", opacity: 0.3 }} />
+                    </Box>
+                  )}
+                  {item.tag !== "none" && (
+                    <Box
+                      sx={{
+                        position: "relative",
+                        top: -180,
+                        left: 8,
+                        mt: 2,
+                      }}
+                    >
+                      <Chip
+                        label={item.tag === "hot_deals" ? "🔥 Hot" : "⭐ Weekend"}
+                        size="small"
+                        sx={{
+                          bgcolor:
+                            item.tag === "hot_deals"
+                              ? "rgba(255, 107, 107, 0.95)"
+                              : "rgba(78, 205, 196, 0.95)",
+                          color: "white",
+                          fontWeight: 700,
+                          fontSize: "0.65rem",
+                        }}
+                      />
+                    </Box>
+                  )}
+                  <CardContent sx={{ flexGrow: 1, display: "flex", flexDirection: "column" }}>
+                    <Typography
+                      variant="subtitle1"
+                      sx={{
+                        fontWeight: 600,
+                        color: "#1a1a1a",
+                        mb: 1,
+                        fontSize: "0.95rem",
+                        display: "-webkit-box",
+                        WebkitLineClamp: 1,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                      }}
+                    >
+                      {item.title}
+                    </Typography>
+                    <Typography
+                      variant="h6"
+                      sx={{
+                        fontWeight: 700,
+                        color: "#D4AF37",
+                        mb: 2,
+                      }}
+                    >
+                      KES {parseFloat(item.price).toLocaleString()}
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      startIcon={<WhatsAppIcon />}
+                      onClick={() => handleWhatsAppClick(item)}
+                      sx={{
+                        background: "linear-gradient(135deg, #25D366, #128C7E)",
+                        color: "white",
+                        fontWeight: 600,
+                        textTransform: "none",
+                        borderRadius: "8px",
+                        "&:hover": {
+                          background: "linear-gradient(135deg, #128C7E, #25D366)",
+                        },
+                      }}
+                    >
+                      Contact
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+          </Box>
+        ) : (
+          <Box
+            sx={{
+              textAlign: "center",
+              py: 4,
+              px: 2,
+            }}
+          >
+            <StoreIcon sx={{ fontSize: 64, color: "#D4AF37", opacity: 0.3, mb: 2 }} />
+            <Typography variant="h6" sx={{ color: "#666", mb: 1 }}>
+              No featured items yet
+            </Typography>
+            <Typography variant="body2" sx={{ color: "#999", mb: 3 }}>
+              Check back soon for exciting featured marketplace items!
+            </Typography>
+            <Button
+              variant="contained"
+              onClick={handleViewMarket}
+              sx={{
+                background: "linear-gradient(135deg, #D4AF37, #B8941F)",
+                color: "#1a1a1a",
+                fontWeight: 600,
+                textTransform: "none",
+                borderRadius: "12px",
+                px: 3,
+                "&:hover": {
+                  background: "linear-gradient(135deg, #B8941F, #D4AF37)",
+                },
+              }}
+            >
+              Browse All Items
+            </Button>
+          </Box>
+        )}
+      </Card>
 
       {/* Quick Actions */}
       <Card
