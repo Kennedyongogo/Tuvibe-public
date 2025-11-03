@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { Typography, Box, Fade } from "@mui/material";
-import TuvibeVideo from "../../assets/images/public/tuvibe video.mp4";
 
 export default function HeroSection() {
   const [isVisible, setIsVisible] = useState(false);
@@ -36,7 +35,7 @@ export default function HeroSection() {
           zIndex: 1,
         }}
       >
-        <source src={TuvibeVideo} type="video/mp4" />
+        <source src="/videos/tuvibe-video.mp4" type="video/mp4" />
       </Box>
 
       {/* Floating Particles Animation */}
