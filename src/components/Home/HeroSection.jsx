@@ -1,11 +1,91 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Typography, Box, Fade } from "@mui/material";
 
 export default function HeroSection() {
   const [isVisible, setIsVisible] = useState(false);
+  const [videoLoaded, setVideoLoaded] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const videoRef = useRef(null);
 
   useEffect(() => {
     setIsVisible(true);
+    // Detect mobile device
+    const checkMobile = () => {
+      const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+      const mobileRegex =
+        /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i;
+      return mobileRegex.test(userAgent.toLowerCase());
+    };
+    setIsMobile(checkMobile());
+  }, []);
+
+  useEffect(() => {
+    // Handle video loading for mobile
+    if (videoRef.current) {
+      const video = videoRef.current;
+      const isMobileDevice =
+        /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(
+          (
+            navigator.userAgent ||
+            navigator.vendor ||
+            window.opera
+          ).toLowerCase()
+        );
+
+      // Set mobile-specific attributes
+      if (isMobileDevice) {
+        video.setAttribute("webkit-playsinline", "true");
+        video.setAttribute("playsinline", "true");
+        video.setAttribute("x5-playsinline", "true");
+        video.setAttribute("x5-video-player-type", "h5");
+        video.setAttribute("x5-video-player-fullscreen", "true");
+        video.setAttribute("x5-video-orientation", "portrait");
+      }
+
+      const handleLoadedMetadata = () => {
+        setVideoLoaded(true);
+      };
+
+      const handleCanPlay = () => {
+        setVideoLoaded(true);
+        // Force play on mobile after metadata loads
+        if (isMobileDevice) {
+          video.play().catch((err) => {
+            console.log("Video autoplay prevented:", err);
+          });
+        }
+      };
+
+      const handleError = (e) => {
+        console.error("Video loading error:", e);
+        setVideoLoaded(false);
+      };
+
+      video.addEventListener("loadedmetadata", handleLoadedMetadata);
+      video.addEventListener("canplay", handleCanPlay);
+      video.addEventListener("error", handleError);
+
+      // For mobile: optimize loading strategy
+      if (isMobileDevice) {
+        // Only load video data after user interaction or when in viewport
+        const handleUserInteraction = () => {
+          if (video.readyState < 2) {
+            video.load();
+          }
+        };
+        window.addEventListener("touchstart", handleUserInteraction, {
+          once: true,
+          passive: true,
+        });
+        window.addEventListener("click", handleUserInteraction, { once: true });
+      }
+
+      return () => {
+        video.removeEventListener("loadedmetadata", handleLoadedMetadata);
+        video.removeEventListener("canplay", handleCanPlay);
+        video.removeEventListener("error", handleError);
+      };
+    }
   }, []);
 
   return (
@@ -22,10 +102,12 @@ export default function HeroSection() {
       {/* Background Video */}
       <Box
         component="video"
+        ref={videoRef}
         autoPlay
         loop
         muted
         playsInline
+        preload={isMobile ? "metadata" : "auto"}
         sx={{
           position: "absolute",
           width: "100%",
@@ -33,6 +115,8 @@ export default function HeroSection() {
           objectFit: { xs: "cover", md: "cover" },
           objectPosition: { xs: "center", md: "center" },
           zIndex: 1,
+          opacity: videoLoaded ? 1 : 0,
+          transition: "opacity 0.5s ease-in-out",
         }}
       >
         <source src="/videos/tuvibe-video.mp4" type="video/mp4" />
