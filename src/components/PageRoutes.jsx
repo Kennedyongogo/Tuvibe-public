@@ -14,6 +14,7 @@ import Explore from "../pages/Explore";
 import Wallet from "../pages/Wallet";
 import PremiumLounge from "../pages/PremiumLounge";
 import Market from "../pages/Market";
+import Reports from "../pages/Reports";
 
 function PageRoutes() {
   const navigate = useNavigate();
@@ -110,7 +111,7 @@ function PageRoutes() {
             "Content-Type": "application/json",
           },
         });
-        
+
         if (response.ok) {
           const data = await response.json();
           if (data.success && data.data) {
@@ -164,18 +165,9 @@ function PageRoutes() {
         ) : (
           <Routes>
             <Route path="home" element={<Dashboard user={user} />} />
-            <Route
-              path="explore"
-              element={<Explore user={user} />}
-            />
-            <Route
-              path="premium"
-              element={<PremiumLounge user={user} />}
-            />
-            <Route
-              path="market"
-              element={<Market user={user} />}
-            />
+            <Route path="explore" element={<Explore user={user} />} />
+            <Route path="premium" element={<PremiumLounge user={user} />} />
+            <Route path="market" element={<Market user={user} />} />
             <Route
               path="wallet"
               element={<Wallet user={user} setUser={setUser} />}
@@ -184,6 +176,7 @@ function PageRoutes() {
               path="profile"
               element={<Profile user={user} setUser={setUser} />}
             />
+            <Route path="reports" element={<Reports user={user} />} />
             <Route path="*" element={<Navigate to="/home" replace />} />
           </Routes>
         )}

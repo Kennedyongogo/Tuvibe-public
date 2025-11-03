@@ -30,6 +30,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowDropDown,
+  Report,
 } from "@mui/icons-material";
 import { useNavigate, useLocation } from "react-router-dom";
 import Swal from "sweetalert2";
@@ -52,6 +53,7 @@ export default function Navbar({ user, setUser }) {
     { text: "Premium Lounge", icon: <Star />, path: "/premium" },
     { text: "TuVibe Market", icon: <Store />, path: "/market" },
     { text: "Token Wallet", icon: <Wallet />, path: "/wallet" },
+    { text: "Reports", icon: <Report />, path: "/reports" },
   ];
 
   const handleDrawerToggle = () => {
@@ -111,10 +113,10 @@ export default function Navbar({ user, setUser }) {
         }
       },
     });
-    
+
     if (result.isConfirmed) {
       handleProfileMenuClose();
-      
+
       const token = localStorage.getItem("token");
       if (token) {
         try {
@@ -131,7 +133,7 @@ export default function Navbar({ user, setUser }) {
           // Continue with logout even if API call fails
         }
       }
-      
+
       // Clear all localStorage and navigate to home
       localStorage.clear();
       navigate("/", { replace: true });
@@ -331,8 +333,8 @@ export default function Navbar({ user, setUser }) {
                   ? user.photo.startsWith("http")
                     ? user.photo
                     : user.photo.startsWith("/")
-                    ? user.photo
-                    : `/uploads/${user.photo}`
+                      ? user.photo
+                      : `/uploads/${user.photo}`
                   : undefined
               }
               sx={{
@@ -351,7 +353,9 @@ export default function Navbar({ user, setUser }) {
                 fontSize: 28,
                 color: "#D4AF37",
                 transition: "transform 0.3s ease",
-                transform: Boolean(anchorEl) ? "rotate(180deg)" : "rotate(0deg)",
+                transform: Boolean(anchorEl)
+                  ? "rotate(180deg)"
+                  : "rotate(0deg)",
               }}
             />
           </Box>

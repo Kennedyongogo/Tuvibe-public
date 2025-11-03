@@ -4,3 +4,14 @@
   width: 100%;
   padding: 0;
 }
+
+/* Force transparent header */
+.MuiAppBar-root {
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
+.MuiAppBar-root .MuiToolbar-root {
+  background-color: transparent !important;
+  background: transparent !important;
+}

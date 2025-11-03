@@ -31,6 +31,10 @@ import {
   Close,
   Visibility,
   VisibilityOff,
+  Email,
+  Lock,
+  ArrowForward,
+  AutoAwesome,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
@@ -923,7 +927,13 @@ export default function PublicHeader() {
           Create Account
         </DialogTitle>
         <form onSubmit={handleSubmit}>
-          <DialogContent sx={{ px: { xs: 3, sm: 4 }, py: { xs: 2, sm: 2.5 }, overflow: "auto" }}>
+          <DialogContent
+            sx={{
+              px: { xs: 3, sm: 4 },
+              py: { xs: 2, sm: 2.5 },
+              overflow: "auto",
+            }}
+          >
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {/* Required Fields */}
               <TextField
@@ -1282,185 +1292,458 @@ export default function PublicHeader() {
         </form>
       </Dialog>
 
-      {/* Login Dialog */}
+      {/* Enhanced Login Dialog */}
       <Dialog
         open={loginDialogOpen}
         onClose={handleLoginClose}
+        maxWidth="sm"
         PaperProps={{
           sx: {
-            borderRadius: "20px",
-            backgroundColor: "rgba(255, 248, 220, 0.98)",
-            backgroundImage:
-              "linear-gradient(135deg, rgba(255, 248, 220, 0.98) 0%, rgba(255, 236, 179, 0.95) 100%)",
-            backdropFilter: "blur(20px)",
-            boxShadow: "0 20px 60px rgba(212, 175, 55, 0.3)",
-            border: "2px solid rgba(212, 175, 55, 0.3)",
+            borderRadius: "24px",
+            background:
+              "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 248, 220, 0.95) 100%)",
+            backdropFilter: "blur(30px)",
+            boxShadow:
+              "0 25px 80px rgba(212, 175, 55, 0.25), 0 0 0 1px rgba(212, 175, 55, 0.1)",
             maxHeight: "95vh",
-            width: { xs: "90%", sm: "75%", md: "56.25%" },
-            maxWidth: "520px",
+            width: { xs: "90%", sm: "500px" },
             margin: "auto",
-            minHeight: { xs: "auto", sm: "320px" },
+            position: "relative",
+            overflow: "hidden",
+            "&::before": {
+              content: '""',
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: "4px",
+              background: "linear-gradient(90deg, #D4AF37, #B8941F, #D4AF37)",
+              backgroundSize: "200% 100%",
+              animation: "shimmer 3s ease-in-out infinite",
+            },
           },
         }}
       >
-        <DialogTitle
+        {/* Decorative Elements */}
+        <Box
           sx={{
-            background: "linear-gradient(45deg, #D4AF37, #B8941F)",
-            backgroundClip: "text",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            fontWeight: 700,
-            fontSize: { xs: "1.5rem", sm: "1.75rem" },
-            textAlign: "center",
-            pb: 1,
-            pt: { xs: 2, sm: 2.5 },
+            position: "absolute",
+            top: -50,
+            right: -50,
+            width: 150,
+            height: 150,
+            borderRadius: "50%",
+            background:
+              "linear-gradient(135deg, rgba(212, 175, 55, 0.1), rgba(184, 148, 31, 0.05))",
+            filter: "blur(40px)",
+            zIndex: 0,
           }}
-        >
-          Login
-        </DialogTitle>
-        <form onSubmit={handleLoginSubmit}>
-          <DialogContent sx={{ px: { xs: 3, sm: 4 }, py: { xs: 2, sm: 2.5 }, overflow: "auto" }}>
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
-              <TextField
-                required
-                label="Email"
-                type="email"
-                value={loginFormData.email}
-                onChange={handleLoginInputChange("email")}
-                fullWidth
-                variant="outlined"
-                placeholder="john@example.com"
+        />
+        <Box
+          sx={{
+            position: "absolute",
+            bottom: -30,
+            left: -30,
+            width: 120,
+            height: 120,
+            borderRadius: "50%",
+            background:
+              "linear-gradient(135deg, rgba(245, 230, 211, 0.3), rgba(212, 175, 55, 0.1))",
+            filter: "blur(30px)",
+            zIndex: 0,
+          }}
+        />
+
+        {/* Header Section */}
+        <Box sx={{ position: "relative", zIndex: 1 }}>
+          <DialogTitle
+            sx={{
+              pt: { xs: 4, sm: 5 },
+              pb: 1,
+              px: { xs: 3, sm: 4 },
+              textAlign: "center",
+              position: "relative",
+            }}
+          >
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 1,
+                mb: 1.5,
+              }}
+            >
+              <AutoAwesome
                 sx={{
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: "12px",
-                    "& fieldset": {
-                      borderColor: "rgba(212, 175, 55, 0.3)",
-                    },
-                    "&:hover fieldset": {
-                      borderColor: "rgba(212, 175, 55, 0.6)",
-                    },
-                    "&.Mui-focused fieldset": {
-                      borderColor: "#D4AF37",
-                      borderWidth: "2px",
-                    },
-                  },
-                  "& .MuiInputBase-input": {
-                    py: 1.5,
-                    lineHeight: 1.5,
-                  },
-                  "& .MuiInputLabel-root": {
-                    transform: "translate(14px, 18px) scale(1)",
-                    "&.MuiInputLabel-shrink": {
-                      transform: "translate(14px, -9px) scale(0.75)",
-                    },
-                    "&.Mui-focused": {
-                      color: "#D4AF37",
-                    },
-                  },
+                  fontSize: { xs: 28, sm: 32 },
+                  background: "linear-gradient(45deg, #D4AF37, #B8941F)",
+                  backgroundClip: "text",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  animation: "pulse 2s ease-in-out infinite",
                 }}
               />
-              <TextField
-                required
-                label="Password"
-                type={showLoginPassword ? "text" : "password"}
-                value={loginFormData.password}
-                onChange={handleLoginInputChange("password")}
-                fullWidth
-                variant="outlined"
+              <Typography
+                variant="h4"
                 sx={{
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: "12px",
-                    "& fieldset": {
-                      borderColor: "rgba(212, 175, 55, 0.3)",
-                    },
-                    "&:hover fieldset": {
-                      borderColor: "rgba(212, 175, 55, 0.6)",
-                    },
-                    "&.Mui-focused fieldset": {
-                      borderColor: "#D4AF37",
-                      borderWidth: "2px",
-                    },
-                  },
-                  "& .MuiInputBase-input": {
-                    py: 1.5,
-                    lineHeight: 1.5,
-                  },
-                  "& .MuiInputLabel-root": {
-                    transform: "translate(14px, 18px) scale(1)",
-                    "&.MuiInputLabel-shrink": {
-                      transform: "translate(14px, -9px) scale(0.75)",
-                    },
-                    "&.Mui-focused": {
-                      color: "#D4AF37",
-                    },
-                  },
+                  background: "linear-gradient(45deg, #D4AF37, #B8941F)",
+                  backgroundClip: "text",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  fontWeight: 700,
+                  fontSize: { xs: "1.75rem", sm: "2rem" },
+                  letterSpacing: "0.5px",
                 }}
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        onClick={() => setShowLoginPassword(!showLoginPassword)}
-                        edge="end"
-                        sx={{ color: "#D4AF37" }}
-                      >
-                        {showLoginPassword ? <VisibilityOff /> : <Visibility />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
+              >
+                Welcome Back
+              </Typography>
+              <AutoAwesome
+                sx={{
+                  fontSize: { xs: 28, sm: 32 },
+                  background: "linear-gradient(45deg, #D4AF37, #B8941F)",
+                  backgroundClip: "text",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  animation: "pulse 2s ease-in-out infinite",
+                  animationDelay: "1s",
                 }}
               />
             </Box>
-          </DialogContent>
-          <DialogActions
-            sx={{
-              px: { xs: 3, sm: 4 },
-              pb: { xs: 2, sm: 2.5 },
-              pt: { xs: 1, sm: 1.5 },
-              gap: { xs: 1.5, sm: 2 },
-              justifyContent: "center",
-            }}
-          >
-            <Button
-              onClick={handleLoginClose}
-              variant="outlined"
+            <Typography
+              variant="body2"
               sx={{
-                borderRadius: "25px",
-                px: { xs: 3, sm: 4 },
-                py: 1,
-                textTransform: "none",
-                fontWeight: 600,
-                borderColor: "primary.main",
-                color: "primary.main",
-                fontSize: { xs: "0.875rem", sm: "1rem" },
-                "&:hover": {
-                  borderColor: "primary.dark",
-                  backgroundColor: "rgba(212, 175, 55, 0.1)",
-                },
+                color: "text.secondary",
+                fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                fontWeight: 400,
+                mt: 0.5,
               }}
             >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              variant="contained"
+              Sign in to continue your TuVibe journey
+            </Typography>
+          </DialogTitle>
+
+          <form onSubmit={handleLoginSubmit}>
+            <DialogContent
               sx={{
-                borderRadius: "25px",
                 px: { xs: 3, sm: 4 },
-                py: 1,
-                textTransform: "none",
-                fontWeight: 600,
-                fontSize: { xs: "0.875rem", sm: "1rem" },
-                background: "linear-gradient(45deg, #D4AF37, #B8941F)",
-                "&:hover": {
-                  background: "linear-gradient(45deg, #B8941F, #D4AF37)",
-                  boxShadow: "0 8px 25px rgba(212, 175, 55, 0.4)",
-                },
+                py: { xs: 2.5, sm: 3 },
+                position: "relative",
+                zIndex: 1,
               }}
             >
-              Login
-            </Button>
-          </DialogActions>
-        </form>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                {/* Email Field */}
+                <Box>
+                  <TextField
+                    required
+                    label="Email Address"
+                    type="email"
+                    value={loginFormData.email}
+                    onChange={handleLoginInputChange("email")}
+                    fullWidth
+                    variant="outlined"
+                    placeholder="Enter your email"
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Email
+                            sx={{
+                              color: "#D4AF37",
+                              fontSize: { xs: 20, sm: 22 },
+                            }}
+                          />
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{
+                      "& .MuiOutlinedInput-root": {
+                        borderRadius: "16px",
+                        backgroundColor: "rgba(255, 255, 255, 0.8)",
+                        transition: "all 0.3s ease",
+                        "& fieldset": {
+                          borderColor: "rgba(212, 175, 55, 0.25)",
+                          borderWidth: "1.5px",
+                        },
+                        "&:hover": {
+                          backgroundColor: "rgba(255, 255, 255, 0.95)",
+                          "& fieldset": {
+                            borderColor: "rgba(212, 175, 55, 0.5)",
+                          },
+                        },
+                        "&.Mui-focused": {
+                          backgroundColor: "rgba(255, 255, 255, 1)",
+                          "& fieldset": {
+                            borderColor: "#D4AF37",
+                            borderWidth: "2px",
+                          },
+                        },
+                      },
+                      "& .MuiInputBase-input": {
+                        py: { xs: 1.75, sm: 2 },
+                        fontSize: { xs: "0.9375rem", sm: "1rem" },
+                      },
+                      "& .MuiInputLabel-root": {
+                        fontSize: { xs: "0.9375rem", sm: "1rem" },
+                        "&.Mui-focused": {
+                          color: "#D4AF37",
+                          fontWeight: 500,
+                        },
+                      },
+                    }}
+                  />
+                </Box>
+
+                {/* Password Field */}
+                <Box>
+                  <TextField
+                    required
+                    label="Password"
+                    type={showLoginPassword ? "text" : "password"}
+                    value={loginFormData.password}
+                    onChange={handleLoginInputChange("password")}
+                    fullWidth
+                    variant="outlined"
+                    placeholder="Enter your password"
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Lock
+                            sx={{
+                              color: "#D4AF37",
+                              fontSize: { xs: 20, sm: 22 },
+                            }}
+                          />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            onClick={() =>
+                              setShowLoginPassword(!showLoginPassword)
+                            }
+                            edge="end"
+                            sx={{
+                              color: "#D4AF37",
+                              "&:hover": {
+                                backgroundColor: "rgba(212, 175, 55, 0.1)",
+                              },
+                            }}
+                          >
+                            {showLoginPassword ? (
+                              <VisibilityOff />
+                            ) : (
+                              <Visibility />
+                            )}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{
+                      "& .MuiOutlinedInput-root": {
+                        borderRadius: "16px",
+                        backgroundColor: "rgba(255, 255, 255, 0.8)",
+                        transition: "all 0.3s ease",
+                        "& fieldset": {
+                          borderColor: "rgba(212, 175, 55, 0.25)",
+                          borderWidth: "1.5px",
+                        },
+                        "&:hover": {
+                          backgroundColor: "rgba(255, 255, 255, 0.95)",
+                          "& fieldset": {
+                            borderColor: "rgba(212, 175, 55, 0.5)",
+                          },
+                        },
+                        "&.Mui-focused": {
+                          backgroundColor: "rgba(255, 255, 255, 1)",
+                          "& fieldset": {
+                            borderColor: "#D4AF37",
+                            borderWidth: "2px",
+                          },
+                        },
+                      },
+                      "& .MuiInputBase-input": {
+                        py: { xs: 1.75, sm: 2 },
+                        fontSize: { xs: "0.9375rem", sm: "1rem" },
+                      },
+                      "& .MuiInputLabel-root": {
+                        fontSize: { xs: "0.9375rem", sm: "1rem" },
+                        "&.Mui-focused": {
+                          color: "#D4AF37",
+                          fontWeight: 500,
+                        },
+                      },
+                    }}
+                  />
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "flex-end",
+                      mt: 1,
+                    }}
+                  >
+                    <Typography
+                      component="button"
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        // TODO: Implement forgot password
+                        Swal.fire({
+                          icon: "info",
+                          title: "Forgot Password",
+                          text: "Password reset feature coming soon!",
+                          confirmButtonColor: "#D4AF37",
+                        });
+                      }}
+                      sx={{
+                        fontSize: { xs: "0.8125rem", sm: "0.875rem" },
+                        color: "#D4AF37",
+                        fontWeight: 500,
+                        cursor: "pointer",
+                        background: "none",
+                        border: "none",
+                        textDecoration: "none",
+                        "&:hover": {
+                          color: "#B8941F",
+                          textDecoration: "underline",
+                        },
+                      }}
+                    >
+                      Forgot Password?
+                    </Typography>
+                  </Box>
+                </Box>
+              </Box>
+            </DialogContent>
+
+            {/* Footer Actions */}
+            <DialogActions
+              sx={{
+                px: { xs: 3, sm: 4 },
+                pb: { xs: 3, sm: 4 },
+                pt: 1,
+                flexDirection: "column",
+                gap: 2,
+                position: "relative",
+                zIndex: 1,
+              }}
+            >
+              <Button
+                type="submit"
+                variant="contained"
+                fullWidth
+                endIcon={<ArrowForward />}
+                sx={{
+                  borderRadius: "16px",
+                  py: { xs: 1.5, sm: 1.75 },
+                  textTransform: "none",
+                  fontWeight: 600,
+                  fontSize: { xs: "1rem", sm: "1.0625rem" },
+                  background: "linear-gradient(45deg, #D4AF37, #B8941F)",
+                  boxShadow: "0 4px 15px rgba(212, 175, 55, 0.3)",
+                  transition: "all 0.3s ease",
+                  "&:hover": {
+                    background: "linear-gradient(45deg, #B8941F, #D4AF37)",
+                    boxShadow: "0 8px 25px rgba(212, 175, 55, 0.4)",
+                    transform: "translateY(-2px)",
+                  },
+                  "&:active": {
+                    transform: "translateY(0)",
+                  },
+                }}
+              >
+                Sign In
+              </Button>
+
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 1,
+                  width: "100%",
+                }}
+              >
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontSize: { xs: "0.8125rem", sm: "0.875rem" },
+                    color: "text.secondary",
+                  }}
+                >
+                  Don't have an account?
+                </Typography>
+                <Typography
+                  component="button"
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleLoginClose();
+                    setTimeout(() => {
+                      handleRegister();
+                    }, 300);
+                  }}
+                  sx={{
+                    fontSize: { xs: "0.8125rem", sm: "0.875rem" },
+                    color: "#D4AF37",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    background: "none",
+                    border: "none",
+                    textDecoration: "none",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 0.5,
+                    "&:hover": {
+                      color: "#B8941F",
+                      textDecoration: "underline",
+                    },
+                  }}
+                >
+                  Register Now
+                  <PersonAdd sx={{ fontSize: 18 }} />
+                </Typography>
+              </Box>
+
+              <Button
+                onClick={handleLoginClose}
+                variant="text"
+                sx={{
+                  textTransform: "none",
+                  color: "text.secondary",
+                  fontSize: { xs: "0.8125rem", sm: "0.875rem" },
+                  "&:hover": {
+                    backgroundColor: "rgba(212, 175, 55, 0.05)",
+                  },
+                }}
+              >
+                Cancel
+              </Button>
+            </DialogActions>
+          </form>
+
+          {/* Animations */}
+          <style>
+            {`
+              @keyframes shimmer {
+                0% { background-position: 0% 50%; }
+                50% { background-position: 100% 50%; }
+                100% { background-position: 0% 50%; }
+              }
+              
+              @keyframes pulse {
+                0%, 100% { 
+                  opacity: 1;
+                  transform: scale(1);
+                }
+                50% { 
+                  opacity: 0.7;
+                  transform: scale(1.1);
+                }
+              }
+            `}
+          </style>
+        </Box>
       </Dialog>
 
       <Toolbar

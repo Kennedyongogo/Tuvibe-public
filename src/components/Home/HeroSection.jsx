@@ -1,23 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { Typography, Box, Tooltip, Fade, Slide } from "@mui/material";
-import Hero1 from "../../assets/images/public/tuvibe-1.jpg";
-import Hero2 from "../../assets/images/public/tuvibe-2.jpg";
-import Hero3 from "../../assets/images/public/tuvibe-3.jpg";
-import Hero4 from "../../assets/images/public/tuvibe-4.jpg";
-import { School, VolunteerActivism, Psychology } from "@mui/icons-material";
+import { Typography, Box, Fade } from "@mui/material";
+import TuvibeVideo from "../../assets/images/public/tuvibe video.mp4";
 
 export default function HeroSection() {
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
-  const images = [Hero1, Hero2, Hero3, Hero4];
 
   useEffect(() => {
     setIsVisible(true);
-    const interval = setInterval(() => {
-      setCurrentImageIndex((prevIndex) => (prevIndex + 1) % images.length);
-    }, 5000);
-
-    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -31,23 +20,24 @@ export default function HeroSection() {
         overflow: "hidden",
       }}
     >
-      {/* Background Images with Enhanced Overlay */}
-      {images.map((image, index) => (
-        <Box
-          key={index}
-          component="img"
-          src={image}
-          alt={`${index + 1}`}
-          sx={{
-            position: "absolute",
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            opacity: currentImageIndex === index ? 1 : 0,
-            transition: "opacity 1.5s ease-in-out",
-          }}
-        />
-      ))}
+      {/* Background Video */}
+      <Box
+        component="video"
+        autoPlay
+        loop
+        muted
+        playsInline
+        sx={{
+          position: "absolute",
+          width: "100%",
+          height: "100%",
+          objectFit: { xs: "cover", md: "cover" },
+          objectPosition: { xs: "center", md: "center" },
+          zIndex: 1,
+        }}
+      >
+        <source src={TuvibeVideo} type="video/mp4" />
+      </Box>
 
       {/* Floating Particles Animation */}
       <Box
@@ -154,138 +144,44 @@ export default function HeroSection() {
             >
               Tuvibe
             </Typography>
+            <Typography
+              variant="h5"
+              sx={{
+                fontWeight: 400,
+                fontSize: {
+                  xs: "0.9rem",
+                  sm: "1.1rem",
+                  md: "1.3rem",
+                  lg: "1.5rem",
+                  xl: "1.7rem",
+                },
+                textAlign: { xs: "center", md: "left" },
+                letterSpacing: {
+                  xs: "0.5px",
+                  sm: "1px",
+                  md: "1.5px",
+                },
+                fontFamily:
+                  '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
+                color: "rgba(255, 255, 255, 0.95)",
+                textShadow:
+                  "0 2px 10px rgba(0, 0, 0, 0.5), 0 1px 5px rgba(0, 0, 0, 0.3)",
+                lineHeight: { xs: 1.4, sm: 1.5, md: 1.6 },
+                mt: { xs: 0.5, sm: 1 },
+                fontStyle: "italic",
+                transition: "all 0.3s ease",
+                "&:hover": {
+                  color: "rgba(255, 255, 255, 1)",
+                  textShadow:
+                    "0 2px 15px rgba(255, 255, 255, 0.3), 0 1px 8px rgba(0, 0, 0, 0.5)",
+                },
+              }}
+            >
+              Connect. Discover. Vibe.
+            </Typography>
           </Box>
         </Fade>
       </Box>
-
-      {/* Enhanced Feature Icons */}
-      <Slide direction="up" in={isVisible} timeout={1500}>
-        <Box
-          sx={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            display: "flex",
-            justifyContent: "center",
-            gap: { xs: 1.5, sm: 2.5, md: 3.5 },
-            p: { xs: 1, sm: 1.5, md: 2 },
-            backgroundColor: "rgba(0,0,0,0.6)",
-            backdropFilter: "blur(10px)",
-            borderTop: "1px solid rgba(255, 255, 255, 0.1)",
-            zIndex: 4,
-          }}
-        >
-          <Tooltip title="Educational Support" arrow>
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 1,
-                color: "white",
-                transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
-                cursor: "pointer",
-                "&:hover": {
-                  transform: "translateY(-8px) scale(1.1)",
-                  "& .icon": {
-                    color: "#2196f3",
-                    transform: "rotate(360deg)",
-                  },
-                },
-              }}
-            >
-              <School
-                className="icon"
-                sx={{
-                  fontSize: { xs: 24, sm: 28 },
-                  transition: "all 0.4s ease",
-                }}
-              />
-              <Typography
-                sx={{
-                  fontWeight: 500,
-                  fontSize: { xs: "0.7rem", sm: "0.8rem" },
-                }}
-              >
-                Educational Support
-              </Typography>
-            </Box>
-          </Tooltip>
-          <Tooltip title="Community Outreach" arrow>
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 1,
-                color: "white",
-                transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
-                cursor: "pointer",
-                "&:hover": {
-                  transform: "translateY(-8px) scale(1.1)",
-                  "& .icon": {
-                    color: "#4caf50",
-                    transform: "rotate(360deg)",
-                  },
-                },
-              }}
-            >
-              <VolunteerActivism
-                className="icon"
-                sx={{
-                  fontSize: { xs: 24, sm: 28 },
-                  transition: "all 0.4s ease",
-                }}
-              />
-              <Typography
-                sx={{
-                  fontWeight: 500,
-                  fontSize: { xs: "0.7rem", sm: "0.8rem" },
-                }}
-              >
-                Community Outreach
-              </Typography>
-            </Box>
-          </Tooltip>
-          <Tooltip title="Mental Health Support" arrow>
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 1,
-                color: "white",
-                transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
-                cursor: "pointer",
-                "&:hover": {
-                  transform: "translateY(-8px) scale(1.1)",
-                  "& .icon": {
-                    color: "#ff9800",
-                    transform: "rotate(360deg)",
-                  },
-                },
-              }}
-            >
-              <Psychology
-                className="icon"
-                sx={{
-                  fontSize: { xs: 24, sm: 28 },
-                  transition: "all 0.4s ease",
-                }}
-              />
-              <Typography
-                sx={{
-                  fontWeight: 500,
-                  fontSize: { xs: "0.7rem", sm: "0.8rem" },
-                }}
-              >
-                Mental Health Support
-              </Typography>
-            </Box>
-          </Tooltip>
-        </Box>
-      </Slide>
 
       <style>
         {`
