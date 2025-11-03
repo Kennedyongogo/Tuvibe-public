@@ -22,6 +22,9 @@ import {
   Tooltip,
   Badge,
   Divider,
+  Switch,
+  FormControlLabel,
+  Slider,
 } from "@mui/material";
 import {
   LocationOn,
@@ -35,6 +38,8 @@ import {
   Clear,
   Person,
   AccessTime,
+  MyLocation,
+  Circle,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
@@ -61,6 +66,10 @@ export default function Explore({ user }) {
     search: "",
   });
 
+  // Location search
+  const [nearbyEnabled, setNearbyEnabled] = useState(false);
+  const [radius, setRadius] = useState(10); // in kilometers
+
   const buildImageUrl = (imageUrl) => {
     if (!imageUrl) return "";
     if (imageUrl.startsWith("http")) return imageUrl;
@@ -84,6 +93,12 @@ export default function Explore({ user }) {
       if (filters.online) queryParams.append("online", filters.online);
       if (filters.search) queryParams.append("q", filters.search);
 
+      // Add location-based search parameters
+      if (nearbyEnabled) {
+        queryParams.append("nearby", "true");
+        queryParams.append("radius", radius.toString());
+      }
+
       const headers = {
         "Content-Type": "application/json",
         Accept: "application/json",
@@ -102,20 +117,43 @@ export default function Explore({ user }) {
 
       if (data.success) {
         // Debug: Log online status
-        const onlineUsers = (data.data || []).filter(u => u.is_online);
+        const onlineUsers = (data.data || []).filter((u) => u.is_online);
         if (onlineUsers.length > 0) {
-          console.log("Online users:", onlineUsers.map(u => ({ name: u.name, is_online: u.is_online })));
+          console.log(
+            "Online users:",
+            onlineUsers.map((u) => ({ name: u.name, is_online: u.is_online }))
+          );
         }
         setUsers(data.data || []);
         setTotalPages(data.pagination?.totalPages || 1);
         setTotalUsers(data.pagination?.total || 0);
       } else {
-        Swal.fire({
-          icon: "error",
-          title: "Error",
-          text: data.message || "Failed to load users",
-          confirmButtonColor: "#D4AF37",
-        });
+        // If error is about missing location, show helpful message
+        if (data.message && data.message.includes("location")) {
+          Swal.fire({
+            icon: "info",
+            title: "Location Required",
+            text: data.message,
+            confirmButtonText: "Go to Profile",
+            cancelButtonText: "Cancel",
+            showCancelButton: true,
+            confirmButtonColor: "#D4AF37",
+          }).then((result) => {
+            if (result.isConfirmed) {
+              navigate("/profile");
+            } else {
+              // Turn off nearby search if user cancels
+              setNearbyEnabled(false);
+            }
+          });
+        } else {
+          Swal.fire({
+            icon: "error",
+            title: "Error",
+            text: data.message || "Failed to load users",
+            confirmButtonColor: "#D4AF37",
+          });
+        }
       }
     } catch (error) {
       console.error("Error fetching users:", error);
@@ -158,7 +196,7 @@ export default function Explore({ user }) {
     if (localStorage.getItem("token")) {
       fetchFavorites();
     }
-  }, [page, filters]);
+  }, [page, filters, nearbyEnabled, radius]);
 
   const handlePageChange = (event, value) => {
     setPage(value);
@@ -276,9 +314,7 @@ export default function Explore({ user }) {
         // Update user balance in localStorage
         const updatedUser = {
           ...user,
-          token_balance: (
-            Number(user.token_balance || 0) - cost
-          ).toFixed(2),
+          token_balance: (Number(user.token_balance || 0) - cost).toFixed(2),
         };
         localStorage.setItem("user", JSON.stringify(updatedUser));
 
@@ -292,9 +328,11 @@ export default function Explore({ user }) {
               <p style="margin-bottom: 8px; color: rgba(26, 26, 26, 0.7); font-size: 0.9rem;">Phone Number:</p>
               <p style="margin-bottom: 16px; font-size: 1.1rem; font-weight: 600; color: #D4AF37;">${unlockData.data.phone}</p>
               <p style="margin-bottom: 0; font-size: 0.85rem; color: rgba(26, 26, 26, 0.6);">
-                ${/Mobile|Android|iPhone|iPad/i.test(navigator.userAgent) 
-                  ? "Opening WhatsApp app..." 
-                  : "Opening WhatsApp Web..."}
+                ${
+                  /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent)
+                    ? "Opening WhatsApp app..."
+                    : "Opening WhatsApp Web..."
+                }
               </p>
             </div>
           `,
@@ -615,6 +653,88 @@ export default function Explore({ user }) {
             </FormControl>
           </Grid>
         </Grid>
+
+        {/* Location Search Section */}
+        <Divider sx={{ my: 2, borderColor: "rgba(212, 175, 55, 0.2)" }} />
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: { xs: "column", sm: "row" },
+            alignItems: { xs: "flex-start", sm: "center" },
+            gap: 2,
+          }}
+        >
+          <FormControlLabel
+            control={
+              <Switch
+                checked={nearbyEnabled}
+                onChange={(e) => {
+                  setNearbyEnabled(e.target.checked);
+                  setPage(1);
+                }}
+                sx={{
+                  "& .MuiSwitch-switchBase.Mui-checked": {
+                    color: "#D4AF37",
+                  },
+                  "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+                    backgroundColor: "#D4AF37",
+                  },
+                }}
+              />
+            }
+            label={
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                <MyLocation sx={{ color: "#D4AF37", fontSize: "1.2rem" }} />
+                <Typography
+                  sx={{
+                    fontWeight: 600,
+                    color: "#1a1a1a",
+                    fontSize: "0.875rem",
+                  }}
+                >
+                  Search Nearby
+                </Typography>
+              </Box>
+            }
+            sx={{ margin: 0 }}
+          />
+          {nearbyEnabled && (
+            <Box sx={{ width: { xs: "100%", sm: "300px" } }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "rgba(26, 26, 26, 0.7)",
+                  fontSize: "0.75rem",
+                  mb: 1,
+                  display: "block",
+                }}
+              >
+                Radius: {radius} km
+              </Typography>
+              <Slider
+                value={radius}
+                onChange={(e, newValue) => {
+                  setRadius(newValue);
+                  setPage(1);
+                }}
+                min={1}
+                max={100}
+                step={1}
+                sx={{
+                  color: "#D4AF37",
+                  "& .MuiSlider-thumb": {
+                    "&:hover": {
+                      boxShadow: "0 0 0 8px rgba(212, 175, 55, 0.16)",
+                    },
+                  },
+                  "& .MuiSlider-thumb.Mui-active": {
+                    boxShadow: "0 0 0 14px rgba(212, 175, 55, 0.16)",
+                  },
+                }}
+              />
+            </Box>
+          )}
+        </Box>
       </Card>
 
       {/* Results Count */}
@@ -654,7 +774,9 @@ export default function Explore({ user }) {
             border: "1px solid rgba(212, 175, 55, 0.2)",
           }}
         >
-          <Person sx={{ fontSize: 64, color: "rgba(212, 175, 55, 0.5)", mb: 2 }} />
+          <Person
+            sx={{ fontSize: 64, color: "rgba(212, 175, 55, 0.5)", mb: 2 }}
+          />
           <Typography
             variant="h6"
             sx={{
@@ -704,7 +826,12 @@ export default function Explore({ user }) {
                       position: "relative",
                       width: { xs: "100%", sm: "200px", md: "200px" },
                       minWidth: { xs: "100%", sm: "200px", md: "200px" },
-                      height: { xs: "250px", sm: "250px", md: "250px", lg: "100%" },
+                      height: {
+                        xs: "250px",
+                        sm: "250px",
+                        md: "250px",
+                        lg: "100%",
+                      },
                       backgroundColor: "rgba(212, 175, 55, 0.1)",
                       overflow: "visible",
                       flexShrink: 0,
@@ -791,47 +918,6 @@ export default function Explore({ user }) {
                         )}
                       </IconButton>
                     )}
-
-                    {/* Online Badge */}
-                    {Boolean(userData.is_online) && (
-                      <Box
-                        sx={{
-                          position: "absolute",
-                          top: 8,
-                          right: 8,
-                          width: { xs: "14px", sm: "16px", md: "14px" },
-                          height: { xs: "14px", sm: "16px", md: "14px" },
-                          borderRadius: "50%",
-                          bgcolor: "#4CAF50",
-                          border: "3px solid white",
-                          boxShadow: "0 2px 8px rgba(76, 175, 80, 0.5)",
-                          zIndex: 20,
-                        }}
-                        title="Online"
-                      />
-                    )}
-
-                    {/* Verified Badge */}
-                    {userData.isVerified && (
-                      <Chip
-                        icon={
-                          <Verified
-                            sx={{ fontSize: "1rem !important", color: "#D4AF37" }}
-                          />
-                        }
-                        label="Verified"
-                        size="small"
-                        sx={{
-                          position: "absolute",
-                          bottom: 8,
-                          right: 8,
-                          bgcolor: "rgba(255, 255, 255, 0.95)",
-                          fontWeight: 600,
-                          fontSize: "0.7rem",
-                          border: "1px solid rgba(212, 175, 55, 0.3)",
-                        }}
-                      />
-                    )}
                   </Box>
 
                   {/* Content Section */}
@@ -845,18 +931,53 @@ export default function Explore({ user }) {
                   >
                     {/* Name and Category */}
                     <Box sx={{ mb: 1 }}>
-                      <Typography
-                        variant="h6"
+                      <Box
                         sx={{
-                          fontWeight: 700,
-                          fontSize: { xs: "1rem", sm: "1.125rem" },
-                          color: "#1a1a1a",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 1,
                           mb: 0.5,
-                          lineHeight: 1.2,
+                          flexWrap: "wrap",
                         }}
                       >
-                        {userData.name}
-                      </Typography>
+                        <Typography
+                          variant="h6"
+                          sx={{
+                            fontWeight: 700,
+                            fontSize: { xs: "1rem", sm: "1.125rem" },
+                            color: "#1a1a1a",
+                            lineHeight: 1.2,
+                          }}
+                        >
+                          {userData.name}
+                        </Typography>
+                        {/* Verified Badge */}
+                        {userData.isVerified && (
+                          <Chip
+                            icon={
+                              <Verified
+                                sx={{
+                                  fontSize: "0.875rem !important",
+                                  color: "#D4AF37",
+                                }}
+                              />
+                            }
+                            label="Verified"
+                            size="small"
+                            sx={{
+                              bgcolor: "rgba(212, 175, 55, 0.15)",
+                              color: "#1a1a1a",
+                              fontWeight: 600,
+                              fontSize: { xs: "0.65rem", sm: "0.7rem" },
+                              height: { xs: "20px", sm: "22px" },
+                              border: "1px solid rgba(212, 175, 55, 0.3)",
+                              "& .MuiChip-icon": {
+                                marginLeft: "6px",
+                              },
+                            }}
+                          />
+                        )}
+                      </Box>
                       <Chip
                         label={userData.category || "Regular"}
                         size="small"
@@ -868,14 +989,80 @@ export default function Explore({ user }) {
                           height: "22px",
                         }}
                       />
+                      {/* Online/Offline Status Chip */}
+                      <Chip
+                        icon={
+                          <Circle
+                            sx={{
+                              fontSize: "0.6rem !important",
+                              color: userData.is_online ? "#4CAF50" : "#9E9E9E",
+                            }}
+                          />
+                        }
+                        label={userData.is_online ? "Online" : "Offline"}
+                        size="small"
+                        sx={{
+                          bgcolor: userData.is_online
+                            ? "rgba(76, 175, 80, 0.15)"
+                            : "rgba(158, 158, 158, 0.15)",
+                          color: "#1a1a1a",
+                          fontWeight: 600,
+                          fontSize: "0.7rem",
+                          height: "22px",
+                          mt: 0.5,
+                          border: userData.is_online
+                            ? "1px solid rgba(76, 175, 80, 0.3)"
+                            : "1px solid rgba(158, 158, 158, 0.3)",
+                          "& .MuiChip-icon": {
+                            marginLeft: "6px",
+                          },
+                        }}
+                      />
                     </Box>
 
-                    <Divider sx={{ my: 1, borderColor: "rgba(212, 175, 55, 0.2)" }} />
+                    <Divider
+                      sx={{ my: 1, borderColor: "rgba(212, 175, 55, 0.2)" }}
+                    />
 
                     {/* Info */}
                     <Stack spacing={0.5} sx={{ mb: 1.5, flexGrow: 1 }}>
+                      {/* Distance - show when nearby search is enabled */}
+                      {nearbyEnabled && userData.distance !== undefined && (
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 0.5,
+                          }}
+                        >
+                          <MyLocation
+                            sx={{
+                              fontSize: "1rem",
+                              color: "#D4AF37",
+                            }}
+                          />
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color: "#D4AF37",
+                              fontSize: "0.75rem",
+                              fontWeight: 600,
+                            }}
+                          >
+                            {userData.distance < 1
+                              ? `${Math.round(userData.distance * 1000)}m away`
+                              : `${userData.distance.toFixed(1)} km away`}
+                          </Typography>
+                        </Box>
+                      )}
                       {userData.city && (
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 0.5,
+                          }}
+                        >
                           <LocationOn
                             sx={{
                               fontSize: "1rem",
@@ -894,7 +1081,13 @@ export default function Explore({ user }) {
                         </Box>
                       )}
                       {userData.age && (
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 0.5,
+                          }}
+                        >
                           <Cake
                             sx={{
                               fontSize: "1rem",
@@ -914,7 +1107,13 @@ export default function Explore({ user }) {
                       )}
                       {/* Show last seen only when user is offline */}
                       {!userData.is_online && userData.last_seen_at && (
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 0.5,
+                          }}
+                        >
                           <AccessTime
                             sx={{
                               fontSize: "0.9rem",
@@ -929,24 +1128,28 @@ export default function Explore({ user }) {
                               fontStyle: "italic",
                             }}
                           >
-                            Last seen {(() => {
+                            Last seen{" "}
+                            {(() => {
                               const lastSeen = new Date(userData.last_seen_at);
                               const now = new Date();
                               const diffMs = now - lastSeen;
                               const diffMins = Math.floor(diffMs / 60000);
                               const diffHours = Math.floor(diffMs / 3600000);
                               const diffDays = Math.floor(diffMs / 86400000);
-                              
+
                               if (diffMins < 1) return "just now";
-                              if (diffMins < 60) return `${diffMins} ${diffMins === 1 ? 'minute' : 'minutes'} ago`;
-                              if (diffHours < 24) return `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
-                              if (diffDays < 7) return `${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago`;
-                              return lastSeen.toLocaleString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                                hour: 'numeric',
-                                minute: '2-digit',
-                                hour12: true
+                              if (diffMins < 60)
+                                return `${diffMins} ${diffMins === 1 ? "minute" : "minutes"} ago`;
+                              if (diffHours < 24)
+                                return `${diffHours} ${diffHours === 1 ? "hour" : "hours"} ago`;
+                              if (diffDays < 7)
+                                return `${diffDays} ${diffDays === 1 ? "day" : "days"} ago`;
+                              return lastSeen.toLocaleString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                                hour: "numeric",
+                                minute: "2-digit",
+                                hour12: true,
                               });
                             })()}
                           </Typography>
@@ -1091,4 +1294,3 @@ export default function Explore({ user }) {
     </Box>
   );
 }
-
