@@ -581,11 +581,19 @@ export default function Explore({ user }) {
           {/* Category Filter */}
           <Grid item xs={12} sm={6} md={3}>
             <FormControl fullWidth size="small">
-              <InputLabel>Category</InputLabel>
+              <InputLabel shrink>Category</InputLabel>
               <Select
                 value={filters.category}
                 onChange={(e) => handleFilterChange("category", e.target.value)}
                 label="Category"
+                displayEmpty
+                inputProps={{ "aria-label": "Category" }}
+                renderValue={(selected) => {
+                  if (selected === "") {
+                    return "All Categories";
+                  }
+                  return selected;
+                }}
                 sx={{
                   borderRadius: "12px",
                   "& .MuiSelect-icon": {
@@ -634,11 +642,19 @@ export default function Explore({ user }) {
           {/* Online Status Filter */}
           <Grid item xs={12} sm={6} md={2}>
             <FormControl fullWidth size="small">
-              <InputLabel>Status</InputLabel>
+              <InputLabel shrink>Status</InputLabel>
               <Select
                 value={filters.online}
                 onChange={(e) => handleFilterChange("online", e.target.value)}
                 label="Status"
+                displayEmpty
+                inputProps={{ "aria-label": "Status" }}
+                renderValue={(selected) => {
+                  if (selected === "") {
+                    return "All";
+                  }
+                  return selected === "true" ? "Online" : "Offline";
+                }}
                 sx={{
                   borderRadius: "12px",
                   "& .MuiSelect-icon": {
