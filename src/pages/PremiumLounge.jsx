@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect } from "react";
+import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 import {
   Box,
   Typography,
@@ -51,6 +51,8 @@ export default function PremiumLounge({ user }) {
   const [lookingForDialogOpen, setLookingForDialogOpen] = useState(false);
   const [selectedLookingForPost, setSelectedLookingForPost] = useState(null);
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
+  const fetchingRef = useRef(false); // Track if we're currently fetching
+  const lastFetchedRef = useRef({ category: null, tab: null }); // Track what we last fetched
 
   // Handle regular user - automatically open upgrade dialog
   useEffect(() => {
@@ -75,14 +77,22 @@ export default function PremiumLounge({ user }) {
     return imageUrl;
   };
 
-  const fetchPremiumUsers = async () => {
+  const fetchPremiumUsers = useCallback(async () => {
+    // Prevent duplicate fetches
+    if (fetchingRef.current) {
+      console.log("PremiumLounge - Already fetching, skipping...");
+      return;
+    }
+
     // Don't fetch if user is regular - should be handled by early return
     if (user && user.category === "Regular") {
+      setLoading(false);
       return;
     }
 
     const token = localStorage.getItem("token");
     if (!token) {
+      setLoading(false);
       Swal.fire({
         icon: "warning",
         title: "Login Required",
@@ -94,9 +104,21 @@ export default function PremiumLounge({ user }) {
       return;
     }
 
+    const selectedCategory = categories[selectedTab].value;
+    
+    // Check if we already fetched this category/tab combination
+    if (
+      lastFetchedRef.current.category === selectedCategory &&
+      lastFetchedRef.current.tab === selectedTab
+    ) {
+      console.log("PremiumLounge - Already fetched this category/tab, skipping...");
+      return;
+    }
+
     try {
+      fetchingRef.current = true;
       setLoading(true);
-      const selectedCategory = categories[selectedTab].value;
+      
       const response = await fetch(
         `/api/verification/lounge/${encodeURIComponent(selectedCategory)}`,
         {
@@ -113,6 +135,12 @@ export default function PremiumLounge({ user }) {
         const fetchedUsers = data.data.users || [];
         setUsers(fetchedUsers);
         setTokenCost(data.data.cost || 0);
+        
+        // Update last fetched reference
+        lastFetchedRef.current = {
+          category: selectedCategory,
+          tab: selectedTab,
+        };
 
         // Fetch "Looking For" posts for these users
         if (fetchedUsers.length > 0) {
@@ -155,8 +183,9 @@ export default function PremiumLounge({ user }) {
       }
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
-  };
+  }, [user, selectedTab, navigate]);
 
   const fetchFavorites = async () => {
     const token = localStorage.getItem("token");
@@ -182,14 +211,42 @@ export default function PremiumLounge({ user }) {
   };
 
   useEffect(() => {
+    // Check localStorage as fallback if user prop is not available yet
+    let userCategory = user?.category;
+    
+    if (!userCategory) {
+      try {
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) {
+          const parsedUser = JSON.parse(storedUser);
+          userCategory = parsedUser.category;
+        }
+      } catch (err) {
+        console.error("Error parsing user from localStorage:", err);
+      }
+    }
+
     // Only fetch premium users if user is premium (not regular)
-    if (user && user.category !== "Regular") {
+    if (userCategory && userCategory !== "Regular") {
       fetchPremiumUsers();
       if (localStorage.getItem("token")) {
         fetchFavorites();
       }
+    } else if (userCategory === "Regular") {
+      // Regular user - stop loading, upgrade dialog will show
+      setLoading(false);
+      setUsers([]); // Clear users array
+      fetchingRef.current = false; // Reset fetching flag
+      lastFetchedRef.current = { category: null, tab: null }; // Reset last fetched
+    } else {
+      // No user category found - user might still be loading
+      // Set loading to false after brief delay to avoid indefinite loading
+      const timeout = setTimeout(() => {
+        setLoading(false);
+      }, 1000);
+      return () => clearTimeout(timeout);
     }
-  }, [selectedTab, user]);
+  }, [selectedTab, user?.category, fetchPremiumUsers]); // Only depend on category, not entire user object
 
   // Fetch "Looking For" posts for multiple users
   const fetchLookingForPosts = async (userIds) => {
@@ -227,6 +284,9 @@ export default function PremiumLounge({ user }) {
     setSelectedTab(newValue);
     setUsers([]);
     setLookingForPosts({}); // Clear posts when switching tabs
+    // Reset fetch tracking so new tab can fetch
+    lastFetchedRef.current = { category: null, tab: null };
+    fetchingRef.current = false;
   };
 
   const handleWhatsAppUnlock = async (targetUserId, targetUserName) => {
@@ -443,7 +503,13 @@ export default function PremiumLounge({ user }) {
   const isRegularUser = user && user.category === "Regular";
 
   return (
-    <>
+    <Box
+      sx={{
+        backgroundColor: "#FAFAFA",
+        minHeight: "100%",
+        width: "100%",
+      }}
+    >
       {/* Upgrade Dialog - always render for regular users, controlled by open prop */}
       <UpgradeDialog
         open={isRegularUser && upgradeDialogOpen}
@@ -1142,6 +1208,21 @@ export default function PremiumLounge({ user }) {
           </Dialog>
         </Box>
       )}
-    </>
+
+      {/* Show loading state while checking user status */}
+      {!user && loading && (
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            minHeight: "400px",
+            backgroundColor: "#FAFAFA",
+          }}
+        >
+          <CircularProgress sx={{ color: "#D4AF37" }} />
+        </Box>
+      )}
+    </Box>
   );
 }

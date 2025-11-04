@@ -35,6 +35,7 @@ export default function Dashboard({ user }) {
   const [loadingFeatured, setLoadingFeatured] = useState(false);
   const [featuredUsers, setFeaturedUsers] = useState([]);
   const [loadingFeaturedUsers, setLoadingFeaturedUsers] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState({}); // Track current image index for each user
 
   // Check if user is in premium category
   const premiumCategories = ["Sugar Mummy", "Sponsor", "Ben 10"];
@@ -46,6 +47,51 @@ export default function Dashboard({ user }) {
     fetchFeaturedItems();
     fetchFeaturedUsers();
   }, []);
+
+  // Auto-transition images for each featured user
+  useEffect(() => {
+    if (featuredUsers.length === 0) return;
+
+    const intervals = {};
+    // Reset all image indices when users change
+    const newIndices = {};
+
+    featuredUsers.forEach((userData) => {
+      const images = getAllImages(userData);
+      const userId = userData.id;
+      
+      // Preload all images for smooth transitions
+      images.forEach((imageSrc) => {
+        const img = new Image();
+        img.src = imageSrc;
+      });
+
+      // Always reset to 0 for new users
+      newIndices[userId] = 0;
+
+      if (images.length > 1) {
+        const imageCount = images.length;
+
+        // Set up interval for this user
+        intervals[userId] = setInterval(() => {
+          setCurrentImageIndex((prev) => {
+            const currentIdx = prev[userId] || 0;
+            const nextIdx = (currentIdx + 1) % imageCount;
+            return { ...prev, [userId]: nextIdx };
+          });
+        }, 3000); // Change image every 3 seconds
+      }
+    });
+
+    // Set all indices to 0
+    setCurrentImageIndex(newIndices);
+
+    // Cleanup intervals on unmount or when users change
+    return () => {
+      Object.values(intervals).forEach((interval) => clearInterval(interval));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [featuredUsers]);
 
   const fetchFeaturedItems = async () => {
     try {
@@ -98,6 +144,33 @@ export default function Dashboard({ user }) {
     if (imagePath.startsWith("http")) return imagePath;
     if (imagePath.startsWith("/")) return imagePath;
     return `/uploads/${imagePath}`;
+  };
+
+  const buildImageUrl = (imageUrl) => {
+    if (!imageUrl) return "";
+    if (imageUrl.startsWith("http")) return imageUrl;
+    if (imageUrl.startsWith("uploads/")) return `/${imageUrl}`;
+    if (imageUrl.startsWith("/uploads/")) return imageUrl;
+    if (imageUrl.startsWith("profiles/")) return `/uploads/${imageUrl}`;
+    return imageUrl;
+  };
+
+  // Get all images for a user (main photo + photos array)
+  const getAllImages = (userData) => {
+    const images = [];
+    // Add main photo if it exists (only approved)
+    if (userData.photo && userData.photo_moderation_status === "approved") {
+      images.push(buildImageUrl(userData.photo));
+    }
+    // Add photos from array if they exist (only approved photos)
+    if (userData.photos && Array.isArray(userData.photos)) {
+      userData.photos.forEach((photo) => {
+        if (photo.path && photo.moderation_status === "approved") {
+          images.push(buildImageUrl(photo.path));
+        }
+      });
+    }
+    return images;
   };
 
   const handleWhatsAppClick = (item) => {
@@ -304,12 +377,8 @@ export default function Dashboard({ user }) {
             }}
           >
             {featuredUsers.slice(0, 10).map((featuredUser) => {
-              const getUserImageUrl = (imagePath) => {
-                if (!imagePath) return null;
-                if (imagePath.startsWith("http")) return imagePath;
-                if (imagePath.startsWith("/")) return imagePath;
-                return `/uploads/${imagePath}`;
-              };
+              const images = getAllImages(featuredUser);
+              const currentIdx = currentImageIndex[featuredUser.id] || 0;
 
               return (
                 <Card
@@ -334,18 +403,39 @@ export default function Dashboard({ user }) {
                   }}
                   onClick={() => navigate(`/explore`)}
                 >
-                  {featuredUser.photo &&
-                  featuredUser.photo_moderation_status === "approved" ? (
+                  {images.length > 0 ? (
                     <Box
-                      component="img"
-                      src={getUserImageUrl(featuredUser.photo)}
-                      alt={featuredUser.name}
                       sx={{
+                        position: "relative",
                         width: "100%",
                         height: 200,
-                        objectFit: "cover",
+                        overflow: "hidden",
+                        bgcolor: "rgba(212, 175, 55, 0.1)",
                       }}
-                    />
+                    >
+                      {images.map((image, index) => (
+                        <Box
+                          key={`featured-${featuredUser.id}-img-${index}`}
+                          component="img"
+                          src={image}
+                          alt={featuredUser.name}
+                          sx={{
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            opacity: currentIdx === index ? 1 : 0,
+                            transition: "opacity 1.5s ease-in-out",
+                            zIndex: currentIdx === index ? 1 : 0,
+                          }}
+                          onError={(e) => {
+                            e.target.style.display = "none";
+                          }}
+                        />
+                      ))}
+                    </Box>
                   ) : (
                     <Box
                       sx={{

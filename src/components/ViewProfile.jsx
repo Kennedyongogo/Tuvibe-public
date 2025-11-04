@@ -3,14 +3,12 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions,
   Box,
   Typography,
   Avatar,
   Chip,
   Stack,
   Divider,
-  Button,
   CircularProgress,
   IconButton,
 } from "@mui/material";
@@ -20,24 +18,29 @@ import {
   LocationOn,
   Cake,
   Person,
-  Star,
-  Chat,
-  Favorite,
-  FavoriteBorder,
+  ChevronLeft,
+  ChevronRight,
+  PhotoCamera,
 } from "@mui/icons-material";
 import Swal from "sweetalert2";
 
 export default function ViewProfile({ open, onClose, userId, user }) {
   const [profileUser, setProfileUser] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [isFavorite, setIsFavorite] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   useEffect(() => {
     if (open && userId && userId !== user?.id) {
       fetchProfile();
-      checkFavorite();
     }
   }, [open, userId, user?.id]);
+
+  // Reset image index when profile user changes
+  useEffect(() => {
+    if (profileUser) {
+      setCurrentImageIndex(0);
+    }
+  }, [profileUser]);
 
   const fetchProfile = async () => {
     if (!userId) return;
@@ -96,59 +99,32 @@ export default function ViewProfile({ open, onClose, userId, user }) {
     }
   };
 
-  const checkFavorite = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch("/api/favourites", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        const favorites = data.data || [];
-        setIsFavorite(
-          favorites.some((fav) => fav.favourite_user_id === userId)
-        );
-      }
-    } catch (error) {
-      console.error("Error checking favorite:", error);
-    }
-  };
-
-  const handleToggleFavorite = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const method = isFavorite ? "DELETE" : "POST";
-      const response = await fetch(`/api/favourites/${userId}`, {
-        method,
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setIsFavorite(!isFavorite);
-      }
-    } catch (error) {
-      console.error("Error toggling favorite:", error);
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: "Failed to update favorite",
-        confirmButtonColor: "#D4AF37",
-      });
-    }
-  };
-
   const buildImageUrl = (imagePath) => {
     if (!imagePath) return "";
     if (imagePath.startsWith("http")) return imagePath;
-    return imagePath.startsWith("/uploads/")
-      ? imagePath
-      : `/uploads/${imagePath}`;
+    if (imagePath.startsWith("uploads/")) return `/${imagePath}`;
+    if (imagePath.startsWith("/uploads/")) return imagePath;
+    if (imagePath.startsWith("profiles/")) return `/uploads/${imagePath}`;
+    return imagePath;
+  };
+
+  // Get all images for a user (main photo + photos array)
+  const getAllImages = (userData) => {
+    const images = [];
+    // Add main photo if it exists
+    if (userData.photo) {
+      images.push(buildImageUrl(userData.photo));
+    }
+    // Add photos from array if they exist (only approved photos)
+    if (userData.photos && Array.isArray(userData.photos)) {
+      userData.photos.forEach((photo) => {
+        // Only include approved photos
+        if (photo.path && photo.moderation_status === "approved") {
+          images.push(buildImageUrl(photo.path));
+        }
+      });
+    }
+    return images;
   };
 
   if (!open || !userId) return null;
@@ -157,18 +133,17 @@ export default function ViewProfile({ open, onClose, userId, user }) {
     <Dialog
       open={open}
       onClose={onClose}
-      maxWidth="md"
+      maxWidth="sm"
       fullWidth
       PaperProps={{
         sx: {
           borderRadius: "20px",
-          background:
-            "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
-          backdropFilter: "blur(20px)",
+          background: "#ffffff",
           boxShadow: "0 20px 60px rgba(212, 175, 55, 0.3)",
           border: "2px solid rgba(212, 175, 55, 0.3)",
           maxHeight: "95vh",
           margin: { xs: 2, sm: 4 },
+          maxWidth: "500px",
         },
       }}
     >
@@ -212,25 +187,25 @@ export default function ViewProfile({ open, onClose, userId, user }) {
           </Box>
         ) : profileUser ? (
           <Box>
-            {/* Profile Header */}
-            <Box sx={{ textAlign: "center", mb: 3 }}>
-              <Avatar
-                src={buildImageUrl(profileUser.photo)}
-                sx={{
-                  width: 120,
-                  height: 120,
-                  bgcolor: "#D4AF37",
-                  fontSize: "3rem",
-                  fontWeight: 700,
-                  border: "4px solid rgba(212, 175, 55, 0.3)",
-                  boxShadow: "0 8px 24px rgba(212, 175, 55, 0.2)",
-                  mx: "auto",
-                  mb: 2,
-                }}
-              >
-                {!profileUser.photo &&
-                  (profileUser.name?.charAt(0)?.toUpperCase() || "U")}
-              </Avatar>
+                         {/* Profile Header */}
+             <Box sx={{ textAlign: "center", mb: 3 }}>
+               <Avatar
+                 src={buildImageUrl(profileUser.photo)}
+                 sx={{
+                   width: { xs: 80, sm: 100 },
+                   height: { xs: 80, sm: 100 },
+                   bgcolor: "#D4AF37",
+                   fontSize: { xs: "2rem", sm: "2.5rem" },
+                   fontWeight: 700,
+                   border: "3px solid rgba(212, 175, 55, 0.3)",
+                   boxShadow: "0 8px 24px rgba(212, 175, 55, 0.2)",
+                   mx: "auto",
+                   mb: 2,
+                 }}
+               >
+                 {!profileUser.photo &&
+                   (profileUser.name?.charAt(0)?.toUpperCase() || "U")}
+               </Avatar>
 
               <Typography
                 variant="h5"
@@ -362,71 +337,235 @@ export default function ViewProfile({ open, onClose, userId, user }) {
                 </Box>
               )}
             </Box>
+
+            {/* Photo Gallery Section */}
+            {(() => {
+              const allImages = getAllImages(profileUser);
+              if (allImages.length === 0) return null;
+
+              return (
+                <>
+                  <Divider sx={{ my: 3, borderColor: "rgba(212, 175, 55, 0.2)" }} />
+                  <Box sx={{ mt: 3 }}>
+                    <Typography
+                      variant="h6"
+                      sx={{
+                        fontWeight: 700,
+                        color: "#1a1a1a",
+                        mb: 2,
+                        fontSize: { xs: "1rem", sm: "1.125rem" },
+                      }}
+                    >
+                      Gallery ({allImages.length} {allImages.length === 1 ? "photo" : "photos"})
+                    </Typography>
+
+                                         {/* Gallery Container */}
+                     <Box
+                       sx={{
+                         position: "relative",
+                         width: "100%",
+                         borderRadius: "12px",
+                         overflow: "hidden",
+                         bgcolor: "rgba(212, 175, 55, 0.05)",
+                         minHeight: { xs: "150px", sm: "200px" },
+                         maxHeight: { xs: "200px", sm: "250px" },
+                         aspectRatio: "1",
+                         display: "flex",
+                         alignItems: "center",
+                         justifyContent: "center",
+                       }}
+                     >
+                      {/* Main Image Display */}
+                      {allImages.map((image, index) => (
+                        <Box
+                          key={`gallery-img-${index}`}
+                          component="img"
+                          src={image}
+                          alt={`Gallery photo ${index + 1}`}
+                          sx={{
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            opacity: currentImageIndex === index ? 1 : 0,
+                            transition: "opacity 0.5s ease-in-out",
+                            zIndex: currentImageIndex === index ? 1 : 0,
+                          }}
+                          onError={(e) => {
+                            e.target.style.display = "none";
+                          }}
+                        />
+                      ))}
+
+                      {/* Navigation Arrows */}
+                      {allImages.length > 1 && (
+                        <>
+                          <IconButton
+                            onClick={() =>
+                              setCurrentImageIndex((prev) =>
+                                prev === 0 ? allImages.length - 1 : prev - 1
+                              )
+                            }
+                            sx={{
+                              position: "absolute",
+                              left: 8,
+                              top: "50%",
+                              transform: "translateY(-50%)",
+                              bgcolor: "rgba(255, 255, 255, 0.9)",
+                              color: "#1a1a1a",
+                              zIndex: 10,
+                              "&:hover": {
+                                bgcolor: "rgba(255, 255, 255, 1)",
+                                transform: "translateY(-50%) scale(1.1)",
+                              },
+                              transition: "all 0.2s ease",
+                            }}
+                          >
+                            <ChevronLeft />
+                          </IconButton>
+                          <IconButton
+                            onClick={() =>
+                              setCurrentImageIndex((prev) =>
+                                prev === allImages.length - 1 ? 0 : prev + 1
+                              )
+                            }
+                            sx={{
+                              position: "absolute",
+                              right: 8,
+                              top: "50%",
+                              transform: "translateY(-50%)",
+                              bgcolor: "rgba(255, 255, 255, 0.9)",
+                              color: "#1a1a1a",
+                              zIndex: 10,
+                              "&:hover": {
+                                bgcolor: "rgba(255, 255, 255, 1)",
+                                transform: "translateY(-50%) scale(1.1)",
+                              },
+                              transition: "all 0.2s ease",
+                            }}
+                          >
+                            <ChevronRight />
+                          </IconButton>
+                        </>
+                      )}
+
+                      {/* Image Counter */}
+                      {allImages.length > 1 && (
+                        <Box
+                          sx={{
+                            position: "absolute",
+                            bottom: 12,
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                            bgcolor: "rgba(0, 0, 0, 0.6)",
+                            color: "#fff",
+                            px: 2,
+                            py: 0.5,
+                            borderRadius: "16px",
+                            zIndex: 10,
+                            fontSize: "0.75rem",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {currentImageIndex + 1} / {allImages.length}
+                        </Box>
+                      )}
+
+                      {/* No Image Placeholder */}
+                      {allImages.length === 0 && (
+                        <Box
+                          sx={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "rgba(26, 26, 26, 0.5)",
+                          }}
+                        >
+                          <PhotoCamera sx={{ fontSize: 48, mb: 1, opacity: 0.3 }} />
+                          <Typography variant="body2">No photos available</Typography>
+                        </Box>
+                      )}
+                    </Box>
+
+                    {/* Thumbnail Strip (if more than 1 image) */}
+                    {allImages.length > 1 && (
+                      <Box
+                        sx={{
+                          display: "flex",
+                          gap: 1,
+                          mt: 2,
+                          overflowX: "auto",
+                          pb: 1,
+                          "&::-webkit-scrollbar": {
+                            height: "6px",
+                          },
+                          "&::-webkit-scrollbar-track": {
+                            background: "rgba(212, 175, 55, 0.1)",
+                            borderRadius: "3px",
+                          },
+                          "&::-webkit-scrollbar-thumb": {
+                            background: "rgba(212, 175, 55, 0.5)",
+                            borderRadius: "3px",
+                            "&:hover": {
+                              background: "rgba(212, 175, 55, 0.7)",
+                            },
+                          },
+                          scrollbarWidth: "thin",
+                        }}
+                      >
+                                                 {allImages.map((image, index) => (
+                           <Box
+                             key={`thumb-${index}`}
+                             onClick={() => setCurrentImageIndex(index)}
+                             sx={{
+                               position: "relative",
+                               flexShrink: 0,
+                               width: 60,
+                               height: 60,
+                               borderRadius: "8px",
+                               overflow: "hidden",
+                               cursor: "pointer",
+                               border:
+                                 currentImageIndex === index
+                                   ? "2px solid #D4AF37"
+                                   : "2px solid transparent",
+                               opacity: currentImageIndex === index ? 1 : 0.7,
+                               transition: "all 0.2s ease",
+                               "&:hover": {
+                                 opacity: 1,
+                                 transform: "scale(1.05)",
+                               },
+                             }}
+                           >
+                            <Box
+                              component="img"
+                              src={image}
+                              alt={`Thumbnail ${index + 1}`}
+                              sx={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                              }}
+                              onError={(e) => {
+                                e.target.style.display = "none";
+                              }}
+                            />
+                          </Box>
+                        ))}
+                      </Box>
+                    )}
+                  </Box>
+                </>
+              );
+            })()}
           </Box>
         ) : null}
       </DialogContent>
 
-      <DialogActions
-        sx={{
-          px: 3,
-          pb: 3,
-          pt: 2,
-          flexDirection: { xs: "column", sm: "row" },
-          gap: 2,
-        }}
-      >
-        <Button
-          startIcon={isFavorite ? <Favorite /> : <FavoriteBorder />}
-          onClick={handleToggleFavorite}
-          variant="outlined"
-          fullWidth={false}
-          sx={{
-            borderColor: "rgba(212, 175, 55, 0.5)",
-            color: "#1a1a1a",
-            fontWeight: 600,
-            textTransform: "none",
-            borderRadius: "12px",
-            px: 3,
-            "&:hover": {
-              borderColor: "#D4AF37",
-              bgcolor: "rgba(212, 175, 55, 0.1)",
-            },
-          }}
-        >
-          {isFavorite ? "Unfavorite" : "Favorite"}
-        </Button>
-        <Button
-          startIcon={<Chat />}
-          variant="contained"
-          fullWidth={false}
-          onClick={() => {
-            // This would trigger WhatsApp unlock - functionality already exists in Explore
-            Swal.fire({
-              icon: "info",
-              title: "WhatsApp Chat",
-              text: "Please use the WhatsApp Chat button on the Explore page to unlock contact",
-              confirmButtonColor: "#D4AF37",
-            });
-            onClose();
-          }}
-          sx={{
-            background: "linear-gradient(135deg, #D4AF37, #B8941F)",
-            color: "#1a1a1a",
-            fontWeight: 600,
-            textTransform: "none",
-            borderRadius: "12px",
-            px: 3,
-            flex: { xs: 1, sm: "none" },
-            "&:hover": {
-              background: "linear-gradient(135deg, #B8941F, #D4AF37)",
-              transform: "translateY(-2px)",
-              boxShadow: "0 8px 24px rgba(212, 175, 55, 0.3)",
-            },
-          }}
-        >
-          WhatsApp Chat
-        </Button>
-      </DialogActions>
+
     </Dialog>
   );
 }

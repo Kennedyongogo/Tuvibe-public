@@ -23,6 +23,7 @@ export default function UpgradeDialog({ open, onClose }) {
   const [upgradeCategories, setUpgradeCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [upgrading, setUpgrading] = useState(false);
+  const [tokenBalance, setTokenBalance] = useState(0);
 
   // Debug: Log when open prop changes
   useEffect(() => {
@@ -31,6 +32,21 @@ export default function UpgradeDialog({ open, onClose }) {
       "UpgradeDialog - Dialog component will render with open=",
       open
     );
+  }, [open]);
+
+  // Fetch and update token balance
+  useEffect(() => {
+    if (open) {
+      const userStr = localStorage.getItem("user");
+      if (userStr) {
+        try {
+          const user = JSON.parse(userStr);
+          setTokenBalance(Number(user.token_balance || 0));
+        } catch (err) {
+          console.error("Error parsing user data:", err);
+        }
+      }
+    }
   }, [open]);
 
   // Fetch upgrade costs
@@ -55,6 +71,47 @@ export default function UpgradeDialog({ open, onClose }) {
     }
   };
 
+  // Handle category selection
+  const handleCategorySelect = (category) => {
+    const selectedCat = upgradeCategories.find(
+      (cat) => cat.category === category
+    );
+    const cost = selectedCat?.cost || 0;
+
+    // Check if balance is zero or insufficient
+    if (Number(tokenBalance) === 0 || Number(tokenBalance) < cost) {
+      // Close upgrade dialog first
+      onClose();
+
+      // Small delay to ensure dialog is closed before showing Swal
+      setTimeout(() => {
+        Swal.fire({
+          icon: "warning",
+          title: "Insufficient Tokens",
+          html: `<p>You need ${cost} tokens to upgrade to ${category}.</p><p>Your balance: ${Number(tokenBalance).toFixed(2)} tokens</p>`,
+          confirmButtonText: "Buy Tokens",
+          cancelButtonText: "Cancel",
+          showCancelButton: true,
+          confirmButtonColor: "#D4AF37",
+          didOpen: () => {
+            const swal = document.querySelector(".swal2-popup");
+            if (swal) {
+              swal.style.borderRadius = "20px";
+            }
+          },
+        }).then((result) => {
+          if (result.isConfirmed) {
+            navigate("/wallet");
+          }
+        });
+      }, 100);
+      return;
+    }
+
+    // If balance is sufficient, select the category
+    setSelectedCategory(category);
+  };
+
   // Handle upgrade submission
   const handleUpgrade = async () => {
     if (!selectedCategory) return;
@@ -66,6 +123,38 @@ export default function UpgradeDialog({ open, onClose }) {
         title: "Error",
         text: "Please log in to upgrade.",
       });
+      return;
+    }
+
+    // Check balance one more time before submitting
+    const selectedCat = upgradeCategories.find(
+      (cat) => cat.category === selectedCategory
+    );
+    const cost = selectedCat?.cost || 0;
+
+    if (Number(tokenBalance) === 0 || Number(tokenBalance) < cost) {
+      onClose();
+      setTimeout(() => {
+        Swal.fire({
+          icon: "warning",
+          title: "Insufficient Tokens",
+          html: `<p>You need ${cost} tokens to upgrade to ${selectedCategory}.</p><p>Your balance: ${Number(tokenBalance).toFixed(2)} tokens</p>`,
+          confirmButtonText: "Buy Tokens",
+          cancelButtonText: "Cancel",
+          showCancelButton: true,
+          confirmButtonColor: "#D4AF37",
+          didOpen: () => {
+            const swal = document.querySelector(".swal2-popup");
+            if (swal) {
+              swal.style.borderRadius = "20px";
+            }
+          },
+        }).then((result) => {
+          if (result.isConfirmed) {
+            navigate("/wallet");
+          }
+        });
+      }, 100);
       return;
     }
 
@@ -87,17 +176,48 @@ export default function UpgradeDialog({ open, onClose }) {
           title: "Upgrade Successful!",
           text: "You have been upgraded to premium and automatically verified.",
           confirmButtonColor: "#D4AF37",
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          didOpen: () => {
+            // Ensure overlay has proper background
+            const swal = document.querySelector(".swal2-container");
+            if (swal) {
+              swal.style.backgroundColor = "rgba(0, 0, 0, 0.4)";
+            }
+          },
+          willClose: () => {
+            // Ensure smooth transition before reload
+            const swal = document.querySelector(".swal2-container");
+            if (swal) {
+              swal.style.transition = "opacity 0.2s ease-out";
+            }
+          },
         }).then(() => {
-          // Update local storage
-          const userStr = localStorage.getItem("user");
-          if (userStr) {
-            const user = JSON.parse(userStr);
-            user.category = selectedCategory;
-            user.isVerified = true;
-            localStorage.setItem("user", JSON.stringify(user));
+          // Update local storage with full updated user data from API
+          if (data.data && data.data.user) {
+            // Use the complete user object from the API response
+            const updatedUser = {
+              ...data.data.user,
+              token_balance: data.data.remainingBalance || data.data.user.token_balance,
+            };
+            localStorage.setItem("user", JSON.stringify(updatedUser));
+          } else {
+            // Fallback: manually update if API doesn't return user
+            const userStr = localStorage.getItem("user");
+            if (userStr) {
+              const user = JSON.parse(userStr);
+              user.category = selectedCategory;
+              user.isVerified = true;
+              if (data.data && data.data.remainingBalance !== undefined) {
+                user.token_balance = data.data.remainingBalance;
+              }
+              localStorage.setItem("user", JSON.stringify(user));
+            }
           }
-          // Reload page to refresh user state
-          window.location.reload();
+          // Small delay to ensure smooth transition before reload
+          setTimeout(() => {
+            window.location.reload();
+          }, 100);
         });
       } else {
         Swal.fire({
@@ -135,11 +255,35 @@ export default function UpgradeDialog({ open, onClose }) {
       disableEscapeKeyDown={false}
     >
       <DialogTitle>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <Star sx={{ color: "#D4AF37" }} />
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Upgrade to Premium
-          </Typography>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Star sx={{ color: "#D4AF37" }} />
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              Upgrade to Premium
+            </Typography>
+          </Box>
+          <Box
+            sx={{
+              mt: 1,
+              p: 1.5,
+              bgcolor: "rgba(212, 175, 55, 0.1)",
+              borderRadius: 1,
+              border: "1px solid rgba(212, 175, 55, 0.3)",
+            }}
+          >
+            <Typography variant="body2" sx={{ color: "text.secondary", mb: 0.5 }}>
+              Current Balance
+            </Typography>
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: 700,
+                color: "#D4AF37",
+              }}
+            >
+              {Number(tokenBalance).toFixed(2)} tokens
+            </Typography>
+          </Box>
         </Box>
       </DialogTitle>
       <DialogContent>
@@ -178,7 +322,7 @@ export default function UpgradeDialog({ open, onClose }) {
             {upgradeCategories.map((cat) => (
               <Card
                 key={cat.category}
-                onClick={() => setSelectedCategory(cat.category)}
+                onClick={() => handleCategorySelect(cat.category)}
                 sx={{
                   cursor: "pointer",
                   border:

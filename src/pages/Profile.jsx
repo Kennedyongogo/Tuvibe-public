@@ -109,10 +109,54 @@ export default function Profile({ user, setUser }) {
       setGalleryPhotos([]);
       // Reset photo index when photos change
       setCurrentPhotoIndex(0);
-      // Reset scrolling flag
-      isScrollingRef.current = false;
     }
   }, [user, isEditing]);
+
+  // Sync scroll position and validate photo index when photos change
+  useEffect(() => {
+    // Calculate total photos
+    const existingCount =
+      user?.photos && Array.isArray(user.photos) ? user.photos.length : 0;
+    const totalPhotos = existingCount + galleryPhotos.length;
+
+    // Validate and reset currentPhotoIndex if out of bounds
+    if (totalPhotos === 0) {
+      setCurrentPhotoIndex(0);
+    } else if (currentPhotoIndex >= totalPhotos) {
+      setCurrentPhotoIndex(Math.max(0, totalPhotos - 1));
+    }
+
+    // Sync scroll position
+    if (!galleryScrollRef.current || isScrollingRef.current) return;
+    
+    // Small delay to ensure DOM is ready
+    const timeoutId = setTimeout(() => {
+      const container = galleryScrollRef.current;
+      if (!container) return;
+      
+      const containerWidth = container.clientWidth;
+      if (containerWidth === 0) return;
+
+      // Reset to first photo (index 0) when photos load
+      // Only do this if we're significantly off (meaning it's a fresh load)
+      const currentPosition = container.scrollLeft;
+      if (currentPosition > 50 && totalPhotos > 0) {
+        // Only reset if we're not already at the start
+        container.scrollLeft = 0;
+        setCurrentPhotoIndex(0);
+      }
+    }, 150);
+
+    return () => clearTimeout(timeoutId);
+  }, [user?.photos?.length, galleryPhotos.length, galleryPreviews.length]); // Watch for photo changes
+
+  // Debug: Log when user photos change
+  useEffect(() => {
+    console.log("=== USER PHOTOS CHANGED ===");
+    console.log("User photos:", user?.photos);
+    console.log("User photos length:", user?.photos?.length);
+    console.log("User photos array:", Array.isArray(user?.photos) ? user.photos : "Not an array");
+  }, [user?.photos]);
 
   // Calculate boost time remaining
   useEffect(() => {
@@ -142,10 +186,20 @@ export default function Profile({ user, setUser }) {
     return () => clearInterval(interval);
   }, [user?.is_featured_until]);
 
-  // Fetch verification status
+  // Fetch verification status (only for premium categories that might have pending requests)
   useEffect(() => {
     const fetchVerificationStatus = async () => {
       if (!user) return;
+
+      // Only check verification status for premium categories
+      const isPremiumCategory =
+        user?.category &&
+        ["Sugar Mummy", "Sponsor", "Ben 10"].includes(user.category);
+      
+      // If user is already verified or not premium, no need to check
+      if (!isPremiumCategory || user?.isVerified) {
+        return;
+      }
 
       const token = localStorage.getItem("token");
       if (!token) return;
@@ -157,12 +211,26 @@ export default function Profile({ user, setUser }) {
             "Content-Type": "application/json",
           },
         });
+        
+        // If endpoint doesn't exist (404), silently fail
+        if (response.status === 404) {
+          return;
+        }
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const data = await response.json();
         if (data.success && data.data) {
           setVerificationStatus(data.data.status);
         }
       } catch (err) {
-        console.error("Failed to fetch verification status:", err);
+        // Silently handle 404 errors (endpoint doesn't exist)
+        // Only log other errors
+        if (!err.message || (!err.message.includes("404") && !err.message.includes("Not Found"))) {
+          console.error("Failed to fetch verification status:", err);
+        }
       }
     };
 
@@ -839,17 +907,146 @@ export default function Profile({ user, setUser }) {
     }
   };
 
-  const handleRemoveGalleryPhoto = (index) => {
-    // Only remove new photos (File objects), not existing ones
+  const handleRemoveGalleryPhoto = async (index) => {
+    console.log("=== DELETE PHOTO DEBUG START ===");
+    console.log("Delete index:", index);
+    
     const existingCount =
       user?.photos && Array.isArray(user.photos) ? user.photos.length : 0;
     const newPhotoIndex = index - existingCount;
-    if (newPhotoIndex >= 0) {
-      setGalleryPhotos((prev) => prev.filter((_, i) => i !== newPhotoIndex));
-      setGalleryPreviews((prev) => prev.filter((_, i) => i !== newPhotoIndex));
-      // Adjust photo index if needed
-      if (currentPhotoIndex >= index) {
-        setCurrentPhotoIndex(Math.max(0, currentPhotoIndex - 1));
+    
+    console.log("Existing photos count:", existingCount);
+    console.log("Current user photos:", user?.photos);
+    console.log("Is existing photo?", index < existingCount);
+
+    // If it's an existing photo (index < existingCount), delete from server
+    if (index < existingCount) {
+      const result = await Swal.fire({
+        icon: "warning",
+        title: "Delete Photo?",
+        text: "Are you sure you want to delete this photo?",
+        showCancelButton: true,
+        confirmButtonText: "Delete",
+        cancelButtonText: "Cancel",
+        confirmButtonColor: "#d33",
+        cancelButtonColor: "#D4AF37",
+      });
+
+      if (!result.isConfirmed) {
+        console.log("User cancelled deletion");
+        return;
+      }
+
+      const token = localStorage.getItem("token");
+      try {
+        setLoadingPosts(true); // Reuse loading state
+        console.log("Calling DELETE API:", `/api/public/me/photos/${index}`);
+        
+        const response = await fetch(`/api/public/me/photos/${index}`, {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        console.log("Delete API response status:", response.status);
+        const data = await response.json();
+        console.log("Delete API response data:", data);
+
+        if (data.success) {
+          console.log("Delete API succeeded");
+          console.log("Delete response data:", data);
+          
+          // Use the updated user data from the delete response if available
+          let updatedUserData = data.data?.user;
+          
+          if (!updatedUserData) {
+            console.log("No user data in response, fetching fresh data...");
+            // Fallback: Refresh user data if not included in response
+            const userResponse = await fetch("/api/public/me", {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            
+            console.log("User refresh response status:", userResponse.status);
+            const userData = await userResponse.json();
+            console.log("User refresh response data:", userData);
+            
+            if (userData.success) {
+              updatedUserData = userData.data;
+            } else {
+              console.error("Failed to refresh user data:", userData);
+              throw new Error("Failed to get updated user data");
+            }
+          }
+          
+          console.log("Updated photos array:", updatedUserData?.photos);
+          console.log("Updated photos count:", updatedUserData?.photos?.length);
+          
+          // Update localStorage
+          localStorage.setItem("user", JSON.stringify(updatedUserData));
+          setUser(updatedUserData);
+          console.log("User state updated with new photos:", updatedUserData.photos);
+          
+          // Calculate new total photos count
+          const newExistingCount = updatedUserData?.photos && Array.isArray(updatedUserData.photos)
+            ? updatedUserData.photos.length
+            : 0;
+          const newTotalPhotos = newExistingCount + galleryPhotos.length;
+          
+          console.log("New existing count:", newExistingCount);
+          console.log("New total photos:", newTotalPhotos);
+          console.log("Current photo index before adjustment:", currentPhotoIndex);
+          
+          // Reset current photo index to ensure it's valid
+          if (newTotalPhotos === 0) {
+            setCurrentPhotoIndex(0);
+            console.log("No photos left, reset index to 0");
+          } else if (currentPhotoIndex >= newTotalPhotos) {
+            // If current index is out of bounds, set to last photo
+            setCurrentPhotoIndex(newTotalPhotos - 1);
+            console.log("Index out of bounds, set to:", newTotalPhotos - 1);
+          } else if (currentPhotoIndex >= index) {
+            // If we deleted a photo before or at current position, adjust index
+            setCurrentPhotoIndex(Math.max(0, currentPhotoIndex - 1));
+            console.log("Adjusted index to:", Math.max(0, currentPhotoIndex - 1));
+          }
+
+          console.log("=== DELETE PHOTO DEBUG END - SUCCESS ===");
+          Swal.fire({
+            icon: "success",
+            title: "Deleted!",
+            text: "Photo has been deleted",
+            timer: 1500,
+            showConfirmButton: false,
+            confirmButtonColor: "#D4AF37",
+          });
+        } else {
+          console.error("Delete API failed:", data);
+          console.log("=== DELETE PHOTO DEBUG END - API FAILED ===");
+          throw new Error(data.message || "Failed to delete photo");
+        }
+      } catch (err) {
+        console.error("Delete photo error:", err);
+        console.log("=== DELETE PHOTO DEBUG END - ERROR ===");
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: err.message || "Failed to delete photo",
+          confirmButtonColor: "#D4AF37",
+        });
+      } finally {
+        setLoadingPosts(false);
+      }
+    } else {
+      // It's a new photo (File object), remove from local state
+      if (newPhotoIndex >= 0) {
+        setGalleryPhotos((prev) => prev.filter((_, i) => i !== newPhotoIndex));
+        setGalleryPreviews((prev) => prev.filter((_, i) => i !== newPhotoIndex));
+        // Adjust photo index if needed
+        if (currentPhotoIndex >= index) {
+          setCurrentPhotoIndex(Math.max(0, currentPhotoIndex - 1));
+        }
       }
     }
   };
@@ -1729,8 +1926,13 @@ export default function Profile({ user, setUser }) {
 
                   // Debounce scroll updates
                   scrollTimeoutRef.current = setTimeout(() => {
+                    // Double-check scrolling flag
+                    if (isScrollingRef.current) return;
+                    
                     const container = e.target;
                     const containerWidth = container.clientWidth;
+                    if (containerWidth === 0) return;
+                    
                     const scrollLeft = container.scrollLeft;
 
                     // Find which photo is most visible/centered
@@ -1769,15 +1971,30 @@ export default function Profile({ user, setUser }) {
                       Math.min(closestIndex, totalPhotos - 1)
                     );
 
-                    // Update index if it changed
+                    // Update index if it changed - but only if it's a significant change
+                    // This prevents micro-adjustments that cause flickering
                     if (
                       closestIndex !== currentPhotoIndex &&
                       closestIndex >= 0 &&
-                      closestIndex < totalPhotos
+                      closestIndex < totalPhotos &&
+                      Math.abs(closestIndex - currentPhotoIndex) >= 1 // Only update if moving to a different photo
                     ) {
                       setCurrentPhotoIndex(closestIndex);
                     }
-                  }, 100);
+                  }, 150); // Slightly longer debounce to allow scroll to settle
+                };
+
+                // Arrow navigation handlers
+                const handlePreviousPhoto = () => {
+                  if (currentPhotoIndex > 0) {
+                    scrollToPhoto(currentPhotoIndex - 1);
+                  }
+                };
+
+                const handleNextPhoto = () => {
+                  if (currentPhotoIndex < totalPhotos - 1) {
+                    scrollToPhoto(currentPhotoIndex + 1);
+                  }
                 };
 
                 return (
@@ -1790,85 +2007,46 @@ export default function Profile({ user, setUser }) {
                         borderRadius: "12px",
                         overflow: "hidden",
                         aspectRatio: "1",
+                        maxHeight: { xs: "300px", sm: "400px", md: "500px" },
                         bgcolor: "rgba(212, 175, 55, 0.1)",
                       }}
                     >
-                      {/* Left Arrow - Only show in edit mode */}
-                      {isEditing &&
-                        totalPhotos > 1 &&
-                        currentPhotoIndex > 0 && (
-                          <IconButton
-                            onClick={() => scrollToPhoto(currentPhotoIndex - 1)}
-                            sx={{
-                              position: "absolute",
-                              left: 8,
-                              top: "50%",
-                              transform: "translateY(-50%)",
-                              zIndex: 3,
-                              bgcolor: "rgba(255, 255, 255, 0.9)",
-                              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
-                              "&:hover": {
-                                bgcolor: "rgba(255, 255, 255, 1)",
-                              },
-                            }}
-                            size="small"
-                          >
-                            <ChevronLeft />
-                          </IconButton>
-                        )}
-
-                      {/* Right Arrow - Only show in edit mode */}
-                      {isEditing &&
-                        totalPhotos > 1 &&
-                        currentPhotoIndex < totalPhotos - 1 && (
-                          <IconButton
-                            onClick={() => scrollToPhoto(currentPhotoIndex + 1)}
-                            sx={{
-                              position: "absolute",
-                              right: 8,
-                              top: "50%",
-                              transform: "translateY(-50%)",
-                              zIndex: 3,
-                              bgcolor: "rgba(255, 255, 255, 0.9)",
-                              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
-                              "&:hover": {
-                                bgcolor: "rgba(255, 255, 255, 1)",
-                              },
-                            }}
-                            size="small"
-                          >
-                            <ChevronRight />
-                          </IconButton>
-                        )}
-
-                      {/* Scrollable Container - Only one photo visible at a time */}
+                      {/* Scrollable Container - All photos rendered horizontally with scrollbar */}
                       <Box
                         ref={galleryScrollRef}
                         onScroll={handleScroll}
                         sx={{
                           display: "flex",
-                          gap: 0,
+                          gap: 1,
                           overflowX: "auto",
                           overflowY: "hidden",
-                          scrollSnapType: "x mandatory",
-                          scrollBehavior: "smooth",
                           width: "100%",
                           height: "100%",
-                          cursor: totalPhotos > 1 ? "grab" : "default",
-                          touchAction: "pan-x",
-                          WebkitOverflowScrolling: "touch",
-                          scrollSnapStop: "always",
-                          "&:active": {
-                            cursor: totalPhotos > 1 ? "grabbing" : "default",
-                          },
+                          position: "relative",
+                          scrollBehavior: "smooth",
+                          // Show scrollbar in both edit and view modes
                           "&::-webkit-scrollbar": {
-                            display: "none",
+                            display: "block",
+                            height: "8px",
                           },
-                          scrollbarWidth: "none",
-                          msOverflowStyle: "none",
+                          "&::-webkit-scrollbar-track": {
+                            background: "rgba(212, 175, 55, 0.1)",
+                            borderRadius: "4px",
+                          },
+                          "&::-webkit-scrollbar-thumb": {
+                            background: "rgba(212, 175, 55, 0.5)",
+                            borderRadius: "4px",
+                            "&:hover": {
+                              background: "rgba(212, 175, 55, 0.7)",
+                            },
+                          },
+                          scrollbarWidth: "thin",
+                          scrollbarColor: "rgba(212, 175, 55, 0.5) rgba(212, 175, 55, 0.1)",
+                          msOverflowStyle: "auto",
                         }}
                       >
                         {allPhotos.map((item, idx) => {
+                          // Render all photos
                           const existingCount =
                             user?.photos && Array.isArray(user.photos)
                               ? user.photos.length
@@ -1880,16 +2058,22 @@ export default function Profile({ user, setUser }) {
 
                           return (
                             <Box
-                              key={`photo-${item.type}-${item.index}`}
+                              key={
+                                item.type === "existing"
+                                  ? `photo-existing-${item.photo.path}-${item.index}`
+                                  : `photo-preview-${item.index}`
+                              }
                               sx={{
                                 position: "relative",
                                 flexShrink: 0,
-                                width: "100%",
+                                // Square photos matching container height, arranged horizontally
+                                width: "auto",
                                 height: "100%",
-                                minWidth: "100%",
+                                minWidth: "auto",
+                                maxWidth: "none",
+                                aspectRatio: "1",
                                 overflow: "hidden",
-                                scrollSnapAlign: "start",
-                                scrollSnapStop: "always",
+                                borderRadius: "8px",
                               }}
                             >
                               {item.type === "existing" ? (
@@ -1913,6 +2097,29 @@ export default function Profile({ user, setUser }) {
                                           : 1,
                                     }}
                                   />
+                                  {isEditing && (
+                                    <IconButton
+                                      onClick={() =>
+                                        handleRemoveGalleryPhoto(item.index)
+                                      }
+                                      sx={{
+                                        position: "absolute",
+                                        top: 8,
+                                        left: 8,
+                                        bgcolor: "rgba(244, 67, 54, 0.9)",
+                                        color: "#fff",
+                                        zIndex: 2,
+                                        "&:hover": {
+                                          bgcolor: "rgba(198, 40, 40, 0.9)",
+                                        },
+                                        width: 32,
+                                        height: 32,
+                                      }}
+                                      size="small"
+                                    >
+                                      <Delete sx={{ fontSize: "1rem" }} />
+                                    </IconButton>
+                                  )}
                                   {item.photo.moderation_status ===
                                     "pending" && (
                                     <Box
@@ -1976,7 +2183,7 @@ export default function Profile({ user, setUser }) {
                                       sx={{
                                         position: "absolute",
                                         top: 8,
-                                        right: 8,
+                                        left: 8,
                                         bgcolor: "rgba(244, 67, 54, 0.9)",
                                         color: "#fff",
                                         zIndex: 2,
@@ -1994,8 +2201,8 @@ export default function Profile({ user, setUser }) {
                                   <Box
                                     sx={{
                                       position: "absolute",
-                                      bottom: 8,
-                                      left: 8,
+                                      top: 8,
+                                      left: isEditing ? 48 : 8, // Position next to delete button if editing
                                       bgcolor: "rgba(255, 193, 7, 0.9)",
                                       borderRadius: "4px",
                                       px: 1,
@@ -2024,59 +2231,7 @@ export default function Profile({ user, setUser }) {
                         })}
                       </Box>
 
-                      {/* Dot Indicators - Floating on top of photo */}
-                      {totalPhotos > 1 && (
-                        <Box
-                          sx={{
-                            position: "absolute",
-                            bottom: 16,
-                            left: "50%",
-                            transform: "translateX(-50%)",
-                            display: "flex",
-                            justifyContent: "center",
-                            gap: 1,
-                            zIndex: 2,
-                            bgcolor: "rgba(0, 0, 0, 0.3)",
-                            backdropFilter: "blur(4px)",
-                            borderRadius: "20px",
-                            px: 1.5,
-                            py: 0.75,
-                          }}
-                        >
-                          {allPhotos.map((_, idx) => (
-                            <Box
-                              key={`dot-${idx}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                scrollToPhoto(idx);
-                              }}
-                              sx={{
-                                width: currentPhotoIndex === idx ? 24 : 8,
-                                height: 8,
-                                borderRadius: 4,
-                                bgcolor:
-                                  currentPhotoIndex === idx
-                                    ? "#D4AF37"
-                                    : "rgba(255, 255, 255, 0.5)",
-                                cursor: "pointer",
-                                transition: "all 0.3s ease",
-                                pointerEvents: "auto",
-                                "&:hover": {
-                                  bgcolor:
-                                    currentPhotoIndex === idx
-                                      ? "#B8941F"
-                                      : "rgba(255, 255, 255, 0.8)",
-                                  transform: "scale(1.2)",
-                                },
-                                "&:active": {
-                                  transform: "scale(0.95)",
-                                },
-                              }}
-                              title={`Go to photo ${idx + 1}`}
-                            />
-                          ))}
-                        </Box>
-                      )}
+
                     </Box>
                   </>
                 );
@@ -2088,6 +2243,15 @@ export default function Profile({ user, setUser }) {
                 textAlign: "center",
                 py: 4,
                 color: "rgba(26, 26, 26, 0.5)",
+                minHeight: { xs: "300px", sm: "400px", md: "500px" },
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+                alignItems: "center",
+                aspectRatio: "1",
+                maxHeight: { xs: "300px", sm: "400px", md: "500px" },
+                borderRadius: "12px",
+                bgcolor: "rgba(212, 175, 55, 0.05)",
               }}
             >
               <PhotoCamera sx={{ fontSize: 48, mb: 1, opacity: 0.3 }} />

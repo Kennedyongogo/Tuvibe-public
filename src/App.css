@@ -3,6 +3,22 @@
   margin: 0;
   width: 100%;
   padding: 0;
+  background-color: #FAFAFA;
+  min-height: 100vh;
+}
+
+/* Prevent black flash when SweetAlert closes */
+.swal2-container {
+  background-color: rgba(0, 0, 0, 0.4) !important;
+}
+
+.swal2-container.swal2-backdrop-show {
+  background-color: rgba(0, 0, 0, 0.4) !important;
+}
+
+.swal2-container.swal2-backdrop-hide {
+  background-color: transparent !important;
+  transition: background-color 0.1s ease-out !important;
 }
 
 /* Force transparent header */

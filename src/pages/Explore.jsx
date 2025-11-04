@@ -57,6 +57,7 @@ export default function Explore({ user }) {
   const [totalUsers, setTotalUsers] = useState(0);
   const [viewProfileOpen, setViewProfileOpen] = useState(false);
   const [viewingUserId, setViewingUserId] = useState(null);
+  const [currentImageIndex, setCurrentImageIndex] = useState({}); // Track current image index for each user
 
   // Filters
   const [filters, setFilters] = useState({
@@ -77,6 +78,24 @@ export default function Explore({ user }) {
     if (imageUrl.startsWith("/uploads/")) return imageUrl;
     if (imageUrl.startsWith("profiles/")) return `/uploads/${imageUrl}`;
     return imageUrl;
+  };
+
+  // Get all images for a user (main photo + photos array)
+  const getAllImages = (userData) => {
+    const images = [];
+    // Add main photo if it exists (API already filters unapproved photos)
+    if (userData.photo) {
+      images.push(buildImageUrl(userData.photo));
+    }
+    // Add photos from array if they exist (API already filters to approved only)
+    if (userData.photos && Array.isArray(userData.photos)) {
+      userData.photos.forEach((photo) => {
+        if (photo.path) {
+          images.push(buildImageUrl(photo.path));
+        }
+      });
+    }
+    return images;
   };
 
   const fetchUsers = async () => {
@@ -198,6 +217,51 @@ export default function Explore({ user }) {
     }
   }, [page, filters, nearbyEnabled, radius]);
 
+  // Auto-transition images for each user
+  useEffect(() => {
+    if (users.length === 0) return;
+
+    const intervals = {};
+    // Reset all image indices when users change
+    const newIndices = {};
+
+    users.forEach((userData) => {
+      const images = getAllImages(userData);
+      const userId = userData.id;
+      
+      // Preload all images for smooth transitions
+      images.forEach((imageSrc) => {
+        const img = new Image();
+        img.src = imageSrc;
+      });
+
+      // Always reset to 0 for new users
+      newIndices[userId] = 0;
+
+      if (images.length > 1) {
+        const imageCount = images.length;
+
+        // Set up interval for this user
+        intervals[userId] = setInterval(() => {
+          setCurrentImageIndex((prev) => {
+            const currentIdx = prev[userId] || 0;
+            const nextIdx = (currentIdx + 1) % imageCount;
+            return { ...prev, [userId]: nextIdx };
+          });
+        }, 3000); // Change image every 3 seconds
+      }
+    });
+
+    // Set all indices to 0
+    setCurrentImageIndex(newIndices);
+
+    // Cleanup intervals on unmount or when users change
+    return () => {
+      Object.values(intervals).forEach((interval) => clearInterval(interval));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [users]);
+
   const handlePageChange = (event, value) => {
     setPage(value);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -318,60 +382,122 @@ export default function Explore({ user }) {
         };
         localStorage.setItem("user", JSON.stringify(updatedUser));
 
-        // Show success dialog with phone number and WhatsApp link
-        Swal.fire({
-          icon: "success",
-          title: "Contact Unlocked!",
-          html: `
-            <div style="text-align: center;">
-              <p style="margin-bottom: 12px; font-size: 1rem;">You can now chat with <strong>${targetUserName}</strong> via WhatsApp</p>
-              <p style="margin-bottom: 8px; color: rgba(26, 26, 26, 0.7); font-size: 0.9rem;">Phone Number:</p>
-              <p style="margin-bottom: 16px; font-size: 1.1rem; font-weight: 600; color: #D4AF37;">${unlockData.data.phone}</p>
-              <p style="margin-bottom: 0; font-size: 0.85rem; color: rgba(26, 26, 26, 0.6);">
-                ${
-                  /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent)
-                    ? "Opening WhatsApp app..."
-                    : "Opening WhatsApp Web..."
-                }
-              </p>
-            </div>
-          `,
-          showConfirmButton: true,
-          confirmButtonText: "Open WhatsApp",
-          showCancelButton: true,
-          cancelButtonText: "Copy Number",
-          confirmButtonColor: "#D4AF37",
-          cancelButtonColor: "rgba(26, 26, 26, 0.3)",
-          didOpen: () => {
-            const swal = document.querySelector(".swal2-popup");
-            if (swal) {
-              swal.style.borderRadius = "20px";
+        // Check if current user is premium and target user is premium
+        const premiumCategories = ["Sugar Mummy", "Sponsor", "Ben 10"];
+        const isCurrentUserPremium = user?.category && premiumCategories.includes(user.category) && user?.isVerified;
+        
+        // Find the target user in the users list to check if they're premium
+        const targetUserData = users.find(u => u.id === targetUserId);
+        const isTargetUserPremium = targetUserData?.category && premiumCategories.includes(targetUserData.category) && targetUserData?.isVerified;
+
+        // If both are premium users, redirect to Premium Lounge
+        if (isCurrentUserPremium && isTargetUserPremium) {
+          Swal.fire({
+            icon: "success",
+            title: "Contact Unlocked!",
+            html: `
+              <div style="text-align: center;">
+                <p style="margin-bottom: 12px; font-size: 1rem;">You can now chat with <strong>${targetUserName}</strong> via WhatsApp</p>
+                <p style="margin-bottom: 8px; color: rgba(26, 26, 26, 0.7); font-size: 0.9rem;">Phone Number:</p>
+                <p style="margin-bottom: 16px; font-size: 1.1rem; font-weight: 600; color: #D4AF37;">${unlockData.data.phone}</p>
+                <p style="margin-bottom: 12px; font-size: 0.9rem; color: rgba(26, 26, 26, 0.7);">Redirecting to Premium Lounge...</p>
+              </div>
+            `,
+            showConfirmButton: true,
+            confirmButtonText: "Go to Premium Lounge",
+            showCancelButton: true,
+            cancelButtonText: "Open WhatsApp",
+            confirmButtonColor: "#D4AF37",
+            cancelButtonColor: "rgba(26, 26, 26, 0.3)",
+            didOpen: () => {
+              const swal = document.querySelector(".swal2-popup");
+              if (swal) {
+                swal.style.borderRadius = "20px";
+              }
+              const container = document.querySelector(".swal2-container");
+              if (container) {
+                container.style.backgroundColor = "rgba(0, 0, 0, 0.4)";
+              }
+            },
+            willClose: () => {
+              // Ensure smooth transition
+              const container = document.querySelector(".swal2-container");
+              if (container) {
+                container.style.transition = "opacity 0.15s ease-out";
+              }
+            },
+          }).then((result) => {
+            if (result.isConfirmed) {
+              // Small delay for smooth transition
+              setTimeout(() => {
+                navigate("/premium");
+              }, 50);
+            } else if (result.dismiss === Swal.DismissReason.cancel) {
+              // Open WhatsApp (app on mobile, web on desktop)
+              window.location.href = unlockData.data.whatsapp_link;
+            } else {
+              // User closed the dialog, still redirect to Premium Lounge
+              setTimeout(() => {
+                navigate("/premium");
+              }, 50);
             }
-          },
-        }).then((result) => {
-          if (result.isConfirmed) {
-            // Open WhatsApp (app on mobile, web on desktop)
-            window.location.href = unlockData.data.whatsapp_link;
-          } else if (result.dismiss === Swal.DismissReason.cancel) {
-            // Copy phone number to clipboard
-            navigator.clipboard.writeText(unlockData.data.phone).then(() => {
-              Swal.fire({
-                icon: "success",
-                title: "Copied!",
-                text: "Phone number copied to clipboard",
-                timer: 1500,
-                showConfirmButton: false,
-                confirmButtonColor: "#D4AF37",
-                didOpen: () => {
-                  const swal = document.querySelector(".swal2-popup");
-                  if (swal) {
-                    swal.style.borderRadius = "20px";
+          });
+        } else {
+          // Show success dialog with phone number and WhatsApp link (original behavior)
+          Swal.fire({
+            icon: "success",
+            title: "Contact Unlocked!",
+            html: `
+              <div style="text-align: center;">
+                <p style="margin-bottom: 12px; font-size: 1rem;">You can now chat with <strong>${targetUserName}</strong> via WhatsApp</p>
+                <p style="margin-bottom: 8px; color: rgba(26, 26, 26, 0.7); font-size: 0.9rem;">Phone Number:</p>
+                <p style="margin-bottom: 16px; font-size: 1.1rem; font-weight: 600; color: #D4AF37;">${unlockData.data.phone}</p>
+                <p style="margin-bottom: 0; font-size: 0.85rem; color: rgba(26, 26, 26, 0.6);">
+                  ${
+                    /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent)
+                      ? "Opening WhatsApp app..."
+                      : "Opening WhatsApp Web..."
                   }
-                },
+                </p>
+              </div>
+            `,
+            showConfirmButton: true,
+            confirmButtonText: "Open WhatsApp",
+            showCancelButton: true,
+            cancelButtonText: "Copy Number",
+            confirmButtonColor: "#D4AF37",
+            cancelButtonColor: "rgba(26, 26, 26, 0.3)",
+            didOpen: () => {
+              const swal = document.querySelector(".swal2-popup");
+              if (swal) {
+                swal.style.borderRadius = "20px";
+              }
+            },
+          }).then((result) => {
+            if (result.isConfirmed) {
+              // Open WhatsApp (app on mobile, web on desktop)
+              window.location.href = unlockData.data.whatsapp_link;
+            } else if (result.dismiss === Swal.DismissReason.cancel) {
+              // Copy phone number to clipboard
+              navigator.clipboard.writeText(unlockData.data.phone).then(() => {
+                Swal.fire({
+                  icon: "success",
+                  title: "Copied!",
+                  text: "Phone number copied to clipboard",
+                  timer: 1500,
+                  showConfirmButton: false,
+                  confirmButtonColor: "#D4AF37",
+                  didOpen: () => {
+                    const swal = document.querySelector(".swal2-popup");
+                    if (swal) {
+                      swal.style.borderRadius = "20px";
+                    }
+                  },
+                });
               });
-            });
-          }
-        });
+            }
+          });
+        }
       }
     } catch (error) {
       console.error("Unlock error:", error);
@@ -466,6 +592,16 @@ export default function Explore({ user }) {
       default:
         return "rgba(212, 175, 55, 0.15)";
     }
+  };
+
+  // Check if a user is premium (has premium category and is verified)
+  const isPremiumUser = (userData) => {
+    const premiumCategories = ["Sugar Mummy", "Sponsor", "Ben 10"];
+    return (
+      userData?.category &&
+      premiumCategories.includes(userData.category) &&
+      userData?.isVerified
+    );
   };
 
   return (
@@ -865,43 +1001,63 @@ export default function Explore({ user }) {
                         overflow: "hidden",
                       }}
                     >
-                      {userData.photo ? (
-                        <Box
-                          component="img"
-                          src={buildImageUrl(userData.photo)}
-                          alt={userData.name}
-                          sx={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                          }}
-                          onError={(e) => {
-                            e.target.style.display = "none";
-                          }}
-                        />
-                      ) : (
-                        <Box
-                          sx={{
-                            width: "100%",
-                            height: "100%",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                        >
-                          <Avatar
-                            sx={{
-                              width: { xs: "120px", sm: "150px", md: "120px" },
-                              height: { xs: "120px", sm: "150px", md: "120px" },
-                              bgcolor: "#D4AF37",
-                              fontSize: { xs: "3rem", sm: "4rem", md: "3rem" },
-                              fontWeight: 700,
-                            }}
-                          >
-                            {userData.name?.charAt(0)?.toUpperCase() || "U"}
-                          </Avatar>
-                        </Box>
-                      )}
+                      {(() => {
+                        const images = getAllImages(userData);
+                        const currentIdx = currentImageIndex[userData.id] || 0;
+
+                        if (images.length > 0) {
+                          return (
+                            <>
+                              {images.map((image, index) => (
+                                <Box
+                                  key={`${userData.id}-img-${index}`}
+                                  component="img"
+                                  src={image}
+                                  alt={userData.name}
+                                  sx={{
+                                    position: "absolute",
+                                    top: 0,
+                                    left: 0,
+                                    width: "100%",
+                                    height: "100%",
+                                    objectFit: "cover",
+                                    opacity: currentIdx === index ? 1 : 0,
+                                    transition: "opacity 1.5s ease-in-out",
+                                    zIndex: currentIdx === index ? 1 : 0,
+                                  }}
+                                  onError={(e) => {
+                                    e.target.style.display = "none";
+                                  }}
+                                />
+                              ))}
+                            </>
+                          );
+                        } else {
+                          return (
+                            <Box
+                              sx={{
+                                width: "100%",
+                                height: "100%",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <Avatar
+                                sx={{
+                                  width: { xs: "120px", sm: "150px", md: "120px" },
+                                  height: { xs: "120px", sm: "150px", md: "120px" },
+                                  bgcolor: "#D4AF37",
+                                  fontSize: { xs: "3rem", sm: "4rem", md: "3rem" },
+                                  fontWeight: 700,
+                                }}
+                              >
+                                {userData.name?.charAt(0)?.toUpperCase() || "U"}
+                              </Avatar>
+                            </Box>
+                          );
+                        }
+                      })()}
                     </Box>
 
                     {/* Favorite Button */}
@@ -1232,9 +1388,14 @@ export default function Explore({ user }) {
                               <Chat />
                             )
                           }
-                          onClick={() =>
-                            handleWhatsAppUnlock(userData.id, userData.name)
-                          }
+                          onClick={() => {
+                            // If both users are premium, navigate directly to Premium Lounge
+                            if (isPremiumUser(user) && isPremiumUser(userData)) {
+                              navigate("/premium");
+                            } else {
+                              handleWhatsAppUnlock(userData.id, userData.name);
+                            }
+                          }}
                           disabled={unlocking[userData.id]}
                           sx={{
                             background:
@@ -1254,7 +1415,9 @@ export default function Explore({ user }) {
                             },
                           }}
                         >
-                          Chat
+                          {isPremiumUser(user) && isPremiumUser(userData)
+                            ? "Chat with me in Premium Lounge"
+                            : "Chat"}
                         </Button>
                       </Tooltip>
                     </Stack>
