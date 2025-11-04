@@ -12,8 +12,9 @@ import {
   Chip,
   Stack,
   CircularProgress,
+  Alert,
 } from "@mui/material";
-import { Star } from "@mui/icons-material";
+import { Star, Info } from "@mui/icons-material";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
 
@@ -142,6 +143,27 @@ export default function UpgradeDialog({ open, onClose }) {
         </Box>
       </DialogTitle>
       <DialogContent>
+        <Alert
+          icon={<Info />}
+          severity="info"
+          sx={{
+            mb: 3,
+            backgroundColor: "rgba(212, 175, 55, 0.1)",
+            border: "1px solid rgba(212, 175, 55, 0.3)",
+            "& .MuiAlert-icon": {
+              color: "#D4AF37",
+            },
+          }}
+        >
+          <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+            Premium Lounge Access Required
+          </Typography>
+          <Typography variant="body2">
+            Only premium users can access Premium Lounge. Upgrade to a premium
+            category to unlock premium features and connect with verified
+            premium users.
+          </Typography>
+        </Alert>
         <Typography variant="body2" sx={{ mb: 3, color: "text.secondary" }}>
           Choose a premium category to upgrade. You will be automatically
           verified upon upgrade.

@@ -70,7 +70,10 @@ export default function Wallet({ user, setUser }) {
 
       if (balanceData.success) {
         setBalance(balanceData.data.balance);
-        const updatedUser = { ...user, token_balance: balanceData.data.balance };
+        const updatedUser = {
+          ...user,
+          token_balance: balanceData.data.balance,
+        };
         localStorage.setItem("user", JSON.stringify(updatedUser));
         if (setUser) setUser(updatedUser);
       }
@@ -188,9 +191,12 @@ export default function Wallet({ user, setUser }) {
   const handleRowClick = async (transactionId) => {
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch(`/api/tokens/transactions/${transactionId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await fetch(
+        `/api/tokens/transactions/${transactionId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       const data = await response.json();
       if (data.success) {
         setSelectedTransaction(data.data);
@@ -225,11 +231,11 @@ export default function Wallet({ user, setUser }) {
         >
           Token Wallet
         </Typography>
-        <Typography 
-          variant="body1" 
-          sx={{ 
+        <Typography
+          variant="body1"
+          sx={{
             color: "rgba(26, 26, 26, 0.7)",
-            fontSize: { xs: "0.875rem", sm: "1rem" }
+            fontSize: { xs: "0.875rem", sm: "1rem" },
           }}
         >
           Manage your tokens and view transaction history
@@ -285,15 +291,17 @@ export default function Wallet({ user, setUser }) {
               flexShrink: 0,
             }}
           >
-            <AccountBalanceWallet sx={{ fontSize: { xs: 30, sm: 35, md: 40 }, color: "#1a1a1a" }} />
+            <AccountBalanceWallet
+              sx={{ fontSize: { xs: 30, sm: 35, md: 40 }, color: "#1a1a1a" }}
+            />
           </Box>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography
               variant="body2"
-              sx={{ 
-                color: "rgba(26, 26, 26, 0.7)", 
+              sx={{
+                color: "rgba(26, 26, 26, 0.7)",
                 mb: 1,
-                fontSize: { xs: "0.75rem", sm: "0.875rem" }
+                fontSize: { xs: "0.75rem", sm: "0.875rem" },
               }}
             >
               Current Balance
@@ -316,12 +324,12 @@ export default function Wallet({ user, setUser }) {
                 {Number(balance || 0).toFixed(2)} Tokens
               </Typography>
             )}
-            <Typography 
-              variant="body2" 
-              sx={{ 
-                color: "rgba(26, 26, 26, 0.6)", 
+            <Typography
+              variant="body2"
+              sx={{
+                color: "rgba(26, 26, 26, 0.6)",
                 mt: 0.5,
-                fontSize: { xs: "0.75rem", sm: "0.875rem" }
+                fontSize: { xs: "0.75rem", sm: "0.875rem" },
               }}
             >
               1 Token = KES 1
@@ -354,7 +362,9 @@ export default function Wallet({ user, setUser }) {
             fontSize: { xs: "1rem", sm: "1.125rem", md: "1.25rem" },
           }}
         >
-          <Add sx={{ fontSize: { xs: "1.2rem", md: "1.5rem" }, color: "#D4AF37" }} />
+          <Add
+            sx={{ fontSize: { xs: "1.2rem", md: "1.5rem" }, color: "#D4AF37" }}
+          />
           Quick Buy Tokens
         </Typography>
         <Box
@@ -392,21 +402,21 @@ export default function Wallet({ user, setUser }) {
               }}
             >
               <Box sx={{ textAlign: "center", width: "100%" }}>
-                <Typography 
-                  variant="h6" 
-                  sx={{ 
-                    fontWeight: 700, 
+                <Typography
+                  variant="h6"
+                  sx={{
+                    fontWeight: 700,
                     mb: 0.5,
-                    fontSize: { xs: "0.875rem", sm: "1rem", md: "1.25rem" }
+                    fontSize: { xs: "0.875rem", sm: "1rem", md: "1.25rem" },
                   }}
                 >
                   {option.label}
                 </Typography>
                 <Typography
                   variant="body2"
-                  sx={{ 
+                  sx={{
                     color: "rgba(26, 26, 26, 0.7)",
-                    fontSize: { xs: "0.75rem", sm: "0.875rem" }
+                    fontSize: { xs: "0.75rem", sm: "0.875rem" },
                   }}
                 >
                   {option.price}
@@ -418,7 +428,10 @@ export default function Wallet({ user, setUser }) {
         {purchasing && (
           <Box sx={{ mt: 2, textAlign: "center" }}>
             <CircularProgress size={24} sx={{ color: "#D4AF37" }} />
-            <Typography variant="body2" sx={{ mt: 1, color: "rgba(26, 26, 26, 0.7)" }}>
+            <Typography
+              variant="body2"
+              sx={{ mt: 1, color: "rgba(26, 26, 26, 0.7)" }}
+            >
               Processing purchase...
             </Typography>
           </Box>
@@ -448,7 +461,9 @@ export default function Wallet({ user, setUser }) {
             fontSize: { xs: "1rem", sm: "1.125rem", md: "1.25rem" },
           }}
         >
-          <TrendingUp sx={{ fontSize: { xs: "1.2rem", md: "1.5rem" }, color: "#D4AF37" }} />
+          <TrendingUp
+            sx={{ fontSize: { xs: "1.2rem", md: "1.5rem" }, color: "#D4AF37" }}
+          />
           Transaction History
         </Typography>
 
@@ -461,29 +476,68 @@ export default function Wallet({ user, setUser }) {
             <Typography variant="body1" sx={{ color: "rgba(26, 26, 26, 0.6)" }}>
               No transactions yet
             </Typography>
-            <Typography variant="body2" sx={{ color: "rgba(26, 26, 26, 0.5)", mt: 1 }}>
+            <Typography
+              variant="body2"
+              sx={{ color: "rgba(26, 26, 26, 0.5)", mt: 1 }}
+            >
               Purchase tokens to see your transaction history here
             </Typography>
           </Box>
         ) : (
-          <TableContainer component={Paper} sx={{ boxShadow: "none", bgcolor: "transparent", overflowX: "auto" }}>
+          <TableContainer
+            component={Paper}
+            sx={{
+              boxShadow: "none",
+              bgcolor: "transparent",
+              overflowX: "auto",
+            }}
+          >
             <Table size="small" sx={{ minWidth: 400 }}>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a1a1a", fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>Date</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a1a1a", fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>Amount</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a1a1a", fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>Method</TableCell>
+                  <TableCell
+                    sx={{
+                      fontWeight: 600,
+                      color: "#1a1a1a",
+                      fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                    }}
+                  >
+                    Date
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      fontWeight: 600,
+                      color: "#1a1a1a",
+                      fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                    }}
+                  >
+                    Amount
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      fontWeight: 600,
+                      color: "#1a1a1a",
+                      fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                    }}
+                  >
+                    Method
+                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {transactions.map((transaction) => (
-                  <TableRow 
-                    key={transaction.id} 
-                    hover 
+                  <TableRow
+                    key={transaction.id}
+                    hover
                     onClick={() => handleRowClick(transaction.id)}
                     sx={{ cursor: "pointer" }}
                   >
-                    <TableCell sx={{ color: "rgba(26, 26, 26, 0.7)", fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>
+                    <TableCell
+                      sx={{
+                        color: "rgba(26, 26, 26, 0.7)",
+                        fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                      }}
+                    >
                       {formatDate(transaction.createdAt)}
                     </TableCell>
                     <TableCell>
@@ -492,7 +546,9 @@ export default function Wallet({ user, setUser }) {
                         sx={{
                           fontWeight: 600,
                           color:
-                            Number(transaction.amount) > 0 ? "#4caf50" : "#f44336",
+                            Number(transaction.amount) > 0
+                              ? "#4caf50"
+                              : "#f44336",
                           fontSize: { xs: "0.75rem", sm: "0.875rem" },
                         }}
                       >
@@ -574,8 +630,8 @@ export default function Wallet({ user, setUser }) {
                       selectedTransaction.transaction_type === "purchase"
                         ? "Purchase"
                         : selectedTransaction.transaction_type === "deduction"
-                        ? "Deduction"
-                        : "Bonus"
+                          ? "Deduction"
+                          : "Bonus"
                     }
                     size="small"
                     sx={{
@@ -584,14 +640,14 @@ export default function Wallet({ user, setUser }) {
                         selectedTransaction.transaction_type === "purchase"
                           ? "rgba(76, 175, 80, 0.15)"
                           : selectedTransaction.transaction_type === "deduction"
-                          ? "rgba(244, 67, 54, 0.15)"
-                          : "rgba(212, 175, 55, 0.15)",
+                            ? "rgba(244, 67, 54, 0.15)"
+                            : "rgba(212, 175, 55, 0.15)",
                       color:
                         selectedTransaction.transaction_type === "purchase"
                           ? "#4caf50"
                           : selectedTransaction.transaction_type === "deduction"
-                          ? "#f44336"
-                          : "#D4AF37",
+                            ? "#f44336"
+                            : "#D4AF37",
                       fontWeight: 600,
                     }}
                   />
@@ -615,7 +671,10 @@ export default function Wallet({ user, setUser }) {
                     variant="h5"
                     sx={{
                       fontWeight: 700,
-                      color: Number(selectedTransaction.amount) > 0 ? "#4caf50" : "#f44336",
+                      color:
+                        Number(selectedTransaction.amount) > 0
+                          ? "#4caf50"
+                          : "#f44336",
                       mt: 0.5,
                     }}
                   >
@@ -762,4 +821,3 @@ export default function Wallet({ user, setUser }) {
     </Box>
   );
 }
-

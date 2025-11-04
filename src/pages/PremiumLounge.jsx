@@ -51,55 +51,14 @@ export default function PremiumLounge({ user }) {
   const [lookingForDialogOpen, setLookingForDialogOpen] = useState(false);
   const [selectedLookingForPost, setSelectedLookingForPost] = useState(null);
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
-  const [showExplanationDialog, setShowExplanationDialog] = useState(false);
-  const [shouldOpenUpgradeDialog, setShouldOpenUpgradeDialog] = useState(false);
 
-  // Handle regular user - show explanation dialog immediately (useLayoutEffect runs synchronously)
-  useLayoutEffect(() => {
-    if (user && user.category === "Regular" && !showExplanationDialog) {
-      setShowExplanationDialog(true);
-      // Show explanation dialog immediately
-      Swal.fire({
-        icon: "info",
-        title: "Premium Lounge Access",
-        text: "Only premium users can access Premium Lounge. Upgrade to a premium category to unlock premium features and connect with verified premium users.",
-        confirmButtonText: "Upgrade Now",
-        cancelButtonText: "Cancel",
-        showCancelButton: true,
-        confirmButtonColor: "#D4AF37",
-        allowOutsideClick: false,
-        allowEscapeKey: true,
-      }).then((result) => {
-        console.log("Swal result:", result);
-        console.log("isConfirmed:", result.isConfirmed);
-        if (result.isConfirmed) {
-          // Set trigger flag to open upgrade dialog
-          console.log("Setting shouldOpenUpgradeDialog to true...");
-          setShouldOpenUpgradeDialog(true);
-          console.log("Trigger flag set");
-        } else {
-          // Navigate away if user cancels
-          navigate("/explore");
-        }
-      });
-    }
-  }, [user, navigate, showExplanationDialog]);
-
-  // Handle opening upgrade dialog when trigger is set
-  useEffect(() => {
-    if (shouldOpenUpgradeDialog) {
-      console.log("Opening upgrade dialog from trigger");
-      setUpgradeDialogOpen(true);
-      setShouldOpenUpgradeDialog(false); // Reset trigger
-    }
-  }, [shouldOpenUpgradeDialog]);
-
-  // Debug: Log when upgradeDialogOpen changes
+  // Handle regular user - automatically open upgrade dialog
   useEffect(() => {
     if (user && user.category === "Regular") {
-      console.log("Upgrade dialog open state:", upgradeDialogOpen);
+      // Automatically open upgrade dialog for regular users
+      setUpgradeDialogOpen(true);
     }
-  }, [upgradeDialogOpen, user]);
+  }, [user]);
 
   const categories = [
     { label: "Sugar Mummy", value: "Sugar Mummy" },
@@ -486,20 +445,15 @@ export default function PremiumLounge({ user }) {
   return (
     <>
       {/* Upgrade Dialog - always render for regular users, controlled by open prop */}
-      {isRegularUser && (
-        <>
-          {/* Debug: Show current state */}
-          {console.log("Rendering UpgradeDialog with open=", upgradeDialogOpen)}
-          <UpgradeDialog
-            open={upgradeDialogOpen}
-            onClose={() => {
-              console.log("Closing upgrade dialog");
-              setUpgradeDialogOpen(false);
-              navigate("/explore");
-            }}
-          />
-        </>
-      )}
+      <UpgradeDialog
+        open={isRegularUser && upgradeDialogOpen}
+        onClose={() => {
+          setUpgradeDialogOpen(false);
+          if (isRegularUser) {
+            navigate("/explore");
+          }
+        }}
+      />
 
       {/* Main Premium Lounge content - only shown for premium users */}
       {!isRegularUser && (
