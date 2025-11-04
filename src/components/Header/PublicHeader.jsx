@@ -23,6 +23,7 @@ import {
   FormControl,
   InputLabel,
   InputAdornment,
+  Avatar,
 } from "@mui/material";
 import {
   Login,
@@ -35,6 +36,7 @@ import {
   Lock,
   ArrowForward,
   AutoAwesome,
+  PhotoCamera,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
@@ -47,6 +49,9 @@ export default function PublicHeader() {
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const [registerStep, setRegisterStep] = useState(1);
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
@@ -54,8 +59,7 @@ export default function PublicHeader() {
     password: "",
     gender: "",
     age: "",
-    city: "",
-    category: "Regular",
+    bio: "",
   });
   const [loginFormData, setLoginFormData] = useState({
     email: "",
@@ -69,6 +73,22 @@ export default function PublicHeader() {
 
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    const handleOpenLogin = () => {
+      setLoginDialogOpen(true);
+    };
+    const handleOpenRegister = () => {
+      setRegisterDialogOpen(true);
+    };
+
+    window.addEventListener("openLoginDialog", handleOpenLogin);
+    window.addEventListener("openRegisterDialog", handleOpenRegister);
+    return () => {
+      window.removeEventListener("openLoginDialog", handleOpenLogin);
+      window.removeEventListener("openRegisterDialog", handleOpenRegister);
+    };
   }, []);
 
   const handleLogin = () => {
@@ -96,9 +116,44 @@ export default function PublicHeader() {
       password: "",
       gender: "",
       age: "",
-      city: "",
-      category: "Regular",
+      bio: "",
     });
+    setPhotoFile(null);
+    setPhotoPreview(null);
+    setRegisterStep(1);
+  };
+
+  const handlePhotoChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith("image/")) {
+        Swal.fire({
+          icon: "error",
+          title: "Invalid File",
+          text: "Please select an image file.",
+          confirmButtonColor: "#D4AF37",
+        });
+        return;
+      }
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        Swal.fire({
+          icon: "error",
+          title: "File Too Large",
+          text: "Please select an image smaller than 10MB.",
+          confirmButtonColor: "#D4AF37",
+        });
+        return;
+      }
+      setPhotoFile(file);
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleInputChange = (field) => (e) => {
@@ -318,6 +373,10 @@ export default function PublicHeader() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // Only submit if we're on step 2
+    if (registerStep !== 2) {
+      return;
+    }
     // Prepare data - only include non-empty optional fields
     const submitData = {
       name: formData.name,
@@ -327,8 +386,6 @@ export default function PublicHeader() {
     };
     if (formData.gender) submitData.gender = formData.gender;
     if (formData.age) submitData.age = parseInt(formData.age);
-    if (formData.city) submitData.city = formData.city;
-    if (formData.category) submitData.category = formData.category;
 
     // Close the registration dialog first so SweetAlert appears on top
     handleRegisterClose();
@@ -365,14 +422,42 @@ export default function PublicHeader() {
       });
 
       try {
-        const response = await fetch("/api/public/register", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify(submitData),
-        });
+        let response;
+        // If photo file is selected, use FormData for multipart upload
+        if (photoFile) {
+          const formDataToSend = new FormData();
+          // Add all form fields
+          formDataToSend.append("name", formData.name);
+          formDataToSend.append("phone", formData.phone);
+          formDataToSend.append("email", formData.email);
+          formDataToSend.append("password", formData.password);
+          if (formData.gender) formDataToSend.append("gender", formData.gender);
+          if (formData.age)
+            formDataToSend.append("age", parseInt(formData.age));
+          if (formData.bio) formDataToSend.append("bio", formData.bio);
+          // Add photo file
+          formDataToSend.append("profile_image", photoFile);
+
+          response = await fetch("/api/public/register", {
+            method: "POST",
+            headers: {
+              Accept: "application/json",
+              // Don't set Content-Type - browser will set it with boundary
+            },
+            body: formDataToSend,
+          });
+        } else {
+          // No photo, use JSON
+          if (formData.bio) submitData.bio = formData.bio;
+          response = await fetch("/api/public/register", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify(submitData),
+          });
+        }
 
         const data = await response.json();
 
@@ -924,7 +1009,8 @@ export default function PublicHeader() {
             pt: { xs: 2, sm: 2.5 },
           }}
         >
-          Create Account
+          Create Account{" "}
+          {registerStep === 1 ? "(Step 1 of 2)" : "(Step 2 of 2)"}
         </DialogTitle>
         <form onSubmit={handleSubmit}>
           <DialogContent
@@ -932,313 +1018,353 @@ export default function PublicHeader() {
               px: { xs: 3, sm: 4 },
               py: { xs: 2, sm: 2.5 },
               overflow: "auto",
+              minHeight: "400px",
             }}
           >
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              {/* Required Fields */}
-              <TextField
-                required
-                label="Name"
-                value={formData.name}
-                onChange={handleInputChange("name")}
-                fullWidth
-                variant="outlined"
-                sx={{
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: "12px",
-                    "& fieldset": {
-                      borderColor: "rgba(212, 175, 55, 0.3)",
-                    },
-                    "&:hover fieldset": {
-                      borderColor: "rgba(212, 175, 55, 0.6)",
-                    },
-                    "&.Mui-focused fieldset": {
-                      borderColor: "#D4AF37",
-                      borderWidth: "2px",
-                    },
-                  },
-                  "& .MuiInputBase-input": {
-                    py: 1.5,
-                    lineHeight: 1.5,
-                  },
-                  "& .MuiInputLabel-root": {
-                    transform: "translate(14px, 18px) scale(1)",
-                    "&.MuiInputLabel-shrink": {
-                      transform: "translate(14px, -9px) scale(0.75)",
-                    },
-                    "&.Mui-focused": {
-                      color: "#D4AF37",
-                    },
-                  },
-                }}
-              />
-              <TextField
-                required
-                label="Phone"
-                value={formData.phone}
-                onChange={handleInputChange("phone")}
-                fullWidth
-                variant="outlined"
-                placeholder="+1234567890"
-                sx={{
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: "12px",
-                    "& fieldset": {
-                      borderColor: "rgba(212, 175, 55, 0.3)",
-                    },
-                    "&:hover fieldset": {
-                      borderColor: "rgba(212, 175, 55, 0.6)",
-                    },
-                    "&.Mui-focused fieldset": {
-                      borderColor: "#D4AF37",
-                      borderWidth: "2px",
-                    },
-                  },
-                  "& .MuiInputBase-input": {
-                    py: 1.5,
-                    lineHeight: 1.5,
-                  },
-                  "& .MuiInputLabel-root": {
-                    transform: "translate(14px, 18px) scale(1)",
-                    "&.MuiInputLabel-shrink": {
-                      transform: "translate(14px, -9px) scale(0.75)",
-                    },
-                    "&.Mui-focused": {
-                      color: "#D4AF37",
-                    },
-                  },
-                }}
-              />
-              <TextField
-                required
-                label="Email"
-                type="email"
-                value={formData.email}
-                onChange={handleInputChange("email")}
-                fullWidth
-                variant="outlined"
-                placeholder="john@example.com"
-                sx={{
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: "12px",
-                    "& fieldset": {
-                      borderColor: "rgba(212, 175, 55, 0.3)",
-                    },
-                    "&:hover fieldset": {
-                      borderColor: "rgba(212, 175, 55, 0.6)",
-                    },
-                    "&.Mui-focused fieldset": {
-                      borderColor: "#D4AF37",
-                      borderWidth: "2px",
-                    },
-                  },
-                  "& .MuiInputBase-input": {
-                    py: 1.5,
-                    lineHeight: 1.5,
-                  },
-                  "& .MuiInputLabel-root": {
-                    transform: "translate(14px, 18px) scale(1)",
-                    "&.MuiInputLabel-shrink": {
-                      transform: "translate(14px, -9px) scale(0.75)",
-                    },
-                    "&.Mui-focused": {
-                      color: "#D4AF37",
-                    },
-                  },
-                }}
-              />
-              <TextField
-                required
-                label="Password"
-                type={showPassword ? "text" : "password"}
-                value={formData.password}
-                onChange={handleInputChange("password")}
-                fullWidth
-                variant="outlined"
-                sx={{
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: "12px",
-                    "& fieldset": {
-                      borderColor: "rgba(212, 175, 55, 0.3)",
-                    },
-                    "&:hover fieldset": {
-                      borderColor: "rgba(212, 175, 55, 0.6)",
-                    },
-                    "&.Mui-focused fieldset": {
-                      borderColor: "#D4AF37",
-                      borderWidth: "2px",
-                    },
-                  },
-                  "& .MuiInputBase-input": {
-                    py: 1.5,
-                    lineHeight: 1.5,
-                  },
-                  "& .MuiInputLabel-root": {
-                    transform: "translate(14px, 18px) scale(1)",
-                    "&.MuiInputLabel-shrink": {
-                      transform: "translate(14px, -9px) scale(0.75)",
-                    },
-                    "&.Mui-focused": {
-                      color: "#D4AF37",
-                    },
-                  },
-                }}
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        onClick={() => setShowPassword(!showPassword)}
-                        edge="end"
-                        sx={{ color: "#D4AF37" }}
-                      >
-                        {showPassword ? <VisibilityOff /> : <Visibility />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-              />
-
-              {/* Optional Fields */}
-              <FormControl fullWidth>
-                <InputLabel sx={{ "&.Mui-focused": { color: "#D4AF37" } }}>
-                  Gender
-                </InputLabel>
-                <Select
-                  value={formData.gender}
-                  onChange={handleInputChange("gender")}
-                  label="Gender"
+            {registerStep === 1 ? (
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                {/* Required Fields */}
+                <TextField
+                  required
+                  label="Name"
+                  value={formData.name}
+                  onChange={handleInputChange("name")}
+                  fullWidth
+                  variant="outlined"
                   sx={{
-                    borderRadius: "12px",
-                    "& .MuiSelect-select": {
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: "12px",
+                      "& fieldset": {
+                        borderColor: "rgba(212, 175, 55, 0.3)",
+                      },
+                      "&:hover fieldset": {
+                        borderColor: "rgba(212, 175, 55, 0.6)",
+                      },
+                      "&.Mui-focused fieldset": {
+                        borderColor: "#D4AF37",
+                        borderWidth: "2px",
+                      },
+                    },
+                    "& .MuiInputBase-input": {
                       py: 1.5,
                       lineHeight: 1.5,
                     },
-                    "& .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "rgba(212, 175, 55, 0.3)",
-                    },
-                    "&:hover .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "rgba(212, 175, 55, 0.6)",
-                    },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "#D4AF37",
-                      borderWidth: "2px",
+                    "& .MuiInputLabel-root": {
+                      transform: "translate(14px, 18px) scale(1)",
+                      "&.MuiInputLabel-shrink": {
+                        transform: "translate(14px, -9px) scale(0.75)",
+                      },
+                      "&.Mui-focused": {
+                        color: "#D4AF37",
+                      },
                     },
                   }}
-                >
-                  <MenuItem value="Male">Male</MenuItem>
-                  <MenuItem value="Female">Female</MenuItem>
-                  <MenuItem value="Other">Other</MenuItem>
-                </Select>
-              </FormControl>
-
-              <TextField
-                label="Age"
-                type="number"
-                value={formData.age}
-                onChange={handleInputChange("age")}
-                fullWidth
-                variant="outlined"
-                inputProps={{ min: 18, max: 100 }}
-                sx={{
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: "12px",
-                    "& fieldset": {
-                      borderColor: "rgba(212, 175, 55, 0.3)",
-                    },
-                    "&:hover fieldset": {
-                      borderColor: "rgba(212, 175, 55, 0.6)",
-                    },
-                    "&.Mui-focused fieldset": {
-                      borderColor: "#D4AF37",
-                      borderWidth: "2px",
-                    },
-                  },
-                  "& .MuiInputBase-input": {
-                    py: 1.5,
-                    lineHeight: 1.5,
-                  },
-                  "& .MuiInputLabel-root": {
-                    transform: "translate(14px, 18px) scale(1)",
-                    "&.MuiInputLabel-shrink": {
-                      transform: "translate(14px, -9px) scale(0.75)",
-                    },
-                    "&.Mui-focused": {
-                      color: "#D4AF37",
-                    },
-                  },
-                }}
-              />
-
-              <TextField
-                label="City"
-                value={formData.city}
-                onChange={handleInputChange("city")}
-                fullWidth
-                variant="outlined"
-                placeholder="Nairobi"
-                sx={{
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: "12px",
-                    "& fieldset": {
-                      borderColor: "rgba(212, 175, 55, 0.3)",
-                    },
-                    "&:hover fieldset": {
-                      borderColor: "rgba(212, 175, 55, 0.6)",
-                    },
-                    "&.Mui-focused fieldset": {
-                      borderColor: "#D4AF37",
-                      borderWidth: "2px",
-                    },
-                  },
-                  "& .MuiInputBase-input": {
-                    py: 1.5,
-                    lineHeight: 1.5,
-                  },
-                  "& .MuiInputLabel-root": {
-                    transform: "translate(14px, 18px) scale(1)",
-                    "&.MuiInputLabel-shrink": {
-                      transform: "translate(14px, -9px) scale(0.75)",
-                    },
-                    "&.Mui-focused": {
-                      color: "#D4AF37",
-                    },
-                  },
-                }}
-              />
-
-              <FormControl fullWidth>
-                <InputLabel sx={{ "&.Mui-focused": { color: "#D4AF37" } }}>
-                  Category
-                </InputLabel>
-                <Select
-                  value={formData.category}
-                  onChange={handleInputChange("category")}
-                  label="Category"
+                />
+                <TextField
+                  required
+                  label="Phone"
+                  value={formData.phone}
+                  onChange={handleInputChange("phone")}
+                  fullWidth
+                  variant="outlined"
+                  placeholder="+1234567890"
                   sx={{
-                    borderRadius: "12px",
-                    "& .MuiSelect-select": {
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: "12px",
+                      "& fieldset": {
+                        borderColor: "rgba(212, 175, 55, 0.3)",
+                      },
+                      "&:hover fieldset": {
+                        borderColor: "rgba(212, 175, 55, 0.6)",
+                      },
+                      "&.Mui-focused fieldset": {
+                        borderColor: "#D4AF37",
+                        borderWidth: "2px",
+                      },
+                    },
+                    "& .MuiInputBase-input": {
                       py: 1.5,
                       lineHeight: 1.5,
                     },
-                    "& .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "rgba(212, 175, 55, 0.3)",
-                    },
-                    "&:hover .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "rgba(212, 175, 55, 0.6)",
-                    },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "#D4AF37",
-                      borderWidth: "2px",
+                    "& .MuiInputLabel-root": {
+                      transform: "translate(14px, 18px) scale(1)",
+                      "&.MuiInputLabel-shrink": {
+                        transform: "translate(14px, -9px) scale(0.75)",
+                      },
+                      "&.Mui-focused": {
+                        color: "#D4AF37",
+                      },
                     },
                   }}
+                />
+                <TextField
+                  required
+                  label="Email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleInputChange("email")}
+                  fullWidth
+                  variant="outlined"
+                  placeholder="john@example.com"
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: "12px",
+                      "& fieldset": {
+                        borderColor: "rgba(212, 175, 55, 0.3)",
+                      },
+                      "&:hover fieldset": {
+                        borderColor: "rgba(212, 175, 55, 0.6)",
+                      },
+                      "&.Mui-focused fieldset": {
+                        borderColor: "#D4AF37",
+                        borderWidth: "2px",
+                      },
+                    },
+                    "& .MuiInputBase-input": {
+                      py: 1.5,
+                      lineHeight: 1.5,
+                    },
+                    "& .MuiInputLabel-root": {
+                      transform: "translate(14px, 18px) scale(1)",
+                      "&.MuiInputLabel-shrink": {
+                        transform: "translate(14px, -9px) scale(0.75)",
+                      },
+                      "&.Mui-focused": {
+                        color: "#D4AF37",
+                      },
+                    },
+                  }}
+                />
+                <TextField
+                  required
+                  label="Password"
+                  type={showPassword ? "text" : "password"}
+                  value={formData.password}
+                  onChange={handleInputChange("password")}
+                  fullWidth
+                  variant="outlined"
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: "12px",
+                      "& fieldset": {
+                        borderColor: "rgba(212, 175, 55, 0.3)",
+                      },
+                      "&:hover fieldset": {
+                        borderColor: "rgba(212, 175, 55, 0.6)",
+                      },
+                      "&.Mui-focused fieldset": {
+                        borderColor: "#D4AF37",
+                        borderWidth: "2px",
+                      },
+                    },
+                    "& .MuiInputBase-input": {
+                      py: 1.5,
+                      lineHeight: 1.5,
+                    },
+                    "& .MuiInputLabel-root": {
+                      transform: "translate(14px, 18px) scale(1)",
+                      "&.MuiInputLabel-shrink": {
+                        transform: "translate(14px, -9px) scale(0.75)",
+                      },
+                      "&.Mui-focused": {
+                        color: "#D4AF37",
+                      },
+                    },
+                  }}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          onClick={() => setShowPassword(!showPassword)}
+                          edge="end"
+                          sx={{ color: "#D4AF37" }}
+                        >
+                          {showPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+
+                {/* Optional Fields */}
+                <FormControl fullWidth>
+                  <InputLabel sx={{ "&.Mui-focused": { color: "#D4AF37" } }}>
+                    Gender
+                  </InputLabel>
+                  <Select
+                    value={formData.gender}
+                    onChange={handleInputChange("gender")}
+                    label="Gender"
+                    sx={{
+                      borderRadius: "12px",
+                      "& .MuiSelect-select": {
+                        py: 1.5,
+                        lineHeight: 1.5,
+                      },
+                      "& .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "rgba(212, 175, 55, 0.3)",
+                      },
+                      "&:hover .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "rgba(212, 175, 55, 0.6)",
+                      },
+                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "#D4AF37",
+                        borderWidth: "2px",
+                      },
+                    }}
+                  >
+                    <MenuItem value="Male">Male</MenuItem>
+                    <MenuItem value="Female">Female</MenuItem>
+                    <MenuItem value="Other">Other</MenuItem>
+                  </Select>
+                </FormControl>
+
+                <TextField
+                  label="Age"
+                  type="number"
+                  value={formData.age}
+                  onChange={handleInputChange("age")}
+                  fullWidth
+                  variant="outlined"
+                  inputProps={{ min: 18, max: 100 }}
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: "12px",
+                      "& fieldset": {
+                        borderColor: "rgba(212, 175, 55, 0.3)",
+                      },
+                      "&:hover fieldset": {
+                        borderColor: "rgba(212, 175, 55, 0.6)",
+                      },
+                      "&.Mui-focused fieldset": {
+                        borderColor: "#D4AF37",
+                        borderWidth: "2px",
+                      },
+                    },
+                    "& .MuiInputBase-input": {
+                      py: 1.5,
+                      lineHeight: 1.5,
+                    },
+                    "& .MuiInputLabel-root": {
+                      transform: "translate(14px, 18px) scale(1)",
+                      "&.MuiInputLabel-shrink": {
+                        transform: "translate(14px, -9px) scale(0.75)",
+                      },
+                      "&.Mui-focused": {
+                        color: "#D4AF37",
+                      },
+                    },
+                  }}
+                />
+              </Box>
+            ) : (
+              <Box
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 3,
+                  py: 2,
+                }}
+              >
+                <TextField
+                  label="Bio"
+                  name="bio"
+                  multiline
+                  rows={4}
+                  value={formData.bio}
+                  onChange={handleInputChange("bio")}
+                  fullWidth
+                  placeholder="Tell us about yourself..."
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: "12px",
+                      "& fieldset": {
+                        borderColor: "rgba(212, 175, 55, 0.3)",
+                      },
+                      "&:hover fieldset": {
+                        borderColor: "rgba(212, 175, 55, 0.6)",
+                      },
+                      "&.Mui-focused fieldset": {
+                        borderColor: "#D4AF37",
+                        borderWidth: "2px",
+                      },
+                    },
+                    "& .MuiInputBase-input": {
+                      py: 1.5,
+                      lineHeight: 1.5,
+                    },
+                    "& .MuiInputLabel-root": {
+                      transform: "translate(14px, 18px) scale(1)",
+                      "&.MuiInputLabel-shrink": {
+                        transform: "translate(14px, -9px) scale(0.75)",
+                      },
+                      "&.Mui-focused": {
+                        color: "#D4AF37",
+                      },
+                    },
+                  }}
+                />
+                <input
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  id="register-photo-upload-header"
+                  type="file"
+                  onChange={handlePhotoChange}
+                />
+                <label htmlFor="register-photo-upload-header">
+                  <IconButton
+                    color="primary"
+                    component="span"
+                    sx={{
+                      width: 150,
+                      height: 150,
+                      border: "2px dashed rgba(212, 175, 55, 0.5)",
+                      borderRadius: "12px",
+                      "&:hover": {
+                        borderColor: "#D4AF37",
+                        backgroundColor: "rgba(212, 175, 55, 0.1)",
+                      },
+                    }}
+                  >
+                    {photoPreview ? (
+                      <Avatar
+                        src={photoPreview}
+                        sx={{
+                          width: "100%",
+                          height: "100%",
+                          borderRadius: "12px",
+                        }}
+                      />
+                    ) : (
+                      <PhotoCamera sx={{ fontSize: 60, color: "#D4AF37" }} />
+                    )}
+                  </IconButton>
+                </label>
+                <Typography
+                  variant="body1"
+                  sx={{
+                    color: "rgba(26, 26, 26, 0.7)",
+                    textAlign: "center",
+                    fontWeight: 500,
+                  }}
                 >
-                  <MenuItem value="Regular">Regular</MenuItem>
-                  <MenuItem value="Sugar Mummy">Sugar Mummy</MenuItem>
-                  <MenuItem value="Sponsor">Sponsor</MenuItem>
-                  <MenuItem value="Ben 10">Ben 10</MenuItem>
-                </Select>
-              </FormControl>
-            </Box>
+                  {photoPreview
+                    ? "Click to change photo"
+                    : "Upload Profile Photo (Optional)"}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: "rgba(26, 26, 26, 0.5)",
+                    textAlign: "center",
+                  }}
+                >
+                  You can skip photo and bio and add them later
+                </Typography>
+              </Box>
+            )}
           </DialogContent>
           <DialogActions
             sx={{
@@ -1249,45 +1375,124 @@ export default function PublicHeader() {
               justifyContent: "center",
             }}
           >
-            <Button
-              onClick={handleRegisterClose}
-              variant="outlined"
-              sx={{
-                borderRadius: "25px",
-                px: { xs: 3, sm: 4 },
-                py: 1,
-                textTransform: "none",
-                fontWeight: 600,
-                fontSize: { xs: "0.875rem", sm: "1rem" },
-                borderColor: "primary.main",
-                color: "primary.main",
-                "&:hover": {
-                  borderColor: "primary.dark",
-                  backgroundColor: "rgba(212, 175, 55, 0.1)",
-                },
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              variant="contained"
-              sx={{
-                borderRadius: "25px",
-                px: { xs: 3, sm: 4 },
-                py: 1,
-                textTransform: "none",
-                fontWeight: 600,
-                fontSize: { xs: "0.875rem", sm: "1rem" },
-                background: "linear-gradient(45deg, #D4AF37, #B8941F)",
-                "&:hover": {
-                  background: "linear-gradient(45deg, #B8941F, #D4AF37)",
-                  boxShadow: "0 8px 25px rgba(212, 175, 55, 0.4)",
-                },
-              }}
-            >
-              Register
-            </Button>
+            {registerStep === 1 ? (
+              <>
+                <Button
+                  onClick={handleRegisterClose}
+                  variant="outlined"
+                  sx={{
+                    borderRadius: "25px",
+                    px: { xs: 3, sm: 4 },
+                    py: 1,
+                    textTransform: "none",
+                    fontWeight: 600,
+                    fontSize: { xs: "0.875rem", sm: "1rem" },
+                    borderColor: "primary.main",
+                    color: "primary.main",
+                    "&:hover": {
+                      borderColor: "primary.dark",
+                      backgroundColor: "rgba(212, 175, 55, 0.1)",
+                    },
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    // Validate required fields
+                    if (
+                      !formData.name ||
+                      !formData.phone ||
+                      !formData.email ||
+                      !formData.password
+                    ) {
+                      Swal.fire({
+                        icon: "error",
+                        title: "Missing Fields",
+                        text: "Please fill in all required fields.",
+                        confirmButtonColor: "#D4AF37",
+                        zIndex: 2000,
+                        didOpen: () => {
+                          const swalContainer =
+                            document.querySelector(".swal2-container");
+                          const swalPopup =
+                            document.querySelector(".swal2-popup");
+                          if (swalContainer) {
+                            swalContainer.style.zIndex = "2000";
+                          }
+                          if (swalPopup) {
+                            swalPopup.style.zIndex = "2001";
+                          }
+                        },
+                      });
+                      return;
+                    }
+                    setRegisterStep(2);
+                  }}
+                  variant="contained"
+                  sx={{
+                    borderRadius: "25px",
+                    px: { xs: 3, sm: 4 },
+                    py: 1,
+                    textTransform: "none",
+                    fontWeight: 600,
+                    fontSize: { xs: "0.875rem", sm: "1rem" },
+                    background: "linear-gradient(45deg, #D4AF37, #B8941F)",
+                    "&:hover": {
+                      background: "linear-gradient(45deg, #B8941F, #D4AF37)",
+                      boxShadow: "0 8px 25px rgba(212, 175, 55, 0.4)",
+                    },
+                  }}
+                >
+                  Next
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  onClick={() => setRegisterStep(1)}
+                  variant="outlined"
+                  sx={{
+                    borderRadius: "25px",
+                    px: { xs: 3, sm: 4 },
+                    py: 1,
+                    textTransform: "none",
+                    fontWeight: 600,
+                    fontSize: { xs: "0.875rem", sm: "1rem" },
+                    borderColor: "primary.main",
+                    color: "primary.main",
+                    "&:hover": {
+                      borderColor: "primary.dark",
+                      backgroundColor: "rgba(212, 175, 55, 0.1)",
+                    },
+                  }}
+                >
+                  Back
+                </Button>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  sx={{
+                    borderRadius: "25px",
+                    px: { xs: 3, sm: 4 },
+                    py: 1,
+                    textTransform: "none",
+                    fontWeight: 600,
+                    fontSize: { xs: "0.875rem", sm: "1rem" },
+                    background: "linear-gradient(45deg, #D4AF37, #B8941F)",
+                    "&:hover": {
+                      background: "linear-gradient(45deg, #B8941F, #D4AF37)",
+                      boxShadow: "0 8px 25px rgba(212, 175, 55, 0.4)",
+                    },
+                  }}
+                >
+                  Register
+                </Button>
+              </>
+            )}
           </DialogActions>
         </form>
       </Dialog>

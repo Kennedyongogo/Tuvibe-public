@@ -46,6 +46,8 @@ import {
   Visibility,
   TrendingUp,
   AccessTime,
+  ChevronLeft,
+  ChevronRight,
 } from "@mui/icons-material";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
@@ -58,6 +60,13 @@ export default function Profile({ user, setUser }) {
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const fileInputRef = useRef(null);
+  const [galleryPhotos, setGalleryPhotos] = useState([]);
+  const [galleryPreviews, setGalleryPreviews] = useState([]);
+  const galleryInputRef = useRef(null);
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const galleryScrollRef = useRef(null);
+  const isScrollingRef = useRef(false);
+  const scrollTimeoutRef = useRef(null);
   const [verificationStatus, setVerificationStatus] = useState(null);
   const [requestingVerification, setRequestingVerification] = useState(false);
   const [lookingForPosts, setLookingForPosts] = useState([]);
@@ -72,8 +81,7 @@ export default function Profile({ user, setUser }) {
     name: user?.name || "",
     gender: user?.gender || "",
     age: user?.age?.toString() || "",
-    city: user?.city || "",
-    category: user?.category || "Regular",
+    county: user?.county || "",
     phone: user?.phone || "",
     email: user?.email || "",
     bio: user?.bio || "",
@@ -89,8 +97,7 @@ export default function Profile({ user, setUser }) {
         name: user?.name || "",
         gender: user?.gender || "",
         age: user?.age?.toString() || "",
-        city: user?.city || "",
-        category: user?.category || "Regular",
+        county: user?.county || "",
         phone: user?.phone || "",
         email: user?.email || "",
         bio: user?.bio || "",
@@ -98,6 +105,12 @@ export default function Profile({ user, setUser }) {
         latitude: user?.latitude?.toString() || "",
         longitude: user?.longitude?.toString() || "",
       });
+      // Reset gallery photos - only store new File objects, not existing photos
+      setGalleryPhotos([]);
+      // Reset photo index when photos change
+      setCurrentPhotoIndex(0);
+      // Reset scrolling flag
+      isScrollingRef.current = false;
     }
   }, [user, isEditing]);
 
@@ -133,7 +146,7 @@ export default function Profile({ user, setUser }) {
   useEffect(() => {
     const fetchVerificationStatus = async () => {
       if (!user) return;
-      
+
       const token = localStorage.getItem("token");
       if (!token) return;
 
@@ -157,7 +170,9 @@ export default function Profile({ user, setUser }) {
   }, [user]);
 
   // Check if user is verified premium
-  const isPremiumCategory = user?.category && ["Sugar Mummy", "Sponsor", "Ben 10"].includes(user.category);
+  const isPremiumCategory =
+    user?.category &&
+    ["Sugar Mummy", "Sponsor", "Ben 10"].includes(user.category);
   const isVerifiedPremium = isPremiumCategory && user?.isVerified;
 
   // Fetch "Looking For" posts (only for verified premium users)
@@ -236,7 +251,9 @@ export default function Profile({ user, setUser }) {
       Swal.fire({
         icon: "error",
         title: "Error",
-        text: err.message || "Failed to create post. Only verified premium users can post.",
+        text:
+          err.message ||
+          "Failed to create post. Only verified premium users can post.",
         confirmButtonColor: "#D4AF37",
       });
     } finally {
@@ -381,7 +398,9 @@ export default function Profile({ user, setUser }) {
         Swal.fire({
           icon: "error",
           title: "Request Failed",
-          text: data.message || "Failed to submit verification request. Please try again.",
+          text:
+            data.message ||
+            "Failed to submit verification request. Please try again.",
           confirmButtonColor: "#D4AF37",
         });
       }
@@ -426,10 +445,10 @@ export default function Profile({ user, setUser }) {
       if (response.status === 402) {
         // Close boost dialog first so buy tokens dialog appears on top
         setBoostDialogOpen(false);
-        
+
         // Small delay to ensure dialog is closed before showing Swal
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
         Swal.fire({
           icon: "warning",
           title: "Insufficient Tokens",
@@ -502,11 +521,136 @@ export default function Profile({ user, setUser }) {
     }
   };
 
-  const handleEdit = () => {
+  const getCurrentLocation = (showSuccess = true) => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("Geolocation is not supported by your browser."));
+        return;
+      }
+
+      setLocationLoading(true);
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude.toFixed(8);
+          const lng = position.coords.longitude.toFixed(8);
+          setFormData((prev) => ({
+            ...prev,
+            latitude: lat,
+            longitude: lng,
+          }));
+          setLocationLoading(false);
+          if (showSuccess) {
+            Swal.fire({
+              icon: "success",
+              title: "Location Retrieved!",
+              text: "Your current location has been set.",
+              timer: 2000,
+              showConfirmButton: false,
+              confirmButtonColor: "#D4AF37",
+              didOpen: () => {
+                const swal = document.querySelector(".swal2-popup");
+                if (swal) {
+                  swal.style.borderRadius = "20px";
+                  swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
+                  swal.style.boxShadow = "0 20px 60px rgba(212, 175, 55, 0.25)";
+                  swal.style.background =
+                    "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)";
+                  swal.style.backdropFilter = "blur(20px)";
+                }
+              },
+            });
+          }
+          resolve({ latitude: lat, longitude: lng });
+        },
+        (error) => {
+          setLocationLoading(false);
+          const errorMessage =
+            error.code === 1
+              ? "Location access denied. Please enable location permissions or enter manually."
+              : "Failed to get your location. Please try again or enter manually.";
+          if (showSuccess) {
+            Swal.fire({
+              icon: "error",
+              title: "Location Error",
+              text: errorMessage,
+              confirmButtonColor: "#D4AF37",
+              didOpen: () => {
+                const swal = document.querySelector(".swal2-popup");
+                if (swal) {
+                  swal.style.borderRadius = "20px";
+                  swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
+                  swal.style.boxShadow = "0 20px 60px rgba(212, 175, 55, 0.25)";
+                  swal.style.background =
+                    "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)";
+                  swal.style.backdropFilter = "blur(20px)";
+                }
+              },
+            });
+          }
+          reject(new Error(errorMessage));
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        }
+      );
+    });
+  };
+
+  const handleEdit = async () => {
     setIsEditing(true);
     // Close boost dialog when entering edit mode
     if (boostDialogOpen) {
       setBoostDialogOpen(false);
+    }
+
+    // Check if coordinates are empty
+    const hasCoordinates =
+      formData.latitude &&
+      formData.longitude &&
+      formData.latitude.trim() !== "" &&
+      formData.longitude.trim() !== "";
+
+    if (!hasCoordinates) {
+      // Auto-fill coordinates if empty
+      try {
+        await getCurrentLocation(false); // Don't show success message for auto-fill
+      } catch (error) {
+        // Silently fail - user can manually enter or use the location button later
+        console.log("Auto-location failed:", error.message);
+      }
+    } else {
+      // Coordinates exist - prompt user if they want to update
+      const result = await Swal.fire({
+        icon: "question",
+        title: "Update Location?",
+        text: "You already have location coordinates. Would you like to update them to your current location?",
+        showCancelButton: true,
+        confirmButtonText: "Yes, Update",
+        cancelButtonText: "No, Keep Current",
+        confirmButtonColor: "#D4AF37",
+        cancelButtonColor: "#757575",
+        didOpen: () => {
+          const swal = document.querySelector(".swal2-popup");
+          if (swal) {
+            swal.style.borderRadius = "20px";
+            swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
+            swal.style.boxShadow = "0 20px 60px rgba(212, 175, 55, 0.25)";
+            swal.style.background =
+              "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)";
+            swal.style.backdropFilter = "blur(20px)";
+          }
+        },
+      });
+
+      if (result.isConfirmed) {
+        try {
+          await getCurrentLocation(true);
+        } catch (error) {
+          // Error already handled in getCurrentLocation
+        }
+      }
     }
   };
 
@@ -515,8 +659,7 @@ export default function Profile({ user, setUser }) {
       name: user?.name || "",
       gender: user?.gender || "",
       age: user?.age?.toString() || "",
-      city: user?.city || "",
-      category: user?.category || "Regular",
+      county: user?.county || "",
       phone: user?.phone || "",
       email: user?.email || "",
       bio: user?.bio || "",
@@ -526,6 +669,8 @@ export default function Profile({ user, setUser }) {
     });
     setPhotoFile(null);
     setPhotoPreview(null);
+    setGalleryPhotos([]);
+    setGalleryPreviews([]);
     setIsEditing(false);
   };
 
@@ -618,12 +763,31 @@ export default function Profile({ user, setUser }) {
     fileInputRef.current?.click();
   };
 
-  const handleGetCurrentLocation = () => {
-    if (!navigator.geolocation) {
+  const handleGalleryPhotosChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    // Validate all files
+    const validFiles = [];
+    const invalidFiles = [];
+
+    files.forEach((file) => {
+      if (!file.type.startsWith("image/")) {
+        invalidFiles.push(`${file.name} - not an image`);
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        invalidFiles.push(`${file.name} - larger than 10MB`);
+        return;
+      }
+      validFiles.push(file);
+    });
+
+    if (invalidFiles.length > 0) {
       Swal.fire({
         icon: "error",
-        title: "Location Not Supported",
-        text: "Geolocation is not supported by your browser.",
+        title: "Invalid Files",
+        html: `The following files were rejected:<br/>${invalidFiles.join("<br/>")}`,
         confirmButtonColor: "#D4AF37",
         didOpen: () => {
           const swal = document.querySelector(".swal2-popup");
@@ -637,67 +801,65 @@ export default function Profile({ user, setUser }) {
           }
         },
       });
-      return;
     }
 
-    setLocationLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setFormData((prev) => ({
-          ...prev,
-          latitude: position.coords.latitude.toFixed(8),
-          longitude: position.coords.longitude.toFixed(8),
-        }));
-        setLocationLoading(false);
+    if (validFiles.length > 0) {
+      // Limit to 10 photos total (existing + new)
+      const existingPhotosCount =
+        user?.photos && Array.isArray(user.photos) ? user.photos.length : 0;
+      const totalPhotos =
+        existingPhotosCount + galleryPhotos.length + validFiles.length;
+      if (totalPhotos > 10) {
+        const allowed = 10 - existingPhotosCount - galleryPhotos.length;
         Swal.fire({
-          icon: "success",
-          title: "Location Retrieved!",
-          text: "Your current location has been set.",
-          timer: 2000,
-          showConfirmButton: false,
+          icon: "warning",
+          title: "Too Many Photos",
+          text: `You can only add ${allowed} more photo(s). Maximum 10 photos allowed.`,
           confirmButtonColor: "#D4AF37",
-          didOpen: () => {
-            const swal = document.querySelector(".swal2-popup");
-            if (swal) {
-              swal.style.borderRadius = "20px";
-              swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
-              swal.style.boxShadow = "0 20px 60px rgba(212, 175, 55, 0.25)";
-              swal.style.background =
-                "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)";
-              swal.style.backdropFilter = "blur(20px)";
-            }
-          },
         });
-      },
-      (error) => {
-        setLocationLoading(false);
-        Swal.fire({
-          icon: "error",
-          title: "Location Error",
-          text:
-            error.code === 1
-              ? "Location access denied. Please enable location permissions or enter manually."
-              : "Failed to get your location. Please try again or enter manually.",
-          confirmButtonColor: "#D4AF37",
-          didOpen: () => {
-            const swal = document.querySelector(".swal2-popup");
-            if (swal) {
-              swal.style.borderRadius = "20px";
-              swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
-              swal.style.boxShadow = "0 20px 60px rgba(212, 175, 55, 0.25)";
-              swal.style.background =
-                "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)";
-              swal.style.backdropFilter = "blur(20px)";
-            }
-          },
-        });
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
+        validFiles.splice(allowed);
       }
-    );
+
+      // Create previews
+      const newPreviews = [];
+      validFiles.forEach((file) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          newPreviews.push(reader.result);
+          if (newPreviews.length === validFiles.length) {
+            setGalleryPreviews((prev) => [...prev, ...newPreviews]);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+
+      setGalleryPhotos((prev) => [...prev, ...validFiles]);
+      // Reset to first photo when new photos are added
+      setCurrentPhotoIndex(0);
+    }
+  };
+
+  const handleRemoveGalleryPhoto = (index) => {
+    // Only remove new photos (File objects), not existing ones
+    const existingCount =
+      user?.photos && Array.isArray(user.photos) ? user.photos.length : 0;
+    const newPhotoIndex = index - existingCount;
+    if (newPhotoIndex >= 0) {
+      setGalleryPhotos((prev) => prev.filter((_, i) => i !== newPhotoIndex));
+      setGalleryPreviews((prev) => prev.filter((_, i) => i !== newPhotoIndex));
+      // Adjust photo index if needed
+      if (currentPhotoIndex >= index) {
+        setCurrentPhotoIndex(Math.max(0, currentPhotoIndex - 1));
+      }
+    }
+  };
+
+  const handleGalleryClick = () => {
+    galleryInputRef.current?.click();
+  };
+
+  const handleGetCurrentLocation = () => {
+    getCurrentLocation(true);
   };
 
   const handleSave = async () => {
@@ -707,16 +869,20 @@ export default function Profile({ user, setUser }) {
       const token = localStorage.getItem("token");
       let response;
 
-      // If photo file is selected, use FormData for multipart upload
-      if (photoFile) {
+      // Check if there are any new File objects to upload
+      const hasNewGalleryFiles = galleryPhotos.some(
+        (file) => file instanceof File
+      );
+
+      // If photo file or new gallery photos are selected, use FormData for multipart upload
+      if (photoFile || hasNewGalleryFiles) {
         const formDataToSend = new FormData();
 
         // Add all form fields
         formDataToSend.append("name", formData.name);
         if (formData.gender) formDataToSend.append("gender", formData.gender);
         if (formData.age) formDataToSend.append("age", parseInt(formData.age));
-        if (formData.city) formDataToSend.append("city", formData.city);
-        formDataToSend.append("category", formData.category);
+        if (formData.county) formDataToSend.append("county", formData.county);
         if (formData.bio) formDataToSend.append("bio", formData.bio);
         formDataToSend.append("email", formData.email);
         formDataToSend.append("phone", formData.phone);
@@ -725,8 +891,17 @@ export default function Profile({ user, setUser }) {
         if (formData.longitude)
           formDataToSend.append("longitude", parseFloat(formData.longitude));
 
-        // Add photo file
-        formDataToSend.append("profile_image", photoFile);
+        // Add main photo file if selected
+        if (photoFile) {
+          formDataToSend.append("profile_image", photoFile);
+        }
+
+        // Add gallery photos (multiple files)
+        galleryPhotos.forEach((file) => {
+          if (file instanceof File) {
+            formDataToSend.append("profile_images", file);
+          }
+        });
 
         response = await fetch("/api/public/me", {
           method: "PUT",
@@ -743,8 +918,7 @@ export default function Profile({ user, setUser }) {
           "name",
           "gender",
           "age",
-          "city",
-          "category",
+          "county",
           "bio",
           "email",
           "phone",
@@ -816,7 +990,7 @@ export default function Profile({ user, setUser }) {
       } else {
         if (data.success && data.data) {
           // Check if photo or bio needs moderation
-          const needsModeration = 
+          const needsModeration =
             data.data.photo_moderation_status === "pending" ||
             data.data.bio_moderation_status === "pending";
 
@@ -826,22 +1000,31 @@ export default function Profile({ user, setUser }) {
           setIsEditing(false);
           setPhotoFile(null);
           setPhotoPreview(null);
+          setGalleryPhotos([]);
+          setGalleryPreviews([]);
 
           // Show appropriate message based on moderation status
+          const hasPhotos = photoFile || galleryPhotos.length > 0;
           const moderationMessage = needsModeration
-            ? photoFile
+            ? hasPhotos
               ? data.data.bio_moderation_status === "pending"
-                ? "Your profile photo and bio have been saved and are pending admin approval. They will be visible to others once approved."
-                : "Your profile photo has been saved and is pending admin approval. It will be visible to others once approved."
+                ? galleryPhotos.length > 0
+                  ? "Your profile photo, gallery photos, and bio have been saved and are pending admin approval. They will be visible to others once approved."
+                  : "Your profile photo and bio have been saved and are pending admin approval. They will be visible to others once approved."
+                : galleryPhotos.length > 0
+                  ? "Your profile photo and gallery photos have been saved and are pending admin approval. They will be visible to others once approved."
+                  : "Your profile photo has been saved and is pending admin approval. It will be visible to others once approved."
               : "Your bio has been saved and is pending admin approval. It will be visible to others once approved."
             : "Your profile has been updated successfully.";
 
           Swal.fire({
             icon: "success",
-            title: needsModeration ? "Profile Updated - Awaiting Approval" : "Profile Updated!",
+            title: needsModeration
+              ? "Profile Updated - Awaiting Approval"
+              : "Profile Updated!",
             html: `<div style="text-align: left;">
               <p style="margin-bottom: 12px;">${moderationMessage}</p>
-              ${needsModeration ? '<p style="font-size: 0.875rem; color: rgba(26, 26, 26, 0.7); margin: 0;">You can see your changes, but others won\'t until admin approval.</p>' : ''}
+              ${needsModeration ? '<p style="font-size: 0.875rem; color: rgba(26, 26, 26, 0.7); margin: 0;">You can see your changes, but others won\'t until admin approval.</p>' : ""}
             </div>`,
             timer: needsModeration ? 5000 : 2000,
             showConfirmButton: true,
@@ -868,17 +1051,22 @@ export default function Profile({ user, setUser }) {
               if (title) {
                 title.style.color = "#1a1a1a";
                 title.style.fontWeight = "700";
-                title.style.fontSize = window.innerWidth < 600 ? "1.25rem" : "1.5rem";
+                title.style.fontSize =
+                  window.innerWidth < 600 ? "1.25rem" : "1.5rem";
                 title.style.background =
                   "linear-gradient(45deg, #D4AF37, #B8941F)";
                 title.style.webkitBackgroundClip = "text";
                 title.style.webkitTextFillColor = "transparent";
                 title.style.backgroundClip = "text";
               }
-              const htmlContent = document.querySelector(".swal2-html-container");
+              const htmlContent = document.querySelector(
+                ".swal2-html-container"
+              );
               if (htmlContent) {
-                htmlContent.style.fontSize = window.innerWidth < 600 ? "0.875rem" : "1rem";
-                htmlContent.style.padding = window.innerWidth < 600 ? "0.5rem" : "1rem 1.2em";
+                htmlContent.style.fontSize =
+                  window.innerWidth < 600 ? "0.875rem" : "1rem";
+                htmlContent.style.padding =
+                  window.innerWidth < 600 ? "0.5rem" : "1rem 1.2em";
               }
               const icon = document.querySelector(".swal2-success");
               if (icon) {
@@ -1105,7 +1293,9 @@ export default function Profile({ user, setUser }) {
                   border: "4px solid rgba(212, 175, 55, 0.3)",
                   boxShadow: "0 8px 24px rgba(212, 175, 55, 0.2)",
                   opacity:
-                    !isEditing && user?.photo && user?.photo_moderation_status !== "approved"
+                    !isEditing &&
+                    user?.photo &&
+                    user?.photo_moderation_status !== "approved"
                       ? 0.6
                       : 1,
                 }}
@@ -1115,48 +1305,52 @@ export default function Profile({ user, setUser }) {
                   (user?.name?.charAt(0)?.toUpperCase() || "U")}
               </Avatar>
               {/* Overlay indicator for pending/rejected photos */}
-              {!isEditing && user?.photo && user?.photo_moderation_status === "pending" && (
-                <Box
-                  sx={{
-                    position: "absolute",
-                    top: "50%",
-                    left: "50%",
-                    transform: "translate(-50%, -50%)",
-                    bgcolor: "rgba(255, 193, 7, 0.9)",
-                    color: "#1a1a1a",
-                    borderRadius: "50%",
-                    width: 40,
-                    height: 40,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    border: "2px solid rgba(184, 134, 11, 0.5)",
-                  }}
-                >
-                  <Pending sx={{ fontSize: "1.5rem" }} />
-                </Box>
-              )}
-              {!isEditing && user?.photo && user?.photo_moderation_status === "rejected" && (
-                <Box
-                  sx={{
-                    position: "absolute",
-                    top: "50%",
-                    left: "50%",
-                    transform: "translate(-50%, -50%)",
-                    bgcolor: "rgba(244, 67, 54, 0.9)",
-                    color: "#fff",
-                    borderRadius: "50%",
-                    width: 40,
-                    height: 40,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    border: "2px solid rgba(198, 40, 40, 0.5)",
-                  }}
-                >
-                  <CancelIcon sx={{ fontSize: "1.5rem" }} />
-                </Box>
-              )}
+              {!isEditing &&
+                user?.photo &&
+                user?.photo_moderation_status === "pending" && (
+                  <Box
+                    sx={{
+                      position: "absolute",
+                      top: "50%",
+                      left: "50%",
+                      transform: "translate(-50%, -50%)",
+                      bgcolor: "rgba(255, 193, 7, 0.9)",
+                      color: "#1a1a1a",
+                      borderRadius: "50%",
+                      width: 40,
+                      height: 40,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      border: "2px solid rgba(184, 134, 11, 0.5)",
+                    }}
+                  >
+                    <Pending sx={{ fontSize: "1.5rem" }} />
+                  </Box>
+                )}
+              {!isEditing &&
+                user?.photo &&
+                user?.photo_moderation_status === "rejected" && (
+                  <Box
+                    sx={{
+                      position: "absolute",
+                      top: "50%",
+                      left: "50%",
+                      transform: "translate(-50%, -50%)",
+                      bgcolor: "rgba(244, 67, 54, 0.9)",
+                      color: "#fff",
+                      borderRadius: "50%",
+                      width: 40,
+                      height: 40,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      border: "2px solid rgba(198, 40, 40, 0.5)",
+                    }}
+                  >
+                    <CancelIcon sx={{ fontSize: "1.5rem" }} />
+                  </Box>
+                )}
             </Box>
             {isEditing && (
               <IconButton
@@ -1176,36 +1370,41 @@ export default function Profile({ user, setUser }) {
               </IconButton>
             )}
             {/* Help text for pending/rejected photo */}
-            {!isEditing && user?.photo && user?.photo_moderation_status === "pending" && (
-              <Typography
-                variant="caption"
-                sx={{
-                  display: "block",
-                  mt: 1,
-                  color: "rgba(184, 134, 11, 0.8)",
-                  fontSize: "0.7rem",
-                  fontStyle: "italic",
-                  textAlign: "center",
-                }}
-              >
-                Your photo is pending approval. It will be visible to others once approved.
-              </Typography>
-            )}
-            {!isEditing && user?.photo && user?.photo_moderation_status === "rejected" && (
-              <Typography
-                variant="caption"
-                sx={{
-                  display: "block",
-                  mt: 1,
-                  color: "rgba(198, 40, 40, 0.8)",
-                  fontSize: "0.7rem",
-                  fontStyle: "italic",
-                  textAlign: "center",
-                }}
-              >
-                Your photo was rejected. Please upload a new one.
-              </Typography>
-            )}
+            {!isEditing &&
+              user?.photo &&
+              user?.photo_moderation_status === "pending" && (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    display: "block",
+                    mt: 1,
+                    color: "rgba(184, 134, 11, 0.8)",
+                    fontSize: "0.7rem",
+                    fontStyle: "italic",
+                    textAlign: "center",
+                  }}
+                >
+                  Your photo is pending approval. It will be visible to others
+                  once approved.
+                </Typography>
+              )}
+            {!isEditing &&
+              user?.photo &&
+              user?.photo_moderation_status === "rejected" && (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    display: "block",
+                    mt: 1,
+                    color: "rgba(198, 40, 40, 0.8)",
+                    fontSize: "0.7rem",
+                    fontStyle: "italic",
+                    textAlign: "center",
+                  }}
+                >
+                  Your photo was rejected. Please upload a new one.
+                </Typography>
+              )}
           </Box>
           <Typography
             variant="h6"
@@ -1237,7 +1436,14 @@ export default function Profile({ user, setUser }) {
               )}
               {user?.photo_moderation_status === "approved" && (
                 <Chip
-                  icon={<CheckCircle sx={{ fontSize: "1rem !important", color: "#4CAF50 !important" }} />}
+                  icon={
+                    <CheckCircle
+                      sx={{
+                        fontSize: "1rem !important",
+                        color: "#4CAF50 !important",
+                      }}
+                    />
+                  }
                   label="Photo Approved"
                   size="small"
                   sx={{
@@ -1251,7 +1457,14 @@ export default function Profile({ user, setUser }) {
               )}
               {user?.photo_moderation_status === "rejected" && (
                 <Chip
-                  icon={<CancelIcon sx={{ fontSize: "1rem !important", color: "#F44336 !important" }} />}
+                  icon={
+                    <CancelIcon
+                      sx={{
+                        fontSize: "1rem !important",
+                        color: "#F44336 !important",
+                      }}
+                    />
+                  }
                   label="Photo Rejected"
                   size="small"
                   sx={{
@@ -1310,75 +1523,659 @@ export default function Profile({ user, setUser }) {
               />
             )}
           </Stack>
-          
-          {/* Verification Request Button - Only for Premium Categories */}
-          {isPremiumCategory && !user?.isVerified && (
-            <Box sx={{ mb: 2, textAlign: "center" }}>
-              {verificationStatus === "pending" ? (
-                <Chip
-                  icon={<Pending sx={{ fontSize: "1rem !important", color: "#FF9800 !important" }} />}
-                  label="Verification Request Pending"
-                  sx={{
-                    bgcolor: "rgba(255, 152, 0, 0.15)",
-                    color: "#E65100",
-                    fontWeight: 600,
-                    fontSize: "0.85rem",
-                    px: 2,
-                    py: 1.5,
-                  }}
-                />
-              ) : verificationStatus === "rejected" ? (
-                <Box>
-                  <Chip
-                    icon={<CancelIcon sx={{ fontSize: "1rem !important", color: "#F44336 !important" }} />}
-                    label="Verification Rejected"
+        </Card>
+
+        {/* Gallery Photos Section */}
+        <Card
+          sx={{
+            p: { xs: 2, sm: 3 },
+            borderRadius: "16px",
+            background:
+              "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
+            border: "1px solid rgba(212, 175, 55, 0.2)",
+            boxShadow: "0 4px 20px rgba(212, 175, 55, 0.1)",
+          }}
+        >
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              mb: 2,
+            }}
+          >
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: 700,
+                color: "#1a1a1a",
+                fontSize: { xs: "1rem", sm: "1.25rem" },
+              }}
+            >
+              Gallery Photos
+            </Typography>
+            {isEditing && (
+              <Button
+                variant="contained"
+                startIcon={<Add />}
+                onClick={handleGalleryClick}
+                disabled={
+                  (user?.photos && Array.isArray(user.photos)
+                    ? user.photos.length
+                    : 0) +
+                    galleryPhotos.length >=
+                  10
+                }
+                sx={{
+                  bgcolor: "#D4AF37",
+                  color: "#1a1a1a",
+                  fontWeight: 600,
+                  "&:hover": {
+                    bgcolor: "#B8941F",
+                  },
+                  "&:disabled": {
+                    bgcolor: "rgba(212, 175, 55, 0.3)",
+                    color: "rgba(26, 26, 26, 0.5)",
+                  },
+                }}
+              >
+                Add Photos
+              </Button>
+            )}
+          </Box>
+          <input
+            accept="image/*"
+            type="file"
+            multiple
+            ref={galleryInputRef}
+            onChange={handleGalleryPhotosChange}
+            style={{ display: "none" }}
+          />
+          {(user?.photos && user.photos.length > 0) ||
+          galleryPhotos.length > 0 ? (
+            <Box>
+              {/* Collect all photos for carousel */}
+              {(() => {
+                const allPhotos = [];
+                // Add existing photos
+                if (user?.photos && Array.isArray(user.photos)) {
+                  user.photos.forEach((photo, index) => {
+                    if (typeof photo === "object" && photo.path) {
+                      allPhotos.push({
+                        type: "existing",
+                        photo,
+                        index,
+                      });
+                    }
+                  });
+                }
+                // Add new photo previews
+                galleryPreviews.forEach((preview, index) => {
+                  allPhotos.push({
+                    type: "preview",
+                    preview,
+                    index,
+                  });
+                });
+
+                const totalPhotos = allPhotos.length;
+
+                // Different scroll methods for edit vs view mode
+                const scrollToPhoto = (targetIndex) => {
+                  // Prevent rapid clicking and ensure valid index
+                  if (
+                    isScrollingRef.current ||
+                    targetIndex < 0 ||
+                    targetIndex >= totalPhotos
+                  ) {
+                    return;
+                  }
+
+                  const container = galleryScrollRef.current;
+                  if (!container) return;
+
+                  // Set scrolling flag
+                  isScrollingRef.current = true;
+
+                  if (isEditing) {
+                    // EDIT MODE: Use scrollIntoView with element reference (works well with previews)
+                    requestAnimationFrame(() => {
+                      const photoElement = container.children[targetIndex];
+                      if (!photoElement) {
+                        isScrollingRef.current = false;
+                        return;
+                      }
+
+                      // Update index immediately
+                      setCurrentPhotoIndex(targetIndex);
+
+                      // Use scrollIntoView for edit mode
+                      photoElement.scrollIntoView({
+                        behavior: "smooth",
+                        block: "nearest",
+                        inline: "center",
+                      });
+
+                      // Reset flag after animation
+                      setTimeout(() => {
+                        isScrollingRef.current = false;
+                      }, 300);
+                    });
+                  } else {
+                    // VIEW MODE: Use direct scroll position calculation (more reliable for existing photos)
+                    requestAnimationFrame(() => {
+                      const containerWidth =
+                        container.clientWidth || container.offsetWidth;
+
+                      if (containerWidth === 0) {
+                        // Container not ready, try again
+                        isScrollingRef.current = false;
+                        setTimeout(() => scrollToPhoto(targetIndex), 50);
+                        return;
+                      }
+
+                      // Calculate scroll position - each photo is exactly containerWidth wide
+                      const scrollPosition = targetIndex * containerWidth;
+
+                      // Update index immediately
+                      setCurrentPhotoIndex(targetIndex);
+
+                      // Scroll directly - use scrollTo only (no immediate scrollLeft to avoid conflicts)
+                      container.scrollTo({
+                        left: scrollPosition,
+                        behavior: "smooth",
+                      });
+
+                      // Reset flag and verify position after animation
+                      setTimeout(() => {
+                        isScrollingRef.current = false;
+                        // Ensure final position is correct
+                        const finalPosition = container.scrollLeft;
+                        const expectedPosition = targetIndex * containerWidth;
+                        const difference = Math.abs(
+                          finalPosition - expectedPosition
+                        );
+
+                        // If position is significantly off, correct it
+                        if (difference > 10) {
+                          container.scrollLeft = expectedPosition;
+                        }
+
+                        // Verify and update index to ensure dots are aligned
+                        const finalIndex = Math.round(
+                          finalPosition / containerWidth
+                        );
+                        const clampedIndex = Math.max(
+                          0,
+                          Math.min(finalIndex, totalPhotos - 1)
+                        );
+                        if (clampedIndex !== currentPhotoIndex) {
+                          setCurrentPhotoIndex(clampedIndex);
+                        }
+                      }, 400);
+                    });
+                  }
+                };
+
+                // Debounce scroll handler to prevent excessive updates
+                const handleScroll = (e) => {
+                  // Don't update index during programmatic scrolling
+                  if (isScrollingRef.current) return;
+
+                  // Clear previous timeout
+                  if (scrollTimeoutRef.current) {
+                    clearTimeout(scrollTimeoutRef.current);
+                  }
+
+                  // Debounce scroll updates
+                  scrollTimeoutRef.current = setTimeout(() => {
+                    const container = e.target;
+                    const containerWidth = container.clientWidth;
+                    const scrollLeft = container.scrollLeft;
+
+                    // Find which photo is most visible/centered
+                    let closestIndex = 0;
+                    let closestDistance = Infinity;
+
+                    if (galleryScrollRef.current) {
+                      Array.from(galleryScrollRef.current.children).forEach(
+                        (child, idx) => {
+                          const rect = child.getBoundingClientRect();
+                          const containerRect =
+                            container.getBoundingClientRect();
+                          const photoCenter = rect.left + rect.width / 2;
+                          const containerCenter =
+                            containerRect.left + containerWidth / 2;
+                          const distance = Math.abs(
+                            photoCenter - containerCenter
+                          );
+
+                          if (distance < closestDistance) {
+                            closestDistance = distance;
+                            closestIndex = idx;
+                          }
+                        }
+                      );
+                    }
+
+                    // Fallback to calculation if no children found
+                    if (closestIndex === 0 && closestDistance === Infinity) {
+                      closestIndex = Math.round(scrollLeft / containerWidth);
+                    }
+
+                    // Clamp index to valid range
+                    closestIndex = Math.max(
+                      0,
+                      Math.min(closestIndex, totalPhotos - 1)
+                    );
+
+                    // Update index if it changed
+                    if (
+                      closestIndex !== currentPhotoIndex &&
+                      closestIndex >= 0 &&
+                      closestIndex < totalPhotos
+                    ) {
+                      setCurrentPhotoIndex(closestIndex);
+                    }
+                  }, 100);
+                };
+
+                return (
+                  <>
+                    {/* Single Photo Carousel */}
+                    <Box
+                      sx={{
+                        position: "relative",
+                        width: "100%",
+                        borderRadius: "12px",
+                        overflow: "hidden",
+                        aspectRatio: "1",
+                        bgcolor: "rgba(212, 175, 55, 0.1)",
+                      }}
+                    >
+                      {/* Left Arrow - Only show in edit mode */}
+                      {isEditing &&
+                        totalPhotos > 1 &&
+                        currentPhotoIndex > 0 && (
+                          <IconButton
+                            onClick={() => scrollToPhoto(currentPhotoIndex - 1)}
+                            sx={{
+                              position: "absolute",
+                              left: 8,
+                              top: "50%",
+                              transform: "translateY(-50%)",
+                              zIndex: 3,
+                              bgcolor: "rgba(255, 255, 255, 0.9)",
+                              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
+                              "&:hover": {
+                                bgcolor: "rgba(255, 255, 255, 1)",
+                              },
+                            }}
+                            size="small"
+                          >
+                            <ChevronLeft />
+                          </IconButton>
+                        )}
+
+                      {/* Right Arrow - Only show in edit mode */}
+                      {isEditing &&
+                        totalPhotos > 1 &&
+                        currentPhotoIndex < totalPhotos - 1 && (
+                          <IconButton
+                            onClick={() => scrollToPhoto(currentPhotoIndex + 1)}
+                            sx={{
+                              position: "absolute",
+                              right: 8,
+                              top: "50%",
+                              transform: "translateY(-50%)",
+                              zIndex: 3,
+                              bgcolor: "rgba(255, 255, 255, 0.9)",
+                              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
+                              "&:hover": {
+                                bgcolor: "rgba(255, 255, 255, 1)",
+                              },
+                            }}
+                            size="small"
+                          >
+                            <ChevronRight />
+                          </IconButton>
+                        )}
+
+                      {/* Scrollable Container - Only one photo visible at a time */}
+                      <Box
+                        ref={galleryScrollRef}
+                        onScroll={handleScroll}
+                        sx={{
+                          display: "flex",
+                          gap: 0,
+                          overflowX: "auto",
+                          overflowY: "hidden",
+                          scrollSnapType: "x mandatory",
+                          scrollBehavior: "smooth",
+                          width: "100%",
+                          height: "100%",
+                          cursor: totalPhotos > 1 ? "grab" : "default",
+                          touchAction: "pan-x",
+                          WebkitOverflowScrolling: "touch",
+                          scrollSnapStop: "always",
+                          "&:active": {
+                            cursor: totalPhotos > 1 ? "grabbing" : "default",
+                          },
+                          "&::-webkit-scrollbar": {
+                            display: "none",
+                          },
+                          scrollbarWidth: "none",
+                          msOverflowStyle: "none",
+                        }}
+                      >
+                        {allPhotos.map((item, idx) => {
+                          const existingCount =
+                            user?.photos && Array.isArray(user.photos)
+                              ? user.photos.length
+                              : 0;
+                          const displayIndex =
+                            item.type === "existing"
+                              ? item.index
+                              : existingCount + item.index;
+
+                          return (
+                            <Box
+                              key={`photo-${item.type}-${item.index}`}
+                              sx={{
+                                position: "relative",
+                                flexShrink: 0,
+                                width: "100%",
+                                height: "100%",
+                                minWidth: "100%",
+                                overflow: "hidden",
+                                scrollSnapAlign: "start",
+                                scrollSnapStop: "always",
+                              }}
+                            >
+                              {item.type === "existing" ? (
+                                <>
+                                  <Box
+                                    component="img"
+                                    src={
+                                      item.photo.path.startsWith("/uploads/")
+                                        ? item.photo.path
+                                        : `/uploads/${item.photo.path}`
+                                    }
+                                    alt={`Gallery photo ${item.index + 1}`}
+                                    sx={{
+                                      width: "100%",
+                                      height: "100%",
+                                      objectFit: "cover",
+                                      opacity:
+                                        item.photo.moderation_status !==
+                                        "approved"
+                                          ? 0.6
+                                          : 1,
+                                    }}
+                                  />
+                                  {item.photo.moderation_status ===
+                                    "pending" && (
+                                    <Box
+                                      sx={{
+                                        position: "absolute",
+                                        top: 8,
+                                        right: 8,
+                                        bgcolor: "rgba(255, 193, 7, 0.9)",
+                                        borderRadius: "50%",
+                                        width: 24,
+                                        height: 24,
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        zIndex: 2,
+                                      }}
+                                    >
+                                      <Pending sx={{ fontSize: "0.875rem" }} />
+                                    </Box>
+                                  )}
+                                  {item.photo.moderation_status ===
+                                    "rejected" && (
+                                    <Box
+                                      sx={{
+                                        position: "absolute",
+                                        top: 8,
+                                        right: 8,
+                                        bgcolor: "rgba(244, 67, 54, 0.9)",
+                                        borderRadius: "50%",
+                                        width: 24,
+                                        height: 24,
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        zIndex: 2,
+                                      }}
+                                    >
+                                      <CancelIcon
+                                        sx={{ fontSize: "0.875rem" }}
+                                      />
+                                    </Box>
+                                  )}
+                                </>
+                              ) : (
+                                <>
+                                  <Box
+                                    component="img"
+                                    src={item.preview}
+                                    alt={`New photo ${item.index + 1}`}
+                                    sx={{
+                                      width: "100%",
+                                      height: "100%",
+                                      objectFit: "cover",
+                                    }}
+                                  />
+                                  {isEditing && (
+                                    <IconButton
+                                      onClick={() =>
+                                        handleRemoveGalleryPhoto(displayIndex)
+                                      }
+                                      sx={{
+                                        position: "absolute",
+                                        top: 8,
+                                        right: 8,
+                                        bgcolor: "rgba(244, 67, 54, 0.9)",
+                                        color: "#fff",
+                                        zIndex: 2,
+                                        "&:hover": {
+                                          bgcolor: "rgba(198, 40, 40, 0.9)",
+                                        },
+                                        width: 32,
+                                        height: 32,
+                                      }}
+                                      size="small"
+                                    >
+                                      <Delete sx={{ fontSize: "1rem" }} />
+                                    </IconButton>
+                                  )}
+                                  <Box
+                                    sx={{
+                                      position: "absolute",
+                                      bottom: 8,
+                                      left: 8,
+                                      bgcolor: "rgba(255, 193, 7, 0.9)",
+                                      borderRadius: "4px",
+                                      px: 1,
+                                      py: 0.5,
+                                      zIndex: 2,
+                                    }}
+                                  >
+                                    <Chip
+                                      icon={
+                                        <Pending sx={{ fontSize: "0.75rem" }} />
+                                      }
+                                      label="Pending"
+                                      size="small"
+                                      sx={{
+                                        height: 20,
+                                        fontSize: "0.65rem",
+                                        bgcolor: "transparent",
+                                        color: "#1a1a1a",
+                                      }}
+                                    />
+                                  </Box>
+                                </>
+                              )}
+                            </Box>
+                          );
+                        })}
+                      </Box>
+
+                      {/* Dot Indicators - Floating on top of photo */}
+                      {totalPhotos > 1 && (
+                        <Box
+                          sx={{
+                            position: "absolute",
+                            bottom: 16,
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                            display: "flex",
+                            justifyContent: "center",
+                            gap: 1,
+                            zIndex: 2,
+                            bgcolor: "rgba(0, 0, 0, 0.3)",
+                            backdropFilter: "blur(4px)",
+                            borderRadius: "20px",
+                            px: 1.5,
+                            py: 0.75,
+                          }}
+                        >
+                          {allPhotos.map((_, idx) => (
+                            <Box
+                              key={`dot-${idx}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                scrollToPhoto(idx);
+                              }}
+                              sx={{
+                                width: currentPhotoIndex === idx ? 24 : 8,
+                                height: 8,
+                                borderRadius: 4,
+                                bgcolor:
+                                  currentPhotoIndex === idx
+                                    ? "#D4AF37"
+                                    : "rgba(255, 255, 255, 0.5)",
+                                cursor: "pointer",
+                                transition: "all 0.3s ease",
+                                pointerEvents: "auto",
+                                "&:hover": {
+                                  bgcolor:
+                                    currentPhotoIndex === idx
+                                      ? "#B8941F"
+                                      : "rgba(255, 255, 255, 0.8)",
+                                  transform: "scale(1.2)",
+                                },
+                                "&:active": {
+                                  transform: "scale(0.95)",
+                                },
+                              }}
+                              title={`Go to photo ${idx + 1}`}
+                            />
+                          ))}
+                        </Box>
+                      )}
+                    </Box>
+                  </>
+                );
+              })()}
+            </Box>
+          ) : (
+            <Box
+              sx={{
+                textAlign: "center",
+                py: 4,
+                color: "rgba(26, 26, 26, 0.5)",
+              }}
+            >
+              <PhotoCamera sx={{ fontSize: 48, mb: 1, opacity: 0.3 }} />
+              <Typography variant="body2">
+                {isEditing
+                  ? "No gallery photos yet. Click 'Add Photos' to get started."
+                  : "No gallery photos yet."}
+              </Typography>
+            </Box>
+          )}
+          {galleryPhotos.length > 0 && (
+            <Typography
+              variant="caption"
+              sx={{
+                display: "block",
+                mt: 2,
+                color: "rgba(26, 26, 26, 0.6)",
+                fontStyle: "italic",
+                textAlign: "center",
+              }}
+            >
+              {galleryPhotos.length} photo(s) will be uploaded and pending
+              approval
+            </Typography>
+          )}
+        </Card>
+
+        {/* Verification Request Button - Only for Premium Categories */}
+        {isPremiumCategory && !user?.isVerified && (
+          <Box sx={{ mb: 2, textAlign: "center" }}>
+            {verificationStatus === "pending" ? (
+              <Chip
+                icon={
+                  <Pending
                     sx={{
-                      bgcolor: "rgba(244, 67, 54, 0.15)",
-                      color: "#C62828",
-                      fontWeight: 600,
-                      fontSize: "0.85rem",
-                      mb: 1,
+                      fontSize: "1rem !important",
+                      color: "#FF9800 !important",
                     }}
                   />
-                  <Button
-                    variant="contained"
-                    startIcon={requestingVerification ? <CircularProgress size={16} color="inherit" /> : <HowToReg />}
-                    onClick={handleRequestVerification}
-                    disabled={requestingVerification}
-                    sx={{
-                      background: "linear-gradient(135deg, #D4AF37, #B8941F)",
-                      color: "#1a1a1a",
-                      fontWeight: 600,
-                      textTransform: "none",
-                      borderRadius: "12px",
-                      px: 3,
-                      "&:hover": {
-                        background: "linear-gradient(135deg, #B8941F, #D4AF37)",
-                        transform: "translateY(-2px)",
-                        boxShadow: "0 8px 24px rgba(212, 175, 55, 0.3)",
-                      },
-                      "&:disabled": {
-                        background: "rgba(212, 175, 55, 0.3)",
-                      },
-                    }}
-                  >
-                    Request Verification Again
-                  </Button>
-                </Box>
-              ) : (
+                }
+                label="Verification Request Pending"
+                sx={{
+                  bgcolor: "rgba(255, 152, 0, 0.15)",
+                  color: "#E65100",
+                  fontWeight: 600,
+                  fontSize: "0.85rem",
+                  px: 2,
+                  py: 1.5,
+                }}
+              />
+            ) : verificationStatus === "rejected" ? (
+              <Box>
+                <Chip
+                  icon={
+                    <CancelIcon
+                      sx={{
+                        fontSize: "1rem !important",
+                        color: "#F44336 !important",
+                      }}
+                    />
+                  }
+                  label="Verification Rejected"
+                  sx={{
+                    bgcolor: "rgba(244, 67, 54, 0.15)",
+                    color: "#C62828",
+                    fontWeight: 600,
+                    fontSize: "0.85rem",
+                    mb: 1,
+                  }}
+                />
                 <Button
                   variant="contained"
-                  startIcon={requestingVerification ? <CircularProgress size={16} color="inherit" /> : <HowToReg />}
+                  startIcon={
+                    requestingVerification ? (
+                      <CircularProgress size={16} color="inherit" />
+                    ) : (
+                      <HowToReg />
+                    )
+                  }
                   onClick={handleRequestVerification}
                   disabled={requestingVerification}
-                  fullWidth
                   sx={{
                     background: "linear-gradient(135deg, #D4AF37, #B8941F)",
                     color: "#1a1a1a",
                     fontWeight: 600,
                     textTransform: "none",
                     borderRadius: "12px",
-                    py: 1.5,
+                    px: 3,
                     "&:hover": {
                       background: "linear-gradient(135deg, #B8941F, #D4AF37)",
                       transform: "translateY(-2px)",
@@ -1389,227 +2186,277 @@ export default function Profile({ user, setUser }) {
                     },
                   }}
                 >
-                  {requestingVerification ? "Requesting..." : "Request Verification"}
+                  Request Verification Again
+                </Button>
+              </Box>
+            ) : (
+              <Button
+                variant="contained"
+                startIcon={
+                  requestingVerification ? (
+                    <CircularProgress size={16} color="inherit" />
+                  ) : (
+                    <HowToReg />
+                  )
+                }
+                onClick={handleRequestVerification}
+                disabled={requestingVerification}
+                fullWidth
+                sx={{
+                  background: "linear-gradient(135deg, #D4AF37, #B8941F)",
+                  color: "#1a1a1a",
+                  fontWeight: 600,
+                  textTransform: "none",
+                  borderRadius: "12px",
+                  py: 1.5,
+                  "&:hover": {
+                    background: "linear-gradient(135deg, #B8941F, #D4AF37)",
+                    transform: "translateY(-2px)",
+                    boxShadow: "0 8px 24px rgba(212, 175, 55, 0.3)",
+                  },
+                  "&:disabled": {
+                    background: "rgba(212, 175, 55, 0.3)",
+                  },
+                }}
+              >
+                {requestingVerification
+                  ? "Requesting..."
+                  : "Request Verification"}
+              </Button>
+            )}
+          </Box>
+        )}
+
+        {/* "Looking For" Posts Section - Only for Verified Premium Users */}
+        {isVerifiedPremium && (
+          <Box sx={{ mb: 3 }}>
+            <Divider sx={{ my: 2, borderColor: "rgba(212, 175, 55, 0.2)" }} />
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                mb: 2,
+              }}
+            >
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: 700,
+                  color: "#1a1a1a",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  fontSize: { xs: "1rem", sm: "1.125rem" },
+                }}
+              >
+                <Visibility sx={{ color: "#D4AF37" }} />
+                Looking For
+              </Typography>
+              {!showPostForm && (
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<Add />}
+                  onClick={() => {
+                    setShowPostForm(true);
+                    setPostContent("");
+                    setEditingPostId(null);
+                  }}
+                  sx={{
+                    background: "linear-gradient(135deg, #D4AF37, #B8941F)",
+                    color: "#1a1a1a",
+                    fontWeight: 600,
+                    textTransform: "none",
+                    borderRadius: "8px",
+                    "&:hover": {
+                      background: "linear-gradient(135deg, #B8941F, #D4AF37)",
+                    },
+                  }}
+                >
+                  New Post
                 </Button>
               )}
             </Box>
-          )}
 
-          {/* "Looking For" Posts Section - Only for Verified Premium Users */}
-          {isVerifiedPremium && (
-            <Box sx={{ mb: 3 }}>
-              <Divider sx={{ my: 2, borderColor: "rgba(212, 175, 55, 0.2)" }} />
-              <Box
+            {/* Create/Edit Post Form */}
+            {(showPostForm || editingPostId) && (
+              <Card
                 sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
+                  p: 2,
                   mb: 2,
+                  borderRadius: "12px",
+                  background: "rgba(212, 175, 55, 0.05)",
+                  border: "1px solid rgba(212, 175, 55, 0.2)",
                 }}
               >
-                <Typography
-                  variant="h6"
-                  sx={{
-                    fontWeight: 700,
-                    color: "#1a1a1a",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1,
-                    fontSize: { xs: "1rem", sm: "1.125rem" },
-                  }}
-                >
-                  <Visibility sx={{ color: "#D4AF37" }} />
-                  Looking For
-                </Typography>
-                {!showPostForm && (
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={4}
+                  placeholder="What are you looking for? (e.g., 'Looking for someone mature and fun to connect with...')"
+                  value={postContent}
+                  onChange={(e) => setPostContent(e.target.value)}
+                  sx={{ mb: 2 }}
+                />
+                <Stack direction="row" spacing={1} justifyContent="flex-end">
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => {
+                      setShowPostForm(false);
+                      setEditingPostId(null);
+                      setPostContent("");
+                    }}
+                    sx={{
+                      borderColor: "rgba(212, 175, 55, 0.5)",
+                      color: "#1a1a1a",
+                      textTransform: "none",
+                    }}
+                  >
+                    Cancel
+                  </Button>
                   <Button
                     variant="contained"
                     size="small"
-                    startIcon={<Add />}
                     onClick={() => {
-                      setShowPostForm(true);
-                      setPostContent("");
-                      setEditingPostId(null);
+                      if (editingPostId) {
+                        handleUpdatePost(editingPostId);
+                      } else {
+                        handleCreatePost();
+                      }
                     }}
+                    disabled={loadingPosts || !postContent.trim()}
                     sx={{
                       background: "linear-gradient(135deg, #D4AF37, #B8941F)",
                       color: "#1a1a1a",
-                      fontWeight: 600,
                       textTransform: "none",
-                      borderRadius: "8px",
-                      "&:hover": {
-                        background: "linear-gradient(135deg, #B8941F, #D4AF37)",
+                      "&:disabled": {
+                        background: "rgba(212, 175, 55, 0.3)",
                       },
                     }}
                   >
-                    New Post
+                    {loadingPosts ? (
+                      <CircularProgress size={16} color="inherit" />
+                    ) : editingPostId ? (
+                      "Update"
+                    ) : (
+                      "Post"
+                    )}
                   </Button>
-                )}
+                </Stack>
+              </Card>
+            )}
+
+            {/* Posts List */}
+            {loadingPosts ? (
+              <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
+                <CircularProgress size={24} sx={{ color: "#D4AF37" }} />
               </Box>
-
-              {/* Create/Edit Post Form */}
-              {(showPostForm || editingPostId) && (
-                <Card
+            ) : lookingForPosts.length === 0 ? (
+              <Card
+                sx={{
+                  p: 3,
+                  textAlign: "center",
+                  borderRadius: "12px",
+                  background: "rgba(212, 175, 55, 0.05)",
+                  border: "1px dashed rgba(212, 175, 55, 0.3)",
+                }}
+              >
+                <Visibility
                   sx={{
-                    p: 2,
-                    mb: 2,
-                    borderRadius: "12px",
-                    background: "rgba(212, 175, 55, 0.05)",
-                    border: "1px solid rgba(212, 175, 55, 0.2)",
+                    fontSize: 48,
+                    color: "rgba(212, 175, 55, 0.5)",
+                    mb: 1,
                   }}
+                />
+                <Typography
+                  variant="body2"
+                  sx={{ color: "rgba(26, 26, 26, 0.6)" }}
                 >
-                  <TextField
-                    fullWidth
-                    multiline
-                    rows={4}
-                    placeholder="What are you looking for? (e.g., 'Looking for someone mature and fun to connect with...')"
-                    value={postContent}
-                    onChange={(e) => setPostContent(e.target.value)}
-                    sx={{ mb: 2 }}
-                  />
-                  <Stack direction="row" spacing={1} justifyContent="flex-end">
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      onClick={() => {
-                        setShowPostForm(false);
-                        setEditingPostId(null);
-                        setPostContent("");
-                      }}
-                      sx={{
-                        borderColor: "rgba(212, 175, 55, 0.5)",
-                        color: "#1a1a1a",
-                        textTransform: "none",
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      variant="contained"
-                      size="small"
-                      onClick={() => {
-                        if (editingPostId) {
-                          handleUpdatePost(editingPostId);
-                        } else {
-                          handleCreatePost();
-                        }
-                      }}
-                      disabled={loadingPosts || !postContent.trim()}
-                      sx={{
-                        background: "linear-gradient(135deg, #D4AF37, #B8941F)",
-                        color: "#1a1a1a",
-                        textTransform: "none",
-                        "&:disabled": {
-                          background: "rgba(212, 175, 55, 0.3)",
-                        },
-                      }}
-                    >
-                      {loadingPosts ? (
-                        <CircularProgress size={16} color="inherit" />
-                      ) : editingPostId ? (
-                        "Update"
-                      ) : (
-                        "Post"
-                      )}
-                    </Button>
-                  </Stack>
-                </Card>
-              )}
-
-              {/* Posts List */}
-              {loadingPosts ? (
-                <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
-                  <CircularProgress size={24} sx={{ color: "#D4AF37" }} />
-                </Box>
-              ) : lookingForPosts.length === 0 ? (
-                <Card
-                  sx={{
-                    p: 3,
-                    textAlign: "center",
-                    borderRadius: "12px",
-                    background: "rgba(212, 175, 55, 0.05)",
-                    border: "1px dashed rgba(212, 175, 55, 0.3)",
-                  }}
-                >
-                  <Visibility
-                    sx={{ fontSize: 48, color: "rgba(212, 175, 55, 0.5)", mb: 1 }}
-                  />
-                  <Typography
-                    variant="body2"
-                    sx={{ color: "rgba(26, 26, 26, 0.6)" }}
+                  No posts yet. Create your first "Looking For" post!
+                </Typography>
+              </Card>
+            ) : (
+              <Stack spacing={2}>
+                {lookingForPosts.map((post) => (
+                  <Card
+                    key={post.id}
+                    sx={{
+                      p: 2,
+                      borderRadius: "12px",
+                      background:
+                        "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
+                      border: "1px solid rgba(212, 175, 55, 0.2)",
+                    }}
                   >
-                    No posts yet. Create your first "Looking For" post!
-                  </Typography>
-                </Card>
-              ) : (
-                <Stack spacing={2}>
-                  {lookingForPosts.map((post) => (
-                    <Card
-                      key={post.id}
+                    <Typography
+                      variant="body1"
                       sx={{
-                        p: 2,
-                        borderRadius: "12px",
-                        background:
-                          "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
-                        border: "1px solid rgba(212, 175, 55, 0.2)",
+                        color: "#1a1a1a",
+                        mb: 1,
+                        whiteSpace: "pre-wrap",
+                      }}
+                    >
+                      {post.content}
+                    </Typography>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
                       }}
                     >
                       <Typography
-                        variant="body1"
-                        sx={{
-                          color: "#1a1a1a",
-                          mb: 1,
-                          whiteSpace: "pre-wrap",
-                        }}
+                        variant="caption"
+                        sx={{ color: "rgba(26, 26, 26, 0.5)" }}
                       >
-                        {post.content}
+                        {new Date(post.createdAt).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
                       </Typography>
-                      <Box
-                        sx={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                        }}
-                      >
-                        <Typography
-                          variant="caption"
-                          sx={{ color: "rgba(26, 26, 26, 0.5)" }}
+                      <Stack direction="row" spacing={1}>
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            setEditingPostId(post.id);
+                            setPostContent(post.content);
+                            setShowPostForm(false);
+                          }}
+                          sx={{ color: "#D4AF37" }}
                         >
-                          {new Date(post.createdAt).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
-                        </Typography>
-                        <Stack direction="row" spacing={1}>
-                          <IconButton
-                            size="small"
-                            onClick={() => {
-                              setEditingPostId(post.id);
-                              setPostContent(post.content);
-                              setShowPostForm(false);
-                            }}
-                            sx={{ color: "#D4AF37" }}
-                          >
-                            <Edit fontSize="small" />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleDeletePost(post.id)}
-                            sx={{ color: "#F44336" }}
-                          >
-                            <Delete fontSize="small" />
-                          </IconButton>
-                        </Stack>
-                      </Box>
-                    </Card>
-                  ))}
-                </Stack>
-              )}
-            </Box>
-          )}
-          
-          <Divider sx={{ my: 2, borderColor: "rgba(212, 175, 55, 0.2)" }} />
+                          <Edit fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDeletePost(post.id)}
+                          sx={{ color: "#F44336" }}
+                        >
+                          <Delete fontSize="small" />
+                        </IconButton>
+                      </Stack>
+                    </Box>
+                  </Card>
+                ))}
+              </Stack>
+            )}
+          </Box>
+        )}
+
+        {/* Token Balance & Boost Section */}
+        <Card
+          sx={{
+            p: { xs: 2, sm: 3 },
+            borderRadius: "16px",
+            background:
+              "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
+            border: "1px solid rgba(212, 175, 55, 0.2)",
+            boxShadow: "0 4px 20px rgba(212, 175, 55, 0.1)",
+            width: "100%",
+          }}
+        >
           <Box sx={{ textAlign: "left" }}>
             <Box sx={{ mb: 2 }}>
               <Typography
@@ -1656,7 +2503,15 @@ export default function Profile({ user, setUser }) {
               </Typography>
             </Box>
             {boostTimeRemaining && (
-              <Box sx={{ mb: 2, p: 1.5, borderRadius: "8px", bgcolor: "rgba(212, 175, 55, 0.1)", border: "1px solid rgba(212, 175, 55, 0.3)" }}>
+              <Box
+                sx={{
+                  mb: 2,
+                  p: 1.5,
+                  borderRadius: "8px",
+                  bgcolor: "rgba(212, 175, 55, 0.1)",
+                  border: "1px solid rgba(212, 175, 55, 0.3)",
+                }}
+              >
                 <Typography
                   variant="caption"
                   sx={{
@@ -1682,7 +2537,8 @@ export default function Profile({ user, setUser }) {
                   }}
                 >
                   <AccessTime sx={{ fontSize: "1rem" }} />
-                  {boostTimeRemaining.hours}h {boostTimeRemaining.minutes}m remaining
+                  {boostTimeRemaining.hours}h {boostTimeRemaining.minutes}m
+                  remaining
                 </Typography>
                 <Typography
                   variant="caption"
@@ -1704,8 +2560,8 @@ export default function Profile({ user, setUser }) {
               disabled={isEditing}
               sx={{
                 mt: 1,
-                background: isEditing 
-                  ? "rgba(212, 175, 55, 0.3)" 
+                background: isEditing
+                  ? "rgba(212, 175, 55, 0.3)"
                   : "linear-gradient(45deg, #D4AF37, #B8941F)",
                 color: "#1a1a1a",
                 fontWeight: 700,
@@ -1715,7 +2571,9 @@ export default function Profile({ user, setUser }) {
                   background: isEditing
                     ? "rgba(212, 175, 55, 0.3)"
                     : "linear-gradient(45deg, #B8941F, #9A7A1A)",
-                  boxShadow: isEditing ? "none" : "0 8px 24px rgba(212, 175, 55, 0.4)",
+                  boxShadow: isEditing
+                    ? "none"
+                    : "0 8px 24px rgba(212, 175, 55, 0.4)",
                 },
               }}
             >
@@ -1808,27 +2666,76 @@ export default function Profile({ user, setUser }) {
                 },
               }}
             />
-            <TextField
-              fullWidth
-              label="City"
-              name="city"
-              value={formData.city}
-              onChange={handleChange}
-              disabled={!isEditing}
-              InputProps={{
-                startAdornment: <LocationOn sx={{ mr: 1, color: "#D4AF37" }} />,
-              }}
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  "&:hover fieldset": {
+            <FormControl fullWidth disabled={!isEditing}>
+              <InputLabel>County</InputLabel>
+              <Select
+                name="county"
+                value={formData.county}
+                onChange={handleChange}
+                label="County"
+                disabled={!isEditing}
+                sx={{
+                  "& .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "rgba(0, 0, 0, 0.23)",
+                  },
+                  "&:hover .MuiOutlinedInput-notchedOutline": {
                     borderColor: "rgba(212, 175, 55, 0.5)",
                   },
-                  "&.Mui-focused fieldset": {
+                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
                     borderColor: "#D4AF37",
                   },
-                },
-              }}
-            />
+                }}
+              >
+                <MenuItem value="">Select County</MenuItem>
+                <MenuItem value="Baringo">Baringo</MenuItem>
+                <MenuItem value="Bomet">Bomet</MenuItem>
+                <MenuItem value="Bungoma">Bungoma</MenuItem>
+                <MenuItem value="Busia">Busia</MenuItem>
+                <MenuItem value="Elgeyo-Marakwet">Elgeyo-Marakwet</MenuItem>
+                <MenuItem value="Embu">Embu</MenuItem>
+                <MenuItem value="Garissa">Garissa</MenuItem>
+                <MenuItem value="Homa Bay">Homa Bay</MenuItem>
+                <MenuItem value="Isiolo">Isiolo</MenuItem>
+                <MenuItem value="Kajiado">Kajiado</MenuItem>
+                <MenuItem value="Kakamega">Kakamega</MenuItem>
+                <MenuItem value="Kericho">Kericho</MenuItem>
+                <MenuItem value="Kiambu">Kiambu</MenuItem>
+                <MenuItem value="Kilifi">Kilifi</MenuItem>
+                <MenuItem value="Kirinyaga">Kirinyaga</MenuItem>
+                <MenuItem value="Kisii">Kisii</MenuItem>
+                <MenuItem value="Kisumu">Kisumu</MenuItem>
+                <MenuItem value="Kitui">Kitui</MenuItem>
+                <MenuItem value="Kwale">Kwale</MenuItem>
+                <MenuItem value="Laikipia">Laikipia</MenuItem>
+                <MenuItem value="Lamu">Lamu</MenuItem>
+                <MenuItem value="Machakos">Machakos</MenuItem>
+                <MenuItem value="Makueni">Makueni</MenuItem>
+                <MenuItem value="Mandera">Mandera</MenuItem>
+                <MenuItem value="Marsabit">Marsabit</MenuItem>
+                <MenuItem value="Meru">Meru</MenuItem>
+                <MenuItem value="Migori">Migori</MenuItem>
+                <MenuItem value="Mombasa">Mombasa</MenuItem>
+                <MenuItem value="Murang'a">Murang'a</MenuItem>
+                <MenuItem value="Nairobi">Nairobi</MenuItem>
+                <MenuItem value="Nakuru">Nakuru</MenuItem>
+                <MenuItem value="Nandi">Nandi</MenuItem>
+                <MenuItem value="Narok">Narok</MenuItem>
+                <MenuItem value="Nyamira">Nyamira</MenuItem>
+                <MenuItem value="Nyandarua">Nyandarua</MenuItem>
+                <MenuItem value="Nyeri">Nyeri</MenuItem>
+                <MenuItem value="Samburu">Samburu</MenuItem>
+                <MenuItem value="Siaya">Siaya</MenuItem>
+                <MenuItem value="Taita-Taveta">Taita-Taveta</MenuItem>
+                <MenuItem value="Tana River">Tana River</MenuItem>
+                <MenuItem value="Tharaka-Nithi">Tharaka-Nithi</MenuItem>
+                <MenuItem value="Trans Nzoia">Trans Nzoia</MenuItem>
+                <MenuItem value="Turkana">Turkana</MenuItem>
+                <MenuItem value="Uasin Gishu">Uasin Gishu</MenuItem>
+                <MenuItem value="Vihiga">Vihiga</MenuItem>
+                <MenuItem value="Wajir">Wajir</MenuItem>
+                <MenuItem value="West Pokot">West Pokot</MenuItem>
+              </Select>
+            </FormControl>
             <Box
               sx={{
                 display: "flex",
@@ -1951,21 +2858,6 @@ export default function Profile({ user, setUser }) {
                 </Typography>
               )}
             </Box>
-            <FormControl fullWidth disabled={!isEditing}>
-              <InputLabel>Category</InputLabel>
-              <Select
-                name="category"
-                value={formData.category}
-                onChange={handleChange}
-                label="Category"
-                disabled={!isEditing}
-              >
-                <MenuItem value="Regular">Regular</MenuItem>
-                <MenuItem value="Sugar Mummy">Sugar Mummy</MenuItem>
-                <MenuItem value="Sponsor">Sponsor</MenuItem>
-                <MenuItem value="Ben 10">Ben 10</MenuItem>
-              </Select>
-            </FormControl>
             <Box>
               <TextField
                 fullWidth
@@ -1995,10 +2887,14 @@ export default function Profile({ user, setUser }) {
               />
               {/* Bio Moderation Status */}
               {user?.bio && user?.bio.trim() !== "" && (
-                <Box sx={{ mt: 1, display: "flex", alignItems: "center", gap: 1 }}>
+                <Box
+                  sx={{ mt: 1, display: "flex", alignItems: "center", gap: 1 }}
+                >
                   {user?.bio_moderation_status === "pending" && (
                     <Chip
-                      icon={<Pending sx={{ fontSize: "0.875rem !important" }} />}
+                      icon={
+                        <Pending sx={{ fontSize: "0.875rem !important" }} />
+                      }
                       label="Bio Pending Approval"
                       size="small"
                       sx={{
@@ -2013,7 +2909,14 @@ export default function Profile({ user, setUser }) {
                   )}
                   {user?.bio_moderation_status === "approved" && (
                     <Chip
-                      icon={<CheckCircle sx={{ fontSize: "0.875rem !important", color: "#4CAF50 !important" }} />}
+                      icon={
+                        <CheckCircle
+                          sx={{
+                            fontSize: "0.875rem !important",
+                            color: "#4CAF50 !important",
+                          }}
+                        />
+                      }
                       label="Bio Approved"
                       size="small"
                       sx={{
@@ -2028,7 +2931,14 @@ export default function Profile({ user, setUser }) {
                   )}
                   {user?.bio_moderation_status === "rejected" && (
                     <Chip
-                      icon={<CancelIcon sx={{ fontSize: "0.875rem !important", color: "#F44336 !important" }} />}
+                      icon={
+                        <CancelIcon
+                          sx={{
+                            fontSize: "0.875rem !important",
+                            color: "#F44336 !important",
+                          }}
+                        />
+                      }
                       label="Bio Rejected"
                       size="small"
                       sx={{
@@ -2044,34 +2954,39 @@ export default function Profile({ user, setUser }) {
                 </Box>
               )}
               {/* Help text for pending status */}
-              {!isEditing && user?.bio && user?.bio_moderation_status === "pending" && (
-                <Typography
-                  variant="caption"
-                  sx={{
-                    display: "block",
-                    mt: 0.5,
-                    color: "rgba(184, 134, 11, 0.8)",
-                    fontSize: "0.7rem",
-                    fontStyle: "italic",
-                  }}
-                >
-                  Your bio is pending approval. It will be visible to others once approved.
-                </Typography>
-              )}
-              {!isEditing && user?.bio && user?.bio_moderation_status === "rejected" && (
-                <Typography
-                  variant="caption"
-                  sx={{
-                    display: "block",
-                    mt: 0.5,
-                    color: "rgba(198, 40, 40, 0.8)",
-                    fontSize: "0.7rem",
-                    fontStyle: "italic",
-                  }}
-                >
-                  Your bio was rejected. Please update it and try again.
-                </Typography>
-              )}
+              {!isEditing &&
+                user?.bio &&
+                user?.bio_moderation_status === "pending" && (
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      display: "block",
+                      mt: 0.5,
+                      color: "rgba(184, 134, 11, 0.8)",
+                      fontSize: "0.7rem",
+                      fontStyle: "italic",
+                    }}
+                  >
+                    Your bio is pending approval. It will be visible to others
+                    once approved.
+                  </Typography>
+                )}
+              {!isEditing &&
+                user?.bio &&
+                user?.bio_moderation_status === "rejected" && (
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      display: "block",
+                      mt: 0.5,
+                      color: "rgba(198, 40, 40, 0.8)",
+                      fontSize: "0.7rem",
+                      fontStyle: "italic",
+                    }}
+                  >
+                    Your bio was rejected. Please update it and try again.
+                  </Typography>
+                )}
             </Box>
           </Box>
         </Card>
@@ -2350,22 +3265,58 @@ export default function Profile({ user, setUser }) {
               border: "1px solid rgba(212, 175, 55, 0.3)",
             }}
           >
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: "#1a1a1a" }}>
+            <Typography
+              variant="subtitle2"
+              sx={{ fontWeight: 700, mb: 1, color: "#1a1a1a" }}
+            >
               Why Boost Your Profile?
             </Typography>
-            <Box component="ul" sx={{ m: 0, pl: 2.5, "& li": { mb: 1, fontSize: "0.875rem" } }}>
-              <li><strong>Higher Visibility:</strong> Boosted profiles appear FIRST in search results and Explore page</li>
-              <li><strong>Featured Section:</strong> Your profile appears in the homepage featured carousel for maximum exposure</li>
-              <li><strong>More Profile Views:</strong> Increased visibility means more people discover and view your profile</li>
-              <li><strong>Boost Score:</strong> Each boost permanently increases your boost score, providing long-term ranking benefits</li>
-              <li><strong>Active Boost Priority:</strong> Profiles with active boosts rank above non-boosted profiles, even after your boost expires</li>
+            <Box
+              component="ul"
+              sx={{ m: 0, pl: 2.5, "& li": { mb: 1, fontSize: "0.875rem" } }}
+            >
+              <li>
+                <strong>Higher Visibility:</strong> Boosted profiles appear
+                FIRST in search results and Explore page
+              </li>
+              <li>
+                <strong>Featured Section:</strong> Your profile appears in the
+                homepage featured carousel for maximum exposure
+              </li>
+              <li>
+                <strong>More Profile Views:</strong> Increased visibility means
+                more people discover and view your profile
+              </li>
+              <li>
+                <strong>Boost Score:</strong> Each boost permanently increases
+                your boost score, providing long-term ranking benefits
+              </li>
+              <li>
+                <strong>Active Boost Priority:</strong> Profiles with active
+                boosts rank above non-boosted profiles, even after your boost
+                expires
+              </li>
             </Box>
             {boostTimeRemaining && (
-              <Box sx={{ mt: 2, pt: 2, borderTop: "1px solid rgba(212, 175, 55, 0.3)" }}>
+              <Box
+                sx={{
+                  mt: 2,
+                  pt: 2,
+                  borderTop: "1px solid rgba(212, 175, 55, 0.3)",
+                }}
+              >
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  <strong>Active Boost:</strong> {boostTimeRemaining.hours}h {boostTimeRemaining.minutes}m remaining
+                  <strong>Active Boost:</strong> {boostTimeRemaining.hours}h{" "}
+                  {boostTimeRemaining.minutes}m remaining
                 </Typography>
-                <Typography variant="caption" sx={{ color: "rgba(26, 26, 26, 0.6)", display: "block", mt: 0.5 }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: "rgba(26, 26, 26, 0.6)",
+                    display: "block",
+                    mt: 0.5,
+                  }}
+                >
                   Extending now will add time to your current boost
                 </Typography>
               </Box>
@@ -2373,7 +3324,10 @@ export default function Profile({ user, setUser }) {
           </Alert>
 
           <Box sx={{ mb: 3 }}>
-            <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, color: "#1a1a1a" }}>
+            <Typography
+              variant="h6"
+              sx={{ fontWeight: 700, mb: 2, color: "#1a1a1a" }}
+            >
               Boost Options
             </Typography>
             <Stack spacing={2}>
@@ -2404,19 +3358,37 @@ export default function Profile({ user, setUser }) {
                     fontSize: "0.7rem",
                   }}
                 />
-                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
                   <Box sx={{ pr: 6 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 700, color: "#1a1a1a" }}>
+                    <Typography
+                      variant="h6"
+                      sx={{ fontWeight: 700, color: "#1a1a1a" }}
+                    >
                       24 Hours
                     </Typography>
-                    <Typography variant="body2" sx={{ color: "rgba(26, 26, 26, 0.6)", mb: 0.5 }}>
+                    <Typography
+                      variant="body2"
+                      sx={{ color: "rgba(26, 26, 26, 0.6)", mb: 0.5 }}
+                    >
                       Standard boost duration
                     </Typography>
-                    <Typography variant="caption" sx={{ color: "rgba(26, 26, 26, 0.7)", display: "block" }}>
+                    <Typography
+                      variant="caption"
+                      sx={{ color: "rgba(26, 26, 26, 0.7)", display: "block" }}
+                    >
                       Best value for regular visibility boost
                     </Typography>
                   </Box>
-                  <Typography variant="h6" sx={{ fontWeight: 700, color: "#D4AF37" }}>
+                  <Typography
+                    variant="h6"
+                    sx={{ fontWeight: 700, color: "#D4AF37" }}
+                  >
                     20 Tokens
                   </Typography>
                 </Box>
@@ -2436,16 +3408,31 @@ export default function Profile({ user, setUser }) {
                 }}
                 onClick={() => handleBoostProfile(48, 38)}
               >
-                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
                   <Box>
-                    <Typography variant="h6" sx={{ fontWeight: 700, color: "#1a1a1a" }}>
+                    <Typography
+                      variant="h6"
+                      sx={{ fontWeight: 700, color: "#1a1a1a" }}
+                    >
                       48 Hours
                     </Typography>
-                    <Typography variant="body2" sx={{ color: "rgba(26, 26, 26, 0.6)" }}>
+                    <Typography
+                      variant="body2"
+                      sx={{ color: "rgba(26, 26, 26, 0.6)" }}
+                    >
                       Extended visibility
                     </Typography>
                   </Box>
-                  <Typography variant="h6" sx={{ fontWeight: 700, color: "#D4AF37" }}>
+                  <Typography
+                    variant="h6"
+                    sx={{ fontWeight: 700, color: "#D4AF37" }}
+                  >
                     38 Tokens
                   </Typography>
                 </Box>
@@ -2465,16 +3452,31 @@ export default function Profile({ user, setUser }) {
                 }}
                 onClick={() => handleBoostProfile(72, 55)}
               >
-                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
                   <Box>
-                    <Typography variant="h6" sx={{ fontWeight: 700, color: "#1a1a1a" }}>
+                    <Typography
+                      variant="h6"
+                      sx={{ fontWeight: 700, color: "#1a1a1a" }}
+                    >
                       72 Hours
                     </Typography>
-                    <Typography variant="body2" sx={{ color: "rgba(26, 26, 26, 0.6)" }}>
+                    <Typography
+                      variant="body2"
+                      sx={{ color: "rgba(26, 26, 26, 0.6)" }}
+                    >
                       Maximum visibility
                     </Typography>
                   </Box>
-                  <Typography variant="h6" sx={{ fontWeight: 700, color: "#D4AF37" }}>
+                  <Typography
+                    variant="h6"
+                    sx={{ fontWeight: 700, color: "#D4AF37" }}
+                  >
                     55 Tokens
                   </Typography>
                 </Box>
@@ -2482,9 +3484,13 @@ export default function Profile({ user, setUser }) {
             </Stack>
           </Box>
 
-          <Alert severity="warning" sx={{ borderRadius: "12px", bgcolor: "rgba(255, 152, 0, 0.1)" }}>
+          <Alert
+            severity="warning"
+            sx={{ borderRadius: "12px", bgcolor: "rgba(255, 152, 0, 0.1)" }}
+          >
             <Typography variant="body2">
-              <strong>Current Balance:</strong> {user?.token_balance || "0.00"} Tokens
+              <strong>Current Balance:</strong> {user?.token_balance || "0.00"}{" "}
+              Tokens
             </Typography>
           </Alert>
         </DialogContent>

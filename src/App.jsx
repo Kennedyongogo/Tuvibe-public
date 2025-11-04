@@ -14,7 +14,6 @@ import {
 import { theme } from "./theme";
 import "./App.css";
 import React, { useState, useEffect, Suspense, lazy } from "react";
-import PublicHeader from "./components/Header/PublicHeader";
 import Chatbot from "./components/Chatbot/Chatbot";
 import PageRoutes from "./components/PageRoutes";
 
@@ -57,15 +56,7 @@ function App() {
         >
           <Routes>
             {/* Public landing page */}
-            <Route
-              path="/"
-              element={
-                <>
-                  <PublicHeader />
-                  <Home />
-                </>
-              }
-            />
+            <Route path="/" element={<Home />} />
             {/* Authenticated routes */}
             <Route path="/*" element={<PageRoutes />} />
           </Routes>

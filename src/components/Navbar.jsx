@@ -54,6 +54,7 @@ export default function Navbar({ user, setUser }) {
     { text: "TuVibe Market", icon: <Store />, path: "/market" },
     { text: "Token Wallet", icon: <Wallet />, path: "/wallet" },
     { text: "Reports", icon: <Report />, path: "/reports" },
+    { text: "Profile", icon: <AccountCircle />, path: "/profile" },
   ];
 
   const handleDrawerToggle = () => {
@@ -89,6 +90,12 @@ export default function Navbar({ user, setUser }) {
   }, [location.pathname]);
 
   const handleLogout = async () => {
+    // Close menu first to prevent interference
+    handleProfileMenuClose();
+
+    // Small delay to ensure menu is closed before showing Swal
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
     const result = await Swal.fire({
       title: "Logout?",
       text: "Are you sure you want to logout?",
@@ -115,8 +122,6 @@ export default function Navbar({ user, setUser }) {
     });
 
     if (result.isConfirmed) {
-      handleProfileMenuClose();
-
       const token = localStorage.getItem("token");
       if (token) {
         try {
@@ -148,6 +153,7 @@ export default function Navbar({ user, setUser }) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          position: "relative",
           minHeight: "64px", // Match AppBar/Toolbar height
           height: "64px",
           px: 3,
@@ -157,6 +163,21 @@ export default function Navbar({ user, setUser }) {
           borderBottom: "1px solid rgba(212, 175, 55, 0.2)",
         }}
       >
+        {/* Close button - only visible on mobile */}
+        <IconButton
+          onClick={handleDrawerToggle}
+          sx={{
+            position: "absolute",
+            left: 8,
+            display: { xs: "flex", md: "none" },
+            color: "#1a1a1a",
+            "&:hover": {
+              backgroundColor: "rgba(212, 175, 55, 0.1)",
+            },
+          }}
+        >
+          <ChevronLeft />
+        </IconButton>
         <img
           src="/tuvibe.png"
           alt="Tuvibe Logo"
@@ -305,8 +326,22 @@ export default function Navbar({ user, setUser }) {
             color="inherit"
             aria-label="open drawer"
             edge="start"
-            onClick={handleDrawerToggle}
-            sx={{ mr: 2, color: "#1a1a1a", display: { md: "none" } }}
+            onClick={(e) => {
+              handleDrawerToggle();
+              e.currentTarget.blur();
+            }}
+            sx={{
+              mr: 2,
+              color: "#1a1a1a",
+              display: { md: "none" },
+              "&:focus": {
+                outline: "none",
+              },
+              "&:focus-visible": {
+                outline: "2px solid rgba(212, 175, 55, 0.5)",
+                outlineOffset: "2px",
+              },
+            }}
           >
             <MenuIcon />
           </IconButton>
@@ -393,7 +428,12 @@ export default function Navbar({ user, setUser }) {
               Profile
             </MenuItem>
             <Divider />
-            <MenuItem onClick={handleLogout}>
+            <MenuItem
+              onClick={(e) => {
+                e.preventDefault();
+                handleLogout();
+              }}
+            >
               <Logout sx={{ mr: 2, color: "#D4AF37" }} />
               Logout
             </MenuItem>
@@ -419,8 +459,7 @@ export default function Navbar({ user, setUser }) {
               boxSizing: "border-box",
               width: drawerWidth,
               borderRight: "1px solid rgba(212, 175, 55, 0.2)",
-              background:
-                "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.1) 100%)",
+              backgroundColor: "white",
             },
           }}
         >

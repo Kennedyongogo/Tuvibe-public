@@ -35,10 +35,11 @@ export default function Dashboard({ user }) {
   const [loadingFeatured, setLoadingFeatured] = useState(false);
   const [featuredUsers, setFeaturedUsers] = useState([]);
   const [loadingFeaturedUsers, setLoadingFeaturedUsers] = useState(false);
-  
+
   // Check if user is in premium category
   const premiumCategories = ["Sugar Mummy", "Sponsor", "Ben 10"];
-  const isPremiumCategory = user?.category && premiumCategories.includes(user.category);
+  const isPremiumCategory =
+    user?.category && premiumCategories.includes(user.category);
 
   // Fetch featured market items and users
   useEffect(() => {
@@ -122,7 +123,7 @@ export default function Dashboard({ user }) {
   const handleViewMarket = () => {
     navigate("/market");
   };
-  
+
   const stats = [
     {
       title: "Token Balance",
@@ -187,53 +188,57 @@ export default function Dashboard({ user }) {
               border: "1px solid rgba(212, 175, 55, 0.2)",
               boxShadow: "0 4px 20px rgba(212, 175, 55, 0.1)",
               transition: "all 0.3s ease",
-              flex: { xs: "0 0 100%", sm: "0 0 calc(33.333% - 16px)", md: "1 1 0%" },
+              flex: {
+                xs: "0 0 100%",
+                sm: "0 0 calc(33.333% - 16px)",
+                md: "1 1 0%",
+              },
               "&:hover": {
                 transform: "translateY(-4px)",
                 boxShadow: "0 8px 32px rgba(212, 175, 55, 0.2)",
               },
             }}
           >
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <Box>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      color: "rgba(26, 26, 26, 0.7)",
-                      mb: 1,
-                      fontWeight: 500,
-                    }}
-                  >
-                    {stat.title}
-                  </Typography>
-                  <Typography
-                    variant="h5"
-                    sx={{
-                      fontWeight: 700,
-                      color: "#1a1a1a",
-                    }}
-                  >
-                    {stat.value}
-                  </Typography>
-                </Box>
-                <Avatar
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <Box>
+                <Typography
+                  variant="body2"
                   sx={{
-                    bgcolor: `${stat.color}20`,
-                    color: stat.color,
-                    width: 56,
-                    height: 56,
+                    color: "rgba(26, 26, 26, 0.7)",
+                    mb: 1,
+                    fontWeight: 500,
                   }}
                 >
-                  {stat.icon}
-                </Avatar>
+                  {stat.title}
+                </Typography>
+                <Typography
+                  variant="h5"
+                  sx={{
+                    fontWeight: 700,
+                    color: "#1a1a1a",
+                  }}
+                >
+                  {stat.value}
+                </Typography>
               </Box>
-            </Card>
+              <Avatar
+                sx={{
+                  bgcolor: `${stat.color}20`,
+                  color: stat.color,
+                  width: 56,
+                  height: 56,
+                }}
+              >
+                {stat.icon}
+              </Avatar>
+            </Box>
+          </Card>
         ))}
       </Box>
 
@@ -249,7 +254,14 @@ export default function Dashboard({ user }) {
           boxShadow: "0 4px 20px rgba(212, 175, 55, 0.1)",
         }}
       >
-        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 3,
+          }}
+        >
           <Typography
             variant="h6"
             sx={{
@@ -303,10 +315,10 @@ export default function Dashboard({ user }) {
                 <Card
                   key={featuredUser.id}
                   sx={{
-                    flex: { 
-                      xs: "0 0 100%", 
-                      sm: "0 0 calc(50% - 8px)", 
-                      md: "0 0 calc(20% - 16px)" 
+                    flex: {
+                      xs: "0 0 100%",
+                      sm: "0 0 calc(50% - 8px)",
+                      md: "0 0 calc(20% - 16px)",
                     },
                     display: "flex",
                     flexDirection: "column",
@@ -322,7 +334,8 @@ export default function Dashboard({ user }) {
                   }}
                   onClick={() => navigate(`/explore`)}
                 >
-                  {featuredUser.photo && featuredUser.photo_moderation_status === "approved" ? (
+                  {featuredUser.photo &&
+                  featuredUser.photo_moderation_status === "approved" ? (
                     <Box
                       component="img"
                       src={getUserImageUrl(featuredUser.photo)}
@@ -344,11 +357,20 @@ export default function Dashboard({ user }) {
                         bgcolor: "rgba(212, 175, 55, 0.1)",
                       }}
                     >
-                      <Person sx={{ fontSize: 64, color: "#D4AF37", opacity: 0.3 }} />
+                      <Person
+                        sx={{ fontSize: 64, color: "#D4AF37", opacity: 0.3 }}
+                      />
                     </Box>
                   )}
                   <CardContent sx={{ p: 2 }}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        mb: 1,
+                      }}
+                    >
                       <Typography
                         variant="subtitle2"
                         sx={{
@@ -363,33 +385,57 @@ export default function Dashboard({ user }) {
                         <Verified sx={{ fontSize: 16, color: "#D4AF37" }} />
                       )}
                     </Box>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.5 }}>
-                      <LocationOn sx={{ fontSize: 12, color: "rgba(26, 26, 26, 0.6)" }} />
-                      <Typography variant="caption" sx={{ color: "rgba(26, 26, 26, 0.7)" }}>
-                        {featuredUser.city}
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        mb: 0.5,
+                      }}
+                    >
+                      <LocationOn
+                        sx={{ fontSize: 12, color: "rgba(26, 26, 26, 0.6)" }}
+                      />
+                      <Typography
+                        variant="caption"
+                        sx={{ color: "rgba(26, 26, 26, 0.7)" }}
+                      >
+                        {featuredUser.county}
                       </Typography>
                     </Box>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                      <Cake sx={{ fontSize: 12, color: "rgba(26, 26, 26, 0.6)" }} />
-                      <Typography variant="caption" sx={{ color: "rgba(26, 26, 26, 0.7)" }}>
+                    <Box
+                      sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
+                    >
+                      <Cake
+                        sx={{ fontSize: 12, color: "rgba(26, 26, 26, 0.6)" }}
+                      />
+                      <Typography
+                        variant="caption"
+                        sx={{ color: "rgba(26, 26, 26, 0.7)" }}
+                      >
                         {featuredUser.age} years
                       </Typography>
                     </Box>
-                    {featuredUser.is_featured_until && new Date(featuredUser.is_featured_until) > new Date() && (
-                      <Chip
-                        label="Boosted"
-                        size="small"
-                        sx={{
-                          mt: 1,
-                          bgcolor: "#D4AF37",
-                          color: "#1a1a1a",
-                          fontWeight: 600,
-                          fontSize: "0.65rem",
-                          height: 20,
-                        }}
-                        icon={<TrendingUp sx={{ fontSize: 12, color: "#1a1a1a" }} />}
-                      />
-                    )}
+                    {featuredUser.is_featured_until &&
+                      new Date(featuredUser.is_featured_until) > new Date() && (
+                        <Chip
+                          label="Boosted"
+                          size="small"
+                          sx={{
+                            mt: 1,
+                            bgcolor: "#D4AF37",
+                            color: "#1a1a1a",
+                            fontWeight: 600,
+                            fontSize: "0.65rem",
+                            height: 20,
+                          }}
+                          icon={
+                            <TrendingUp
+                              sx={{ fontSize: 12, color: "#1a1a1a" }}
+                            />
+                          }
+                        />
+                      )}
                   </CardContent>
                 </Card>
               );
@@ -403,7 +449,9 @@ export default function Dashboard({ user }) {
               px: 2,
             }}
           >
-            <Person sx={{ fontSize: 64, color: "#D4AF37", opacity: 0.3, mb: 2 }} />
+            <Person
+              sx={{ fontSize: 64, color: "#D4AF37", opacity: 0.3, mb: 2 }}
+            />
             <Typography variant="h6" sx={{ color: "#666", mb: 1 }}>
               No featured profiles yet
             </Typography>
@@ -426,7 +474,14 @@ export default function Dashboard({ user }) {
           boxShadow: "0 4px 20px rgba(212, 175, 55, 0.1)",
         }}
       >
-        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 3,
+          }}
+        >
           <Typography
             variant="h6"
             sx={{
@@ -472,7 +527,11 @@ export default function Dashboard({ user }) {
               <Card
                 key={item.id}
                 sx={{
-                  flex: { xs: "0 0 100%", sm: "0 0 calc(50% - 8px)", md: "0 0 calc(33.333% - 14px)" },
+                  flex: {
+                    xs: "0 0 100%",
+                    sm: "0 0 calc(50% - 8px)",
+                    md: "0 0 calc(33.333% - 14px)",
+                  },
                   display: "flex",
                   flexDirection: "column",
                   borderRadius: "12px",
@@ -485,98 +544,102 @@ export default function Dashboard({ user }) {
                   },
                 }}
               >
-                  {item.image ? (
-                    <CardMedia
-                      component="img"
-                      height="180"
-                      image={getImageUrl(item.image)}
-                      alt={item.title}
-                      sx={{ objectFit: "cover" }}
+                {item.image ? (
+                  <CardMedia
+                    component="img"
+                    height="180"
+                    image={getImageUrl(item.image)}
+                    alt={item.title}
+                    sx={{ objectFit: "cover" }}
+                  />
+                ) : (
+                  <Box
+                    sx={{
+                      height: 180,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      bgcolor: "rgba(212, 175, 55, 0.1)",
+                    }}
+                  >
+                    <StoreIcon
+                      sx={{ fontSize: 48, color: "#D4AF37", opacity: 0.3 }}
                     />
-                  ) : (
-                    <Box
-                      sx={{
-                        height: 180,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        bgcolor: "rgba(212, 175, 55, 0.1)",
-                      }}
-                    >
-                      <StoreIcon sx={{ fontSize: 48, color: "#D4AF37", opacity: 0.3 }} />
-                    </Box>
-                  )}
-                  {item.tag !== "none" && (
-                    <Box
-                      sx={{
-                        position: "relative",
-                        top: -180,
-                        left: 8,
-                        mt: 2,
-                      }}
-                    >
-                      <Chip
-                        label={item.tag === "hot_deals" ? "🔥 Hot" : "⭐ Weekend"}
-                        size="small"
-                        sx={{
-                          bgcolor:
-                            item.tag === "hot_deals"
-                              ? "rgba(255, 107, 107, 0.95)"
-                              : "rgba(78, 205, 196, 0.95)",
-                          color: "white",
-                          fontWeight: 700,
-                          fontSize: "0.65rem",
-                        }}
-                      />
-                    </Box>
-                  )}
-                  <CardContent sx={{ flexGrow: 1, display: "flex", flexDirection: "column" }}>
-                    <Typography
-                      variant="subtitle1"
-                      sx={{
-                        fontWeight: 600,
-                        color: "#1a1a1a",
-                        mb: 1,
-                        fontSize: "0.95rem",
-                        display: "-webkit-box",
-                        WebkitLineClamp: 1,
-                        WebkitBoxOrient: "vertical",
-                        overflow: "hidden",
-                      }}
-                    >
-                      {item.title}
-                    </Typography>
-                    <Typography
-                      variant="h6"
-                      sx={{
-                        fontWeight: 700,
-                        color: "#D4AF37",
-                        mb: 2,
-                      }}
-                    >
-                      KES {parseFloat(item.price).toLocaleString()}
-                    </Typography>
-                    <Button
-                      variant="contained"
+                  </Box>
+                )}
+                {item.tag !== "none" && (
+                  <Box
+                    sx={{
+                      position: "relative",
+                      top: -180,
+                      left: 8,
+                      mt: 2,
+                    }}
+                  >
+                    <Chip
+                      label={item.tag === "hot_deals" ? "🔥 Hot" : "⭐ Weekend"}
                       size="small"
-                      startIcon={<WhatsAppIcon />}
-                      onClick={() => handleWhatsAppClick(item)}
                       sx={{
-                        background: "linear-gradient(135deg, #25D366, #128C7E)",
+                        bgcolor:
+                          item.tag === "hot_deals"
+                            ? "rgba(255, 107, 107, 0.95)"
+                            : "rgba(78, 205, 196, 0.95)",
                         color: "white",
-                        fontWeight: 600,
-                        textTransform: "none",
-                        borderRadius: "8px",
-                        "&:hover": {
-                          background: "linear-gradient(135deg, #128C7E, #25D366)",
-                        },
+                        fontWeight: 700,
+                        fontSize: "0.65rem",
                       }}
-                    >
-                      Contact
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
+                    />
+                  </Box>
+                )}
+                <CardContent
+                  sx={{ flexGrow: 1, display: "flex", flexDirection: "column" }}
+                >
+                  <Typography
+                    variant="subtitle1"
+                    sx={{
+                      fontWeight: 600,
+                      color: "#1a1a1a",
+                      mb: 1,
+                      fontSize: "0.95rem",
+                      display: "-webkit-box",
+                      WebkitLineClamp: 1,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                    }}
+                  >
+                    {item.title}
+                  </Typography>
+                  <Typography
+                    variant="h6"
+                    sx={{
+                      fontWeight: 700,
+                      color: "#D4AF37",
+                      mb: 2,
+                    }}
+                  >
+                    KES {parseFloat(item.price).toLocaleString()}
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={<WhatsAppIcon />}
+                    onClick={() => handleWhatsAppClick(item)}
+                    sx={{
+                      background: "linear-gradient(135deg, #25D366, #128C7E)",
+                      color: "white",
+                      fontWeight: 600,
+                      textTransform: "none",
+                      borderRadius: "8px",
+                      "&:hover": {
+                        background: "linear-gradient(135deg, #128C7E, #25D366)",
+                      },
+                    }}
+                  >
+                    Contact
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
           </Box>
         ) : (
           <Box
@@ -586,7 +649,9 @@ export default function Dashboard({ user }) {
               px: 2,
             }}
           >
-            <StoreIcon sx={{ fontSize: 64, color: "#D4AF37", opacity: 0.3, mb: 2 }} />
+            <StoreIcon
+              sx={{ fontSize: 64, color: "#D4AF37", opacity: 0.3, mb: 2 }}
+            />
             <Typography variant="h6" sx={{ color: "#666", mb: 1 }}>
               No featured items yet
             </Typography>
@@ -652,7 +717,11 @@ export default function Dashboard({ user }) {
               textAlign: "center",
               cursor: "pointer",
               transition: "all 0.3s ease",
-              flex: { xs: "0 0 100%", sm: "0 0 calc(33.333% - 11px)", md: "1 1 0%" },
+              flex: {
+                xs: "0 0 100%",
+                sm: "0 0 calc(33.333% - 11px)",
+                md: "1 1 0%",
+              },
               "&:hover": {
                 backgroundColor: "rgba(212, 175, 55, 0.15)",
                 transform: "translateY(-2px)",
@@ -673,7 +742,11 @@ export default function Dashboard({ user }) {
               textAlign: "center",
               cursor: "pointer",
               transition: "all 0.3s ease",
-              flex: { xs: "0 0 100%", sm: "0 0 calc(33.333% - 11px)", md: "1 1 0%" },
+              flex: {
+                xs: "0 0 100%",
+                sm: "0 0 calc(33.333% - 11px)",
+                md: "1 1 0%",
+              },
               "&:hover": {
                 backgroundColor: "rgba(212, 175, 55, 0.15)",
                 transform: "translateY(-2px)",
@@ -694,7 +767,11 @@ export default function Dashboard({ user }) {
               textAlign: "center",
               cursor: "pointer",
               transition: "all 0.3s ease",
-              flex: { xs: "0 0 100%", sm: "0 0 calc(33.333% - 11px)", md: "1 1 0%" },
+              flex: {
+                xs: "0 0 100%",
+                sm: "0 0 calc(33.333% - 11px)",
+                md: "1 1 0%",
+              },
               "&:hover": {
                 backgroundColor: "rgba(212, 175, 55, 0.15)",
                 transform: "translateY(-2px)",

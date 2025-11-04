@@ -108,7 +108,9 @@ export default function ViewProfile({ open, onClose, userId, user }) {
       const data = await response.json();
       if (data.success) {
         const favorites = data.data || [];
-        setIsFavorite(favorites.some((fav) => fav.favourite_user_id === userId));
+        setIsFavorite(
+          favorites.some((fav) => fav.favourite_user_id === userId)
+        );
       }
     } catch (error) {
       console.error("Error checking favorite:", error);
@@ -144,7 +146,9 @@ export default function ViewProfile({ open, onClose, userId, user }) {
   const buildImageUrl = (imagePath) => {
     if (!imagePath) return "";
     if (imagePath.startsWith("http")) return imagePath;
-    return imagePath.startsWith("/uploads/") ? imagePath : `/uploads/${imagePath}`;
+    return imagePath.startsWith("/uploads/")
+      ? imagePath
+      : `/uploads/${imagePath}`;
   };
 
   if (!open || !userId) return null;
@@ -308,18 +312,21 @@ export default function ViewProfile({ open, onClose, userId, user }) {
                 </Box>
               )}
 
-              {profileUser.city && (
+              {profileUser.county && (
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <LocationOn sx={{ color: "#D4AF37" }} />
                   <Typography variant="body1">
-                    <strong>City:</strong> {profileUser.city}
+                    <strong>County:</strong> {profileUser.county}
                   </Typography>
                 </Box>
               )}
 
               {profileUser.bio && (
                 <Box sx={{ mt: 1 }}>
-                  <Typography variant="body2" sx={{ color: "rgba(26, 26, 26, 0.7)", mb: 1 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{ color: "rgba(26, 26, 26, 0.7)", mb: 1 }}
+                  >
                     <strong>Bio:</strong>
                   </Typography>
                   <Typography
@@ -338,13 +345,19 @@ export default function ViewProfile({ open, onClose, userId, user }) {
 
               {profileUser.createdAt && (
                 <Box sx={{ mt: 1 }}>
-                  <Typography variant="body2" sx={{ color: "rgba(26, 26, 26, 0.7)" }}>
+                  <Typography
+                    variant="body2"
+                    sx={{ color: "rgba(26, 26, 26, 0.7)" }}
+                  >
                     <strong>Member since:</strong>{" "}
-                    {new Date(profileUser.createdAt).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
+                    {new Date(profileUser.createdAt).toLocaleDateString(
+                      "en-US",
+                      {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      }
+                    )}
                   </Typography>
                 </Box>
               )}
@@ -417,4 +430,3 @@ export default function ViewProfile({ open, onClose, userId, user }) {
     </Dialog>
   );
 }
-

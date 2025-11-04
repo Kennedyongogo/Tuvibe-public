@@ -60,7 +60,7 @@ export default function Explore({ user }) {
 
   // Filters
   const [filters, setFilters] = useState({
-    city: "",
+    county: "",
     category: "",
     online: "",
     search: "",
@@ -88,7 +88,7 @@ export default function Explore({ user }) {
         pageSize: "12",
       });
 
-      if (filters.city) queryParams.append("city", filters.city);
+      if (filters.county) queryParams.append("county", filters.county);
       if (filters.category) queryParams.append("category", filters.category);
       if (filters.online) queryParams.append("online", filters.online);
       if (filters.search) queryParams.append("q", filters.search);
@@ -210,7 +210,7 @@ export default function Explore({ user }) {
 
   const handleClearFilters = () => {
     setFilters({
-      city: "",
+      county: "",
       category: "",
       online: "",
       search: "",
@@ -528,7 +528,7 @@ export default function Explore({ user }) {
           >
             Filters
           </Typography>
-          {(filters.city ||
+          {(filters.county ||
             filters.category ||
             filters.online ||
             filters.search) && (
@@ -553,7 +553,7 @@ export default function Explore({ user }) {
           <Grid item xs={12} sm={6} md={4}>
             <TextField
               fullWidth
-              placeholder="Search by name or city..."
+              placeholder="Search by name or county..."
               value={filters.search}
               onChange={(e) => handleFilterChange("search", e.target.value)}
               size="small"
@@ -610,13 +610,13 @@ export default function Explore({ user }) {
             </FormControl>
           </Grid>
 
-          {/* City Filter */}
+          {/* County Filter */}
           <Grid item xs={12} sm={6} md={3}>
             <TextField
               fullWidth
-              placeholder="City"
-              value={filters.city}
-              onChange={(e) => handleFilterChange("city", e.target.value)}
+              placeholder="County"
+              value={filters.county}
+              onChange={(e) => handleFilterChange("county", e.target.value)}
               size="small"
               InputProps={{
                 startAdornment: (
@@ -1071,7 +1071,7 @@ export default function Explore({ user }) {
                           </Typography>
                         </Box>
                       )}
-                      {userData.city && (
+                      {userData.county && (
                         <Box
                           sx={{
                             display: "flex",
@@ -1092,7 +1092,7 @@ export default function Explore({ user }) {
                               fontSize: "0.75rem",
                             }}
                           >
-                            {userData.city}
+                            {userData.county}
                           </Typography>
                         </Box>
                       )}
