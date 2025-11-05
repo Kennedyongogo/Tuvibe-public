@@ -27,6 +27,9 @@ import {
   ArrowForward,
   AutoAwesome,
   PhotoCamera,
+  Favorite,
+  Sms,
+  WhatsApp as WhatsAppIcon,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
@@ -579,11 +582,12 @@ export default function HeroSection() {
         width: "100%",
         overflow: "hidden",
         backgroundColor: "#b88900", // Base darker gold
-        // Main gradient overlay with 3 golden shades
+        // Enhanced gradient overlay with richer golden shades
         background: `
-          linear-gradient(135deg, #f7c948 0%, #e6b800 30%, #d4af37 60%, #b88900 100%),
-          radial-gradient(circle at 20% 50%, rgba(247, 201, 72, 0.3) 0%, transparent 50%),
-          radial-gradient(circle at 80% 80%, rgba(184, 137, 0, 0.4) 0%, transparent 50%),
+          linear-gradient(135deg, #ffd700 0%, #f7c948 20%, #e6b800 40%, #d4af37 60%, #b8941f 80%, #b88900 100%),
+          radial-gradient(circle at 20% 40%, rgba(255, 215, 0, 0.35) 0%, transparent 55%),
+          radial-gradient(circle at 80% 70%, rgba(184, 137, 0, 0.45) 0%, transparent 55%),
+          radial-gradient(circle at 50% 20%, rgba(247, 201, 72, 0.25) 0%, transparent 45%),
           #b88900
         `,
         "&::before": {
@@ -733,6 +737,200 @@ export default function HeroSection() {
         }}
       />
 
+      {/* Floating Animated Icons */}
+      <Box
+        sx={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 2,
+          overflow: "hidden",
+          pointerEvents: "none",
+        }}
+      >
+        {/* Floating Heart 1 */}
+        <Box
+          sx={{
+            position: "absolute",
+            left: { xs: "10%", md: "15%" },
+            top: { xs: "20%", md: "25%" },
+            animation: "floatUpDown 4s ease-in-out infinite",
+            animationDelay: "0s",
+            opacity: 0.7,
+          }}
+        >
+          <Favorite
+            sx={{
+              fontSize: { xs: "2rem", md: "2.5rem" },
+              color: "#ff6b9d",
+              filter: "drop-shadow(0 4px 8px rgba(255, 107, 157, 0.4))",
+            }}
+          />
+        </Box>
+
+        {/* Floating Heart 2 */}
+        <Box
+          sx={{
+            position: "absolute",
+            right: { xs: "12%", md: "18%" },
+            top: { xs: "35%", md: "40%" },
+            animation: "floatUpDown 5s ease-in-out infinite",
+            animationDelay: "1s",
+            opacity: 0.6,
+          }}
+        >
+          <Favorite
+            sx={{
+              fontSize: { xs: "1.8rem", md: "2.2rem" },
+              color: "#ff9f9f",
+              filter: "drop-shadow(0 4px 8px rgba(255, 159, 159, 0.4))",
+            }}
+          />
+        </Box>
+
+        {/* Floating Heart 3 */}
+        <Box
+          sx={{
+            position: "absolute",
+            left: { xs: "8%", md: "12%" },
+            bottom: { xs: "30%", md: "35%" },
+            animation: "floatUpDown 4.5s ease-in-out infinite",
+            animationDelay: "2s",
+            opacity: 0.65,
+          }}
+        >
+          <Favorite
+            sx={{
+              fontSize: { xs: "2.2rem", md: "2.8rem" },
+              color: "#ffc0cb",
+              filter: "drop-shadow(0 4px 8px rgba(255, 192, 203, 0.4))",
+            }}
+          />
+        </Box>
+
+        {/* Floating Heart 4 */}
+        <Box
+          sx={{
+            position: "absolute",
+            right: { xs: "10%", md: "15%" },
+            bottom: { xs: "25%", md: "30%" },
+            animation: "floatUpDown 5.5s ease-in-out infinite",
+            animationDelay: "1.5s",
+            opacity: 0.7,
+          }}
+        >
+          <Favorite
+            sx={{
+              fontSize: { xs: "1.5rem", md: "2rem" },
+              color: "#ff6b9d",
+              filter: "drop-shadow(0 4px 8px rgba(255, 107, 157, 0.4))",
+            }}
+          />
+        </Box>
+
+        {/* Floating WhatsApp Icon 1 */}
+        <Box
+          sx={{
+            position: "absolute",
+            left: { xs: "5%", md: "8%" },
+            top: { xs: "50%", md: "55%" },
+            animation: "floatUpDown 4.8s ease-in-out infinite",
+            animationDelay: "0.5s",
+            opacity: 0.7,
+          }}
+        >
+          <WhatsAppIcon
+            sx={{
+              fontSize: { xs: "2rem", md: "2.5rem" },
+              color: "#25D366",
+              filter: "drop-shadow(0 4px 8px rgba(37, 211, 102, 0.4))",
+            }}
+          />
+        </Box>
+
+        {/* Floating WhatsApp Icon 2 */}
+        <Box
+          sx={{
+            position: "absolute",
+            right: { xs: "8%", md: "12%" },
+            top: { xs: "60%", md: "65%" },
+            animation: "floatUpDown 5.2s ease-in-out infinite",
+            animationDelay: "2.5s",
+            opacity: 0.65,
+          }}
+        >
+          <WhatsAppIcon
+            sx={{
+              fontSize: { xs: "1.8rem", md: "2.2rem" },
+              color: "#128C7E",
+              filter: "drop-shadow(0 4px 8px rgba(18, 140, 126, 0.4))",
+            }}
+          />
+        </Box>
+
+        {/* Floating Text/Message Icon 1 */}
+        <Box
+          sx={{
+            position: "absolute",
+            left: { xs: "15%", md: "20%" },
+            top: { xs: "65%", md: "70%" },
+            animation: "floatUpDown 4.3s ease-in-out infinite",
+            animationDelay: "1.2s",
+            opacity: 0.7,
+          }}
+        >
+          <Sms
+            sx={{
+              fontSize: { xs: "2rem", md: "2.5rem" },
+              color: "#D4AF37",
+              filter: "drop-shadow(0 4px 8px rgba(212, 175, 55, 0.5))",
+            }}
+          />
+        </Box>
+
+        {/* Floating Text/Message Icon 2 */}
+        <Box
+          sx={{
+            position: "absolute",
+            right: { xs: "15%", md: "20%" },
+            bottom: { xs: "40%", md: "45%" },
+            animation: "floatUpDown 5s ease-in-out infinite",
+            animationDelay: "0.8s",
+            opacity: 0.65,
+          }}
+        >
+          <Sms
+            sx={{
+              fontSize: { xs: "1.8rem", md: "2.2rem" },
+              color: "#f7c948",
+              filter: "drop-shadow(0 4px 8px rgba(247, 201, 72, 0.5))",
+            }}
+          />
+        </Box>
+
+        {/* Floating Text/Message Icon 3 */}
+        <Box
+          sx={{
+            position: "absolute",
+            left: { xs: "12%", md: "18%" },
+            bottom: { xs: "50%", md: "55%" },
+            animation: "floatUpDown 4.6s ease-in-out infinite",
+            animationDelay: "3s",
+            opacity: 0.7,
+          }}
+        >
+          <Sms
+            sx={{
+              fontSize: { xs: "2.2rem", md: "2.8rem" },
+              color: "#e6b800",
+              filter: "drop-shadow(0 4px 8px rgba(230, 184, 0, 0.5))",
+            }}
+          />
+        </Box>
+      </Box>
+
       {/* Content Overlay */}
       <Box
         sx={{
@@ -793,48 +991,55 @@ export default function HeroSection() {
                 zIndex: 3,
                 fontWeight: 900,
                 fontSize: {
-                  xs: "2.7rem",
-                  sm: "3.3rem",
-                  md: "4.2rem",
-                  lg: "4.8rem",
-                  xl: "5.5rem",
+                  xs: "3rem",
+                  sm: "3.8rem",
+                  md: "4.8rem",
+                  lg: "5.5rem",
+                  xl: "6.2rem",
                 },
                 textAlign: "center",
                 letterSpacing: {
-                  xs: "2px",
-                  sm: "3px",
-                  md: "4px",
-                  lg: "5px",
+                  xs: "3px",
+                  sm: "4px",
+                  md: "5px",
+                  lg: "6px",
                 },
                 fontFamily:
                   '"Montserrat", "Poppins", "Manrope", "Inter", sans-serif',
-                // Gold → dark bronze gradient
+                // Enhanced gold → dark bronze gradient with more depth
                 background: `linear-gradient(135deg, 
                   #FFD700 0%,
-                  #f7c948 15%,
-                  #d4af37 35%,
-                  #b88900 55%,
-                  #8B6914 75%,
-                  #654321 90%,
-                  #3d2817 100%)`,
+                  #f7c948 12%,
+                  #ffd700 24%,
+                  #d4af37 36%,
+                  #b88900 48%,
+                  #8B6914 60%,
+                  #654321 72%,
+                  #8B6914 84%,
+                  #3d2817 96%,
+                  #1a1a1a 100%)`,
+                backgroundSize: "200% 200%",
                 backgroundClip: "text",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 textShadow:
-                  "0 4px 20px rgba(255, 215, 0, 0.3), 0 2px 10px rgba(139, 105, 20, 0.2), 0 0 30px rgba(212, 175, 55, 0.4)",
-                lineHeight: { xs: 1.1, sm: 1.05, md: 1 },
+                  "0 6px 30px rgba(255, 215, 0, 0.4), 0 3px 15px rgba(139, 105, 20, 0.3), 0 0 40px rgba(212, 175, 55, 0.5), 0 0 60px rgba(255, 215, 0, 0.2)",
+                lineHeight: { xs: 1.05, sm: 1, md: 0.95 },
                 textTransform: "uppercase",
-                filter: "drop-shadow(0 0 15px rgba(255, 215, 0, 0.5))",
-                WebkitTextStroke: "0.5px rgba(255, 215, 0, 0.3)",
-                transition: "all 0.3s ease",
-                animation: "fadeInUp 1s ease-out 0.3s both",
+                filter: "drop-shadow(0 0 20px rgba(255, 215, 0, 0.6))",
+                WebkitTextStroke: "1px rgba(255, 215, 0, 0.4)",
+                transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                animation:
+                  "fadeInUp 1.2s ease-out 0.3s both, shimmerText 4s ease-in-out infinite",
                 "&:hover": {
-                  transform: "scale(1.02)",
-                  filter: "drop-shadow(0 0 20px rgba(255, 215, 0, 0.7))",
+                  transform: "scale(1.03)",
+                  filter: "drop-shadow(0 0 30px rgba(255, 215, 0, 0.8))",
+                  animation:
+                    "fadeInUp 1.2s ease-out 0.3s both, shimmerText 3s ease-in-out infinite",
                 },
               }}
             >
-              Tuvibe
+              TUVIBE
             </Typography>
 
             {/* Slogan */}
@@ -843,45 +1048,46 @@ export default function HeroSection() {
               sx={{
                 position: "relative",
                 zIndex: 3,
-                fontWeight: 300,
+                fontWeight: 400,
                 fontSize: {
-                  xs: "0.9rem",
-                  sm: "1.1rem",
-                  md: "1.3rem",
-                  lg: "1.5rem",
-                  xl: "1.7rem",
+                  xs: "1rem",
+                  sm: "1.2rem",
+                  md: "1.4rem",
+                  lg: "1.6rem",
+                  xl: "1.8rem",
                 },
                 textAlign: "center",
                 letterSpacing: {
-                  xs: "2px",
-                  sm: "3px",
-                  md: "4px",
-                  lg: "5px",
+                  xs: "3px",
+                  sm: "4px",
+                  md: "5px",
+                  lg: "6px",
                 },
                 fontFamily:
                   '"Manrope", "Poppins", "Montserrat", "Inter", sans-serif',
-                color: "rgba(0, 0, 0, 0.75)",
+                color: "rgba(0, 0, 0, 0.85)",
                 textShadow:
-                  "0 2px 10px rgba(255, 255, 255, 0.5), 0 1px 5px rgba(0, 0, 0, 0.15)",
-                lineHeight: { xs: 1.6, sm: 1.7, md: 1.8 },
+                  "0 3px 15px rgba(255, 255, 255, 0.6), 0 2px 8px rgba(0, 0, 0, 0.2), 0 0 20px rgba(255, 215, 0, 0.15)",
+                lineHeight: { xs: 1.8, sm: 1.9, md: 2 },
                 fontStyle: "normal",
                 textTransform: "uppercase",
-                transition: "all 0.3s ease",
-                animation: "fadeInUp 1s ease-out 0.6s both",
+                transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                animation: "fadeInUp 1.2s ease-out 0.6s both",
                 "&:hover": {
-                  color: "rgba(0, 0, 0, 0.9)",
+                  color: "rgba(0, 0, 0, 0.95)",
                   letterSpacing: {
-                    xs: "2.5px",
-                    sm: "3.5px",
-                    md: "4.5px",
-                    lg: "5.5px",
+                    xs: "3.5px",
+                    sm: "4.5px",
+                    md: "5.5px",
+                    lg: "6.5px",
                   },
                   textShadow:
-                    "0 2px 15px rgba(255, 255, 255, 0.7), 0 1px 8px rgba(0, 0, 0, 0.2)",
+                    "0 3px 20px rgba(255, 255, 255, 0.8), 0 2px 12px rgba(0, 0, 0, 0.25), 0 0 25px rgba(255, 215, 0, 0.2)",
+                  transform: "scale(1.02)",
                 },
               }}
             >
-              Connect. Discover. Vibe.
+              CONNECT. DISCOVER. VIBE.
             </Typography>
 
             {/* Buttons Stacked Vertically */}
@@ -892,56 +1098,81 @@ export default function HeroSection() {
                 gap: { xs: 1.5, md: 2 },
                 alignItems: "center",
                 width: "100%",
-                maxWidth: { xs: "280px", sm: "320px", md: "360px" },
-                mt: { xs: 1, sm: 1.5 },
+                maxWidth: { xs: "280px", sm: "320px", md: "380px" },
+                mt: { xs: 1.5, sm: 2, md: 2.5 },
                 animation: "fadeInUp 1s ease-out 0.9s both",
               }}
             >
               <Button
                 variant="contained"
-                startIcon={<PersonAdd />}
+                startIcon={
+                  <PersonAdd
+                    sx={{ fontSize: { xs: "1.1rem", md: "1.25rem" } }}
+                  />
+                }
                 onClick={handleRegister}
                 fullWidth
                 sx={{
                   position: "relative",
                   zIndex: 3,
-                  color: "white",
-                  fontSize: { xs: "0.875rem", sm: "1rem", md: "1.125rem" },
-                  fontWeight: 600,
-                  px: { xs: 2, md: 3 },
-                  py: { xs: 1.25, md: 1.5 },
-                  borderRadius: "25px",
+                  color: "rgba(0, 0, 0, 0.9)",
+                  fontSize: { xs: "0.95rem", sm: "1.05rem", md: "1.15rem" },
+                  fontWeight: 700,
+                  letterSpacing: "0.5px",
+                  px: { xs: 2.5, md: 3.5 },
+                  py: { xs: 1.5, md: 1.75 },
+                  borderRadius: "16px",
                   textTransform: "none",
-                  // Glassmorphism with gradient
+                  // Enhanced gradient with metallic finish
                   background:
-                    "linear-gradient(135deg, rgba(212, 175, 55, 0.9) 0%, rgba(184, 148, 31, 0.9) 100%)",
-                  backdropFilter: "blur(10px)",
-                  WebkitBackdropFilter: "blur(10px)",
-                  border: "1px solid rgba(255, 255, 255, 0.2)",
+                    "linear-gradient(135deg, #f7c948 0%, #e6b800 25%, #d4af37 50%, #b8941f 75%, #8b6914 100%)",
+                  border: "2px solid rgba(255, 255, 255, 0.3)",
                   boxShadow: `
-                    0 8px 32px rgba(212, 175, 55, 0.3),
-                    inset 0 1px 0 rgba(255, 255, 255, 0.3),
-                    inset 0 -1px 0 rgba(0, 0, 0, 0.2)
+                    0 10px 40px rgba(212, 175, 55, 0.4),
+                    0 0 0 1px rgba(255, 255, 255, 0.1) inset,
+                    0 2px 0 rgba(255, 255, 255, 0.5) inset,
+                    0 -2px 10px rgba(0, 0, 0, 0.3) inset
                   `,
-                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                  overflow: "hidden",
+                  "&::before": {
+                    content: '""',
+                    position: "absolute",
+                    top: 0,
+                    left: "-100%",
+                    width: "100%",
+                    height: "100%",
+                    background:
+                      "linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent)",
+                    transition: "left 0.6s ease",
+                  },
                   "&:hover": {
                     background:
-                      "linear-gradient(135deg, rgba(247, 201, 72, 0.95) 0%, rgba(212, 175, 55, 0.95) 100%)",
-                    transform: "scale(1.05)",
+                      "linear-gradient(135deg, #ffd700 0%, #f7c948 25%, #e6b800 50%, #d4af37 75%, #b8941f 100%)",
+                    transform: "translateY(-2px) scale(1.02)",
                     boxShadow: `
-                      0 0 20px rgba(255, 215, 0, 0.5),
-                      0 12px 40px rgba(212, 175, 55, 0.6),
-                      inset 0 1px 0 rgba(255, 255, 255, 0.4),
-                      inset 0 -1px 0 rgba(0, 0, 0, 0.2)
+                      0 0 30px rgba(255, 215, 0, 0.6),
+                      0 15px 50px rgba(212, 175, 55, 0.5),
+                      0 0 0 1px rgba(255, 255, 255, 0.2) inset,
+                      0 3px 0 rgba(255, 255, 255, 0.6) inset,
+                      0 -2px 15px rgba(0, 0, 0, 0.3) inset
                     `,
+                    "&::before": {
+                      left: "100%",
+                    },
                   },
                   "&:active": {
-                    transform: "scale(1.02)",
+                    transform: "translateY(0) scale(1)",
                     boxShadow: `
-                      0 0 15px rgba(255, 215, 0, 0.4),
-                      0 4px 20px rgba(212, 175, 55, 0.4),
-                      inset 0 1px 0 rgba(255, 255, 255, 0.2)
+                      0 0 20px rgba(255, 215, 0, 0.5),
+                      0 8px 30px rgba(212, 175, 55, 0.4),
+                      0 0 0 1px rgba(255, 255, 255, 0.1) inset,
+                      0 1px 0 rgba(255, 255, 255, 0.4) inset
                     `,
+                  },
+                  "& .MuiButton-startIcon": {
+                    marginRight: { xs: "8px", md: "10px" },
+                    marginLeft: 0,
                   },
                 }}
               >
@@ -949,50 +1180,77 @@ export default function HeroSection() {
               </Button>
               <Button
                 variant="outlined"
-                startIcon={<Login />}
+                startIcon={
+                  <Login sx={{ fontSize: { xs: "1.1rem", md: "1.25rem" } }} />
+                }
                 onClick={handleLogin}
                 fullWidth
                 sx={{
                   position: "relative",
                   zIndex: 3,
                   color: "rgba(0, 0, 0, 0.9)",
-                  borderColor: "rgba(255, 255, 255, 0.4)",
+                  borderColor: "rgba(255, 255, 255, 0.5)",
                   borderWidth: "2px",
-                  fontSize: { xs: "0.875rem", sm: "1rem", md: "1.125rem" },
-                  fontWeight: 600,
-                  px: { xs: 2, md: 3 },
-                  py: { xs: 1.25, md: 1.5 },
-                  borderRadius: "25px",
+                  fontSize: { xs: "0.95rem", sm: "1.05rem", md: "1.15rem" },
+                  fontWeight: 700,
+                  letterSpacing: "0.5px",
+                  px: { xs: 2.5, md: 3.5 },
+                  py: { xs: 1.5, md: 1.75 },
+                  borderRadius: "16px",
                   textTransform: "none",
-                  // Glassmorphism style
-                  backdropFilter: "blur(10px)",
-                  WebkitBackdropFilter: "blur(10px)",
-                  backgroundColor: "rgba(255, 255, 255, 0.2)",
+                  // Enhanced glassmorphism with subtle glow
+                  backdropFilter: "blur(20px)",
+                  WebkitBackdropFilter: "blur(20px)",
+                  backgroundColor: "rgba(255, 255, 255, 0.25)",
                   boxShadow: `
-                    0 8px 32px rgba(0, 0, 0, 0.1),
-                    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-                    inset 0 -1px 0 rgba(0, 0, 0, 0.1)
+                    0 10px 40px rgba(0, 0, 0, 0.15),
+                    0 0 0 1px rgba(255, 255, 255, 0.3) inset,
+                    0 2px 0 rgba(255, 255, 255, 0.6) inset,
+                    0 -1px 8px rgba(0, 0, 0, 0.1) inset,
+                    0 0 20px rgba(255, 215, 0, 0.1)
                   `,
-                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                  overflow: "hidden",
+                  "&::before": {
+                    content: '""',
+                    position: "absolute",
+                    top: 0,
+                    left: "-100%",
+                    width: "100%",
+                    height: "100%",
+                    background:
+                      "linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent)",
+                    transition: "left 0.6s ease",
+                  },
                   "&:hover": {
-                    backgroundColor: "rgba(255, 255, 255, 0.4)",
-                    borderColor: "rgba(255, 255, 255, 0.7)",
+                    backgroundColor: "rgba(255, 255, 255, 0.45)",
+                    borderColor: "rgba(255, 255, 255, 0.8)",
                     borderWidth: "2px",
-                    transform: "scale(1.05)",
+                    transform: "translateY(-2px) scale(1.02)",
                     boxShadow: `
-                      0 0 20px rgba(255, 215, 0, 0.4),
-                      0 12px 40px rgba(0, 0, 0, 0.2),
-                      inset 0 1px 0 rgba(255, 255, 255, 0.6),
-                      inset 0 -1px 0 rgba(0, 0, 0, 0.1)
+                      0 0 30px rgba(255, 215, 0, 0.4),
+                      0 15px 50px rgba(0, 0, 0, 0.2),
+                      0 0 0 1px rgba(255, 255, 255, 0.4) inset,
+                      0 3px 0 rgba(255, 255, 255, 0.7) inset,
+                      0 -1px 12px rgba(0, 0, 0, 0.15) inset,
+                      0 0 30px rgba(255, 215, 0, 0.2)
                     `,
+                    "&::before": {
+                      left: "100%",
+                    },
                   },
                   "&:active": {
-                    transform: "scale(1.02)",
+                    transform: "translateY(0) scale(1)",
                     boxShadow: `
-                      0 0 15px rgba(255, 215, 0, 0.3),
-                      0 4px 20px rgba(0, 0, 0, 0.15),
-                      inset 0 1px 0 rgba(255, 255, 255, 0.4)
+                      0 0 20px rgba(255, 215, 0, 0.3),
+                      0 8px 30px rgba(0, 0, 0, 0.15),
+                      0 0 0 1px rgba(255, 255, 255, 0.3) inset,
+                      0 1px 0 rgba(255, 255, 255, 0.5) inset
                     `,
+                  },
+                  "& .MuiButton-startIcon": {
+                    marginRight: { xs: "8px", md: "10px" },
+                    marginLeft: 0,
                   },
                 }}
               >
@@ -2004,6 +2262,37 @@ export default function HeroSection() {
             to {
               opacity: 1;
               transform: translateY(0);
+            }
+          }
+          
+          @keyframes shimmerText {
+            0% {
+              background-position: 0% 50%;
+            }
+            50% {
+              background-position: 100% 50%;
+            }
+            100% {
+              background-position: 0% 50%;
+            }
+          }
+          
+          @keyframes floatUpDown {
+            0%, 100% {
+              transform: translateY(0px) rotate(0deg);
+              opacity: 0.7;
+            }
+            25% {
+              transform: translateY(-20px) rotate(5deg);
+              opacity: 0.8;
+            }
+            50% {
+              transform: translateY(-40px) rotate(0deg);
+              opacity: 0.9;
+            }
+            75% {
+              transform: translateY(-20px) rotate(-5deg);
+              opacity: 0.8;
             }
           }
         `}
