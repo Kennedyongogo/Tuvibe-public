@@ -34,7 +34,6 @@ import Swal from "sweetalert2";
 export default function HeroSection() {
   const navigate = useNavigate();
   const [isVisible, setIsVisible] = useState(false);
-  const [imageLoaded, setImageLoaded] = useState(false);
   const [registerDialogOpen, setRegisterDialogOpen] = useState(false);
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -579,27 +578,112 @@ export default function HeroSection() {
         maxHeight: "100vh",
         width: "100%",
         overflow: "hidden",
+        backgroundColor: "#b88900", // Base darker gold
+        // Main gradient overlay with 3 golden shades
+        background: `
+          linear-gradient(135deg, #f7c948 0%, #e6b800 30%, #d4af37 60%, #b88900 100%),
+          radial-gradient(circle at 20% 50%, rgba(247, 201, 72, 0.3) 0%, transparent 50%),
+          radial-gradient(circle at 80% 80%, rgba(184, 137, 0, 0.4) 0%, transparent 50%),
+          #b88900
+        `,
+        "&::before": {
+          content: '""',
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          // Metallic texture with bokeh overlay
+          background: `
+            radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 30%),
+            radial-gradient(circle at 80% 30%, rgba(255, 255, 255, 0.08) 0%, transparent 25%),
+            radial-gradient(circle at 40% 60%, rgba(255, 255, 255, 0.06) 0%, transparent 35%),
+            radial-gradient(circle at 90% 70%, rgba(255, 255, 255, 0.1) 0%, transparent 30%),
+            radial-gradient(circle at 30% 80%, rgba(255, 255, 255, 0.08) 0%, transparent 25%),
+            radial-gradient(circle at 70% 90%, rgba(255, 255, 255, 0.06) 0%, transparent 35%)
+          `,
+          backgroundSize: "200% 200%",
+          animation: "bokehFloat 20s ease-in-out infinite",
+          zIndex: 1,
+          opacity: 0.7,
+        },
+        "&::after": {
+          content: '""',
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          // Terrain pattern overlay
+          background: `
+            polygon(0% 85%, 15% 75%, 30% 82%, 45% 70%, 60% 78%, 75% 72%, 90% 80%, 100% 75%, 100% 100%, 0% 100%),
+            polygon(0% 100%, 20% 90%, 40% 95%, 60% 88%, 80% 92%, 100% 88%, 100% 100%, 0% 100%)
+          `,
+          backgroundSize: "100% 100%",
+          backgroundPosition: "0 0, 0 0",
+          backgroundRepeat: "no-repeat",
+          opacity: 0.3,
+          zIndex: 1,
+          mixBlendMode: "multiply",
+        },
       }}
     >
-      {/* Background Image */}
+      {/* Terrain Hills Layer 1 */}
       <Box
-        component="img"
-        src="/images/tuvibe-1.jpg"
-        alt="Tuvibe Background"
-        onLoad={() => setImageLoaded(true)}
         sx={{
           position: "absolute",
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          objectPosition: "center",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: "60%",
           zIndex: 1,
-          opacity: imageLoaded ? 1 : 0,
-          transition: "opacity 0.5s ease-in-out",
+          background: `
+            radial-gradient(ellipse 120% 100% at 50% 100%, rgba(139, 105, 20, 0.7) 0%, transparent 70%),
+            radial-gradient(ellipse 100% 80% at 0% 100%, rgba(184, 148, 31, 0.6) 0%, transparent 60%),
+            radial-gradient(ellipse 100% 80% at 100% 100%, rgba(212, 175, 55, 0.5) 0%, transparent 60%)
+          `,
+          clipPath:
+            "polygon(0% 45%, 12% 35%, 25% 42%, 38% 32%, 50% 40%, 62% 35%, 75% 42%, 88% 38%, 100% 45%, 100% 100%, 0% 100%)",
         }}
       />
 
-      {/* Floating Particles Animation */}
+      {/* Terrain Hills Layer 2 */}
+      <Box
+        sx={{
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: "40%",
+          zIndex: 1,
+          background: `
+            radial-gradient(ellipse 150% 100% at 50% 100%, rgba(184, 148, 31, 0.8) 0%, transparent 65%),
+            radial-gradient(ellipse 110% 90% at 25% 100%, rgba(139, 105, 20, 0.7) 0%, transparent 55%),
+            radial-gradient(ellipse 110% 90% at 75% 100%, rgba(201, 176, 55, 0.6) 0%, transparent 55%)
+          `,
+          clipPath:
+            "polygon(0% 60%, 18% 50%, 35% 58%, 52% 48%, 68% 55%, 85% 52%, 100% 60%, 100% 100%, 0% 100%)",
+        }}
+      />
+
+      {/* Terrain Hills Layer 3 - Deepest */}
+      <Box
+        sx={{
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: "30%",
+          zIndex: 1,
+          background: `
+            radial-gradient(ellipse 180% 120% at 50% 100%, rgba(139, 105, 20, 0.9) 0%, transparent 70%)
+          `,
+          clipPath:
+            "polygon(0% 70%, 10% 65%, 22% 72%, 33% 68%, 44% 73%, 56% 70%, 67% 75%, 78% 72%, 89% 76%, 100% 74%, 100% 100%, 0% 100%)",
+        }}
+      />
+
+      {/* Particle Animation Layer */}
       <Box
         sx={{
           position: "absolute",
@@ -608,27 +692,43 @@ export default function HeroSection() {
           right: 0,
           bottom: 0,
           zIndex: 2,
+          overflow: "hidden",
           "&::before": {
             content: '""',
             position: "absolute",
-            top: "20%",
-            left: "10%",
-            width: "4px",
-            height: "4px",
-            background: "rgba(255, 255, 255, 0.6)",
-            borderRadius: "50%",
-            animation: "float 6s ease-in-out infinite",
+            width: "100%",
+            height: "100%",
+            backgroundImage: `
+              radial-gradient(2px 2px at 20% 30%, rgba(255, 255, 255, 0.4), transparent),
+              radial-gradient(2px 2px at 60% 70%, rgba(255, 255, 255, 0.3), transparent),
+              radial-gradient(1px 1px at 50% 50%, rgba(255, 255, 255, 0.5), transparent),
+              radial-gradient(1px 1px at 80% 10%, rgba(255, 255, 255, 0.4), transparent),
+              radial-gradient(2px 2px at 90% 60%, rgba(255, 255, 255, 0.3), transparent),
+              radial-gradient(1px 1px at 33% 80%, rgba(255, 255, 255, 0.4), transparent),
+              radial-gradient(1px 1px at 70% 40%, rgba(255, 255, 255, 0.5), transparent),
+              radial-gradient(2px 2px at 40% 20%, rgba(255, 255, 255, 0.3), transparent)
+            `,
+            backgroundRepeat: "repeat",
+            backgroundSize: "200% 200%",
+            animation: "particleMove 20s linear infinite",
+            opacity: 0.6,
           },
           "&::after": {
             content: '""',
             position: "absolute",
-            top: "60%",
-            right: "15%",
-            width: "6px",
-            height: "6px",
-            background: "rgba(33, 150, 243, 0.8)",
-            borderRadius: "50%",
-            animation: "float 8s ease-in-out infinite reverse",
+            width: "100%",
+            height: "100%",
+            backgroundImage: `
+              radial-gradient(3px 3px at 15% 25%, rgba(255, 215, 0, 0.5), transparent),
+              radial-gradient(2px 2px at 55% 65%, rgba(255, 215, 0, 0.4), transparent),
+              radial-gradient(1px 1px at 75% 45%, rgba(255, 215, 0, 0.6), transparent),
+              radial-gradient(2px 2px at 35% 85%, rgba(255, 215, 0, 0.4), transparent),
+              radial-gradient(1px 1px at 85% 15%, rgba(255, 215, 0, 0.5), transparent)
+            `,
+            backgroundRepeat: "repeat",
+            backgroundSize: "150% 150%",
+            animation: "particleMove 25s linear infinite reverse",
+            opacity: 0.5,
           },
         }}
       />
@@ -645,7 +745,7 @@ export default function HeroSection() {
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
-          color: "white",
+          color: "rgba(0, 0, 0, 0.9)",
           zIndex: 3,
           px: { xs: 2, sm: 4, md: 6 },
           maxWidth: "1400px",
@@ -666,10 +766,31 @@ export default function HeroSection() {
               animation: "slideInUp 1.2s ease-out",
             }}
           >
+            {/* Spotlight Glow Behind Logo */}
+            <Box
+              sx={{
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                width: { xs: "300px", sm: "400px", md: "500px", lg: "600px" },
+                height: { xs: "300px", sm: "400px", md: "500px", lg: "600px" },
+                background:
+                  "radial-gradient(circle, rgba(255, 215, 0, 0.3) 0%, rgba(247, 201, 72, 0.2) 30%, transparent 70%)",
+                borderRadius: "50%",
+                filter: "blur(60px)",
+                zIndex: 2,
+                animation: "pulseGlow 3s ease-in-out infinite",
+                pointerEvents: "none",
+              }}
+            />
+
             {/* Tuvibe Typography */}
             <Typography
               variant="h1"
               sx={{
+                position: "relative",
+                zIndex: 3,
                 fontWeight: 900,
                 fontSize: {
                   xs: "2.7rem",
@@ -680,27 +801,33 @@ export default function HeroSection() {
                 },
                 textAlign: "center",
                 letterSpacing: {
-                  xs: "1px",
-                  sm: "1.5px",
-                  md: "2px",
+                  xs: "2px",
+                  sm: "3px",
+                  md: "4px",
+                  lg: "5px",
                 },
                 fontFamily:
-                  '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
+                  '"Montserrat", "Poppins", "Manrope", "Inter", sans-serif',
+                // Gold → dark bronze gradient
                 background: `linear-gradient(135deg, 
-                  #FFD700 0%, 
-                  #d4af37 30%,
-                  #f4d03f 60%, 
-                  #FFD700 100%)`,
+                  #FFD700 0%,
+                  #f7c948 15%,
+                  #d4af37 35%,
+                  #b88900 55%,
+                  #8B6914 75%,
+                  #654321 90%,
+                  #3d2817 100%)`,
                 backgroundClip: "text",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 textShadow:
-                  "0 4px 20px rgba(255, 215, 0, 0.4), 0 2px 10px rgba(212, 175, 55, 0.3), 0 0 30px rgba(255, 215, 0, 0.2)",
+                  "0 4px 20px rgba(255, 215, 0, 0.3), 0 2px 10px rgba(139, 105, 20, 0.2), 0 0 30px rgba(212, 175, 55, 0.4)",
                 lineHeight: { xs: 1.1, sm: 1.05, md: 1 },
                 textTransform: "uppercase",
                 filter: "drop-shadow(0 0 15px rgba(255, 215, 0, 0.5))",
-                WebkitTextStroke: "0.5px rgba(255, 215, 0, 0.6)",
+                WebkitTextStroke: "0.5px rgba(255, 215, 0, 0.3)",
                 transition: "all 0.3s ease",
+                animation: "fadeInUp 1s ease-out 0.3s both",
                 "&:hover": {
                   transform: "scale(1.02)",
                   filter: "drop-shadow(0 0 20px rgba(255, 215, 0, 0.7))",
@@ -714,7 +841,9 @@ export default function HeroSection() {
             <Typography
               variant="h5"
               sx={{
-                fontWeight: 400,
+                position: "relative",
+                zIndex: 3,
+                fontWeight: 300,
                 fontSize: {
                   xs: "0.9rem",
                   sm: "1.1rem",
@@ -724,22 +853,31 @@ export default function HeroSection() {
                 },
                 textAlign: "center",
                 letterSpacing: {
-                  xs: "0.5px",
-                  sm: "1px",
-                  md: "1.5px",
+                  xs: "2px",
+                  sm: "3px",
+                  md: "4px",
+                  lg: "5px",
                 },
                 fontFamily:
-                  '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
-                color: "rgba(255, 255, 255, 0.95)",
+                  '"Manrope", "Poppins", "Montserrat", "Inter", sans-serif',
+                color: "rgba(0, 0, 0, 0.75)",
                 textShadow:
-                  "0 2px 10px rgba(0, 0, 0, 0.5), 0 1px 5px rgba(0, 0, 0, 0.3)",
-                lineHeight: { xs: 1.4, sm: 1.5, md: 1.6 },
-                fontStyle: "italic",
+                  "0 2px 10px rgba(255, 255, 255, 0.5), 0 1px 5px rgba(0, 0, 0, 0.15)",
+                lineHeight: { xs: 1.6, sm: 1.7, md: 1.8 },
+                fontStyle: "normal",
+                textTransform: "uppercase",
                 transition: "all 0.3s ease",
+                animation: "fadeInUp 1s ease-out 0.6s both",
                 "&:hover": {
-                  color: "rgba(255, 255, 255, 1)",
+                  color: "rgba(0, 0, 0, 0.9)",
+                  letterSpacing: {
+                    xs: "2.5px",
+                    sm: "3.5px",
+                    md: "4.5px",
+                    lg: "5.5px",
+                  },
                   textShadow:
-                    "0 2px 15px rgba(255, 255, 255, 0.3), 0 1px 8px rgba(0, 0, 0, 0.5)",
+                    "0 2px 15px rgba(255, 255, 255, 0.7), 0 1px 8px rgba(0, 0, 0, 0.2)",
                 },
               }}
             >
@@ -756,6 +894,7 @@ export default function HeroSection() {
                 width: "100%",
                 maxWidth: { xs: "280px", sm: "320px", md: "360px" },
                 mt: { xs: 1, sm: 1.5 },
+                animation: "fadeInUp 1s ease-out 0.9s both",
               }}
             >
               <Button
@@ -764,7 +903,8 @@ export default function HeroSection() {
                 onClick={handleRegister}
                 fullWidth
                 sx={{
-                  backgroundColor: "#D4AF37",
+                  position: "relative",
+                  zIndex: 3,
                   color: "white",
                   fontSize: { xs: "0.875rem", sm: "1rem", md: "1.125rem" },
                   fontWeight: 600,
@@ -772,12 +912,36 @@ export default function HeroSection() {
                   py: { xs: 1.25, md: 1.5 },
                   borderRadius: "25px",
                   textTransform: "none",
-                  background: "linear-gradient(45deg, #D4AF37, #B8941F)",
-                  transition: "all 0.3s ease",
+                  // Glassmorphism with gradient
+                  background:
+                    "linear-gradient(135deg, rgba(212, 175, 55, 0.9) 0%, rgba(184, 148, 31, 0.9) 100%)",
+                  backdropFilter: "blur(10px)",
+                  WebkitBackdropFilter: "blur(10px)",
+                  border: "1px solid rgba(255, 255, 255, 0.2)",
+                  boxShadow: `
+                    0 8px 32px rgba(212, 175, 55, 0.3),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+                    inset 0 -1px 0 rgba(0, 0, 0, 0.2)
+                  `,
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
                   "&:hover": {
-                    background: "linear-gradient(45deg, #B8941F, #D4AF37)",
-                    transform: "translateY(-2px)",
-                    boxShadow: "0 8px 25px rgba(212, 175, 55, 0.5)",
+                    background:
+                      "linear-gradient(135deg, rgba(247, 201, 72, 0.95) 0%, rgba(212, 175, 55, 0.95) 100%)",
+                    transform: "scale(1.05)",
+                    boxShadow: `
+                      0 0 20px rgba(255, 215, 0, 0.5),
+                      0 12px 40px rgba(212, 175, 55, 0.6),
+                      inset 0 1px 0 rgba(255, 255, 255, 0.4),
+                      inset 0 -1px 0 rgba(0, 0, 0, 0.2)
+                    `,
+                  },
+                  "&:active": {
+                    transform: "scale(1.02)",
+                    boxShadow: `
+                      0 0 15px rgba(255, 215, 0, 0.4),
+                      0 4px 20px rgba(212, 175, 55, 0.4),
+                      inset 0 1px 0 rgba(255, 255, 255, 0.2)
+                    `,
                   },
                 }}
               >
@@ -789,8 +953,10 @@ export default function HeroSection() {
                 onClick={handleLogin}
                 fullWidth
                 sx={{
-                  color: "white",
-                  borderColor: "rgba(255, 255, 255, 0.8)",
+                  position: "relative",
+                  zIndex: 3,
+                  color: "rgba(0, 0, 0, 0.9)",
+                  borderColor: "rgba(255, 255, 255, 0.4)",
                   borderWidth: "2px",
                   fontSize: { xs: "0.875rem", sm: "1rem", md: "1.125rem" },
                   fontWeight: 600,
@@ -798,15 +964,35 @@ export default function HeroSection() {
                   py: { xs: 1.25, md: 1.5 },
                   borderRadius: "25px",
                   textTransform: "none",
+                  // Glassmorphism style
                   backdropFilter: "blur(10px)",
-                  backgroundColor: "rgba(255, 255, 255, 0.1)",
-                  transition: "all 0.3s ease",
+                  WebkitBackdropFilter: "blur(10px)",
+                  backgroundColor: "rgba(255, 255, 255, 0.2)",
+                  boxShadow: `
+                    0 8px 32px rgba(0, 0, 0, 0.1),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+                    inset 0 -1px 0 rgba(0, 0, 0, 0.1)
+                  `,
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
                   "&:hover": {
-                    backgroundColor: "rgba(255, 255, 255, 0.2)",
-                    borderColor: "white",
+                    backgroundColor: "rgba(255, 255, 255, 0.4)",
+                    borderColor: "rgba(255, 255, 255, 0.7)",
                     borderWidth: "2px",
-                    transform: "translateY(-2px)",
-                    boxShadow: "0 8px 25px rgba(255, 255, 255, 0.3)",
+                    transform: "scale(1.05)",
+                    boxShadow: `
+                      0 0 20px rgba(255, 215, 0, 0.4),
+                      0 12px 40px rgba(0, 0, 0, 0.2),
+                      inset 0 1px 0 rgba(255, 255, 255, 0.6),
+                      inset 0 -1px 0 rgba(0, 0, 0, 0.1)
+                    `,
+                  },
+                  "&:active": {
+                    transform: "scale(1.02)",
+                    boxShadow: `
+                      0 0 15px rgba(255, 215, 0, 0.3),
+                      0 4px 20px rgba(0, 0, 0, 0.15),
+                      inset 0 1px 0 rgba(255, 255, 255, 0.4)
+                    `,
                   },
                 }}
               >
@@ -1778,6 +1964,46 @@ export default function HeroSection() {
             50% { 
               transform: translateY(-20px) rotate(180deg);
               opacity: 1;
+            }
+          }
+          
+          @keyframes particleMove {
+            0% {
+              background-position: 0% 0%, 0% 0%;
+            }
+            100% {
+              background-position: 100% 100%, 100% 100%;
+            }
+          }
+          
+          @keyframes bokehFloat {
+            0%, 100% {
+              background-position: 0% 0%;
+            }
+            50% {
+              background-position: 100% 100%;
+            }
+          }
+          
+          @keyframes pulseGlow {
+            0%, 100% {
+              opacity: 0.6;
+              transform: translate(-50%, -50%) scale(1);
+            }
+            50% {
+              opacity: 0.8;
+              transform: translate(-50%, -50%) scale(1.1);
+            }
+          }
+          
+          @keyframes fadeInUp {
+            from {
+              opacity: 0;
+              transform: translateY(30px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
             }
           }
         `}

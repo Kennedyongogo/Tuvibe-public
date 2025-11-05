@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from "react";
 import {
   Box,
   Paper,
@@ -10,33 +10,32 @@ import {
   Chip,
   CircularProgress,
   Avatar,
-  Divider,
-  Tooltip
-} from '@mui/material';
+  Tooltip,
+} from "@mui/material";
 import {
   Send,
   Close,
   Chat as ChatIcon,
   SmartToy,
   ExpandLess,
-  ExpandMore
-} from '@mui/icons-material';
+  ExpandMore,
+} from "@mui/icons-material";
 // Using fetch with proxy like other components
 
 const Chatbot = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
-  
+
   // Initial greeting message
   const initialMessage = {
-    text: "Hello! I'm here to help you learn about Mwalimu Hope Foundation. How can I assist you today?",
+    text: "Hello! I'm your TuVibe AI assistant. I can help you with marketplace items, posts, user information, pricing, and platform features. How can I assist you today?",
     isBot: true,
     timestamp: null,
-    intent: 'greeting'
+    intent: "greeting",
   };
-  
+
   const [messages, setMessages] = useState([initialMessage]);
-  const [inputValue, setInputValue] = useState('');
+  const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const messagesEndRef = useRef(null);
@@ -62,23 +61,34 @@ const Chatbot = () => {
     const userMessage = {
       text: inputValue,
       isBot: false,
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
-    setInputValue('');
+    setMessages((prev) => [...prev, userMessage]);
+    const currentInput = inputValue;
+    setInputValue("");
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await fetch('/api/chatbot/chat', {
-        method: 'POST',
+      // Build conversation history for context
+      const conversationHistory = messages
+        .filter((msg) => msg.timestamp) // Only include messages with timestamps
+        .slice(-5) // Last 5 messages for context
+        .map((msg) => ({
+          text: msg.text,
+          isBot: msg.isBot,
+        }));
+
+      const response = await fetch("/api/chatbot/chat", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          message: inputValue
-        })
+          message: currentInput,
+          conversation_history: conversationHistory,
+        }),
       });
 
       if (!response.ok) {
@@ -87,67 +97,68 @@ const Chatbot = () => {
 
       const result = await response.json();
       const data = result.data;
-      
+
       const botMessage = {
-        text: data.reply,
+        text: data.reply || data.answer,
         isBot: true,
         timestamp: new Date(),
         intent: data.intent,
-        confidence: data.confidence
+        confidence: data.confidence,
       };
 
-      setMessages(prev => [...prev, botMessage]);
+      setMessages((prev) => [...prev, botMessage]);
     } catch (error) {
-      console.error('Chatbot error:', error);
-      setError('Sorry, I\'m having trouble connecting right now. Please try again later.');
-      
+      console.error("Chatbot error:", error);
+      setError(
+        "Sorry, I'm having trouble connecting right now. Please try again later."
+      );
+
       const errorMessage = {
-        text: "I'm sorry, I'm having trouble connecting right now. Please contact us directly at mwalimuhopefoundation@gmail.com or call 0721660901.",
+        text: "I'm sorry, I'm having trouble connecting right now. Please try again in a moment or refresh the page.",
         isBot: true,
         timestamp: new Date(),
-        intent: 'error'
+        intent: "error",
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleKeyPress = (event) => {
-    if (event.key === 'Enter' && !event.shiftKey) {
+    if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       sendMessage();
     }
   };
 
   const quickQuestions = [
-    "How can I donate?",
-    "What programs do you offer?",
-    "How can I volunteer?",
-    "What is your mission?",
-    "Where are you located?",
-    "How can I contact you?"
+    "What's for sale?",
+    "Show me hot deals",
+    "What are people looking for?",
+    "How much does chat cost?",
+    "Tell me about the platform",
+    "How do I unlock chats?",
   ];
 
   const getIntentColor = (intent) => {
     const colors = {
-      donation: '#4caf50',
-      programs: '#2196f3',
-      volunteer: '#ff9800',
-      mission: '#e91e63',
-      location: '#9c27b0',
-      membership: '#00bcd4',
-      events: '#ff5722',
-      general: '#607d8b',
-      error: '#f44336',
-      greeting: '#4caf50'
+      market_info: "#D4AF37",
+      posts_info: "#2196f3",
+      user_info: "#ff9800",
+      platform_info: "#9c27b0",
+      pricing_info: "#B8941F",
+      general_help: "#607d8b",
+      general: "#607d8b",
+      error: "#f44336",
+      greeting: "#D4AF37",
     };
-    return colors[intent] || '#607d8b';
+    return colors[intent] || "#D4AF37";
   };
 
   const formatTime = (date) => {
-    if (!date) return '';
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (!date) return "";
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
   return (
@@ -156,26 +167,31 @@ const Chatbot = () => {
       <Fade in={!isOpen}>
         <Box
           sx={{
-            position: 'fixed',
+            position: "fixed",
             bottom: 24,
             right: 24,
             zIndex: 1000,
           }}
         >
-          <Tooltip title="Chat with Mwalimu AI Assistant" arrow>
+          <Tooltip title="Chat with TuVibe AI Assistant" arrow>
             <IconButton
               onClick={handleOpenChat}
               sx={{
-                background: 'linear-gradient(45deg, #1e3c72, #2a5298)',
-                color: 'white',
+                background: "linear-gradient(135deg, #8B6914, #654321)",
+                color: "#D4AF37",
                 width: 64,
                 height: 64,
-                boxShadow: '0 8px 32px rgba(30, 60, 114, 0.3)',
-                '&:hover': {
-                  background: 'linear-gradient(45deg, #2a5298, #1e3c72)',
-                  transform: 'scale(1.1)',
+                border: "3px solid #D4AF37",
+                boxShadow:
+                  "0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(212, 175, 55, 0.6)",
+                "&:hover": {
+                  background: "linear-gradient(135deg, #654321, #8B6914)",
+                  borderColor: "#F4D03F",
+                  boxShadow:
+                    "0 12px 40px rgba(0, 0, 0, 0.5), 0 0 30px rgba(212, 175, 55, 0.8)",
+                  transform: "scale(1.1)",
                 },
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
               }}
             >
               <ChatIcon sx={{ fontSize: 28 }} />
@@ -188,31 +204,31 @@ const Chatbot = () => {
       <Slide direction="up" in={isOpen} mountOnEnter unmountOnExit>
         <Paper
           sx={{
-            position: 'fixed',
+            position: "fixed",
             bottom: 24,
             right: 24,
-            width: { xs: 'calc(100vw - 48px)', sm: 420 },
+            width: { xs: "calc(100vw - 48px)", sm: 420 },
             height: isMinimized ? 60 : 450,
-            maxHeight: 'calc(100vh - 120px)', // Ensure it doesn't exceed viewport minus header and margins
+            maxHeight: "calc(100vh - 120px)", // Ensure it doesn't exceed viewport minus header and margins
             zIndex: 1001,
-            display: 'flex',
-            flexDirection: 'column',
-            boxShadow: '0 16px 48px rgba(0,0,0,0.2)',
+            display: "flex",
+            flexDirection: "column",
+            boxShadow: "0 16px 48px rgba(0,0,0,0.2)",
             borderRadius: 3,
-            overflow: 'hidden',
-            transition: 'height 0.3s ease',
+            overflow: "hidden",
+            transition: "height 0.3s ease",
           }}
         >
           {/* Header */}
           <Box
             sx={{
-              background: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)',
-              color: 'white',
+              background: "linear-gradient(135deg, #D4AF37 0%, #B8941F 100%)",
+              color: "#1a1a1a",
               p: 2,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              cursor: isMinimized ? 'pointer' : 'default',
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              cursor: isMinimized ? "pointer" : "default",
             }}
             onClick={() => {
               if (isMinimized) {
@@ -223,32 +239,38 @@ const Chatbot = () => {
               }
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <Avatar
                 sx={{
-                  background: 'rgba(255,255,255,0.2)',
+                  background: "rgba(26, 26, 26, 0.2)",
                   width: 32,
                   height: 32,
                 }}
               >
-                <SmartToy sx={{ fontSize: 20 }} />
+                <SmartToy sx={{ fontSize: 20, color: "#1a1a1a" }} />
               </Avatar>
               <Box>
-                <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem' }}>
-                  Mwalimu AI Assistant
+                <Typography
+                  variant="h6"
+                  sx={{ fontWeight: 600, fontSize: "1rem", color: "#1a1a1a" }}
+                >
+                  TuVibe AI Assistant
                 </Typography>
-                <Typography variant="caption" sx={{ opacity: 0.8, fontSize: '0.7rem' }}>
-                  {isMinimized ? 'Click to expand' : 'How can I help you?'}
+                <Typography
+                  variant="caption"
+                  sx={{ opacity: 0.8, fontSize: "0.7rem", color: "#1a1a1a" }}
+                >
+                  {isMinimized ? "Click to expand" : "How can I help you?"}
                 </Typography>
               </Box>
             </Box>
-            <Box sx={{ display: 'flex', gap: 0.5 }}>
+            <Box sx={{ display: "flex", gap: 0.5 }}>
               <IconButton
                 onClick={(e) => {
                   e.stopPropagation();
                   setIsMinimized(!isMinimized);
                 }}
-                sx={{ color: 'white', p: 0.5 }}
+                sx={{ color: "#1a1a1a", p: 0.5 }}
               >
                 {isMinimized ? <ExpandMore /> : <ExpandLess />}
               </IconButton>
@@ -260,7 +282,7 @@ const Chatbot = () => {
                   setMessages([initialMessage]);
                   setError(null);
                 }}
-                sx={{ color: 'white', p: 0.5 }}
+                sx={{ color: "#1a1a1a", p: 0.5 }}
               >
                 <Close />
               </IconButton>
@@ -273,21 +295,22 @@ const Chatbot = () => {
               <Box
                 sx={{
                   flex: 1,
-                  overflow: 'auto',
+                  overflow: "auto",
                   p: 2,
-                  display: 'flex',
-                  flexDirection: 'column',
+                  display: "flex",
+                  flexDirection: "column",
                   gap: 1.5,
-                  background: 'linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%)',
+                  background:
+                    "linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%)",
                 }}
               >
                 {messages.map((message, index) => (
                   <Box
                     key={index}
                     sx={{
-                      display: 'flex',
-                      justifyContent: message.isBot ? 'flex-start' : 'flex-end',
-                      alignItems: 'flex-start',
+                      display: "flex",
+                      justifyContent: message.isBot ? "flex-start" : "flex-end",
+                      alignItems: "flex-start",
                       gap: 1,
                     }}
                   >
@@ -303,68 +326,80 @@ const Chatbot = () => {
                         <SmartToy sx={{ fontSize: 16 }} />
                       </Avatar>
                     )}
-                    
+
                     <Box
                       sx={{
-                        maxWidth: '80%',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: message.isBot ? 'flex-start' : 'flex-end',
+                        maxWidth: "80%",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: message.isBot ? "flex-start" : "flex-end",
                       }}
                     >
                       <Box
                         sx={{
                           p: 1.5,
                           borderRadius: 2,
-                          background: message.isBot 
-                            ? 'white'
-                            : 'linear-gradient(45deg, #1e3c72, #2a5298)',
-                          color: message.isBot ? 'text.primary' : 'white',
-                          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                          border: message.isBot ? '1px solid #e0e0e0' : 'none',
+                          background: message.isBot
+                            ? "white"
+                            : "linear-gradient(135deg, #D4AF37, #B8941F)",
+                          color: message.isBot ? "text.primary" : "#1a1a1a",
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                          border: message.isBot ? "1px solid #e0e0e0" : "none",
                         }}
                       >
-                        <Typography 
-                          variant="body2" 
-                          sx={{ 
+                        <Typography
+                          variant="body2"
+                          sx={{
                             lineHeight: 1.5,
-                            whiteSpace: 'pre-line',
-                            fontSize: '0.875rem'
+                            whiteSpace: "pre-line",
+                            fontSize: "0.875rem",
                           }}
                         >
                           {message.text}
                         </Typography>
-                        
-                        {message.intent && message.intent !== 'greeting' && (
-                          <Box sx={{ mt: 1, display: 'flex', gap: 0.5, alignItems: 'center' }}>
+
+                        {message.intent && message.intent !== "greeting" && (
+                          <Box
+                            sx={{
+                              mt: 1,
+                              display: "flex",
+                              gap: 0.5,
+                              alignItems: "center",
+                            }}
+                          >
                             <Chip
                               label={message.intent}
                               size="small"
                               sx={{
-                                fontSize: '0.65rem',
+                                fontSize: "0.65rem",
                                 height: 20,
                                 background: getIntentColor(message.intent),
-                                color: 'white',
+                                color: "white",
                                 fontWeight: 500,
                               }}
                             />
                             {message.confidence && (
-                              <Typography variant="caption" sx={{ opacity: 0.7, fontSize: '0.65rem' }}>
+                              <Typography
+                                variant="caption"
+                                sx={{ opacity: 0.7, fontSize: "0.65rem" }}
+                              >
                                 {(message.confidence * 100).toFixed(0)}%
                               </Typography>
                             )}
                           </Box>
                         )}
                       </Box>
-                      
+
                       {message.timestamp && (
-                        <Typography 
-                          variant="caption" 
-                          sx={{ 
-                            mt: 0.5, 
-                            opacity: 0.6, 
-                            fontSize: '0.7rem',
-                            alignSelf: message.isBot ? 'flex-start' : 'flex-end'
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            mt: 0.5,
+                            opacity: 0.6,
+                            fontSize: "0.7rem",
+                            alignSelf: message.isBot
+                              ? "flex-start"
+                              : "flex-end",
                           }}
                         >
                           {formatTime(message.timestamp)}
@@ -375,62 +410,83 @@ const Chatbot = () => {
                     {!message.isBot && (
                       <Avatar
                         sx={{
-                          background: 'linear-gradient(45deg, #1e3c72, #2a5298)',
+                          background:
+                            "linear-gradient(135deg, #D4AF37, #B8941F)",
                           width: 28,
                           height: 28,
                           mt: 0.5,
                         }}
                       >
-                        <Typography sx={{ fontSize: '0.75rem', fontWeight: 600 }}>
+                        <Typography
+                          sx={{
+                            fontSize: "0.75rem",
+                            fontWeight: 600,
+                            color: "#1a1a1a",
+                          }}
+                        >
                           U
                         </Typography>
                       </Avatar>
                     )}
                   </Box>
                 ))}
-                
+
                 {isLoading && (
-                  <Box sx={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'flex-start', gap: 1 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "flex-start",
+                      alignItems: "flex-start",
+                      gap: 1,
+                    }}
+                  >
                     <Avatar
                       sx={{
-                        background: '#607d8b',
+                        background: "#D4AF37",
                         width: 28,
                         height: 28,
                         mt: 0.5,
                       }}
                     >
-                      <SmartToy sx={{ fontSize: 16 }} />
+                      <SmartToy sx={{ fontSize: 16, color: "#1a1a1a" }} />
                     </Avatar>
                     <Box
                       sx={{
                         p: 1.5,
                         borderRadius: 2,
-                        background: 'white',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                        border: '1px solid #e0e0e0',
-                        display: 'flex',
-                        alignItems: 'center',
+                        background: "white",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                        border: "1px solid #e0e0e0",
+                        display: "flex",
+                        alignItems: "center",
                         gap: 1,
                       }}
                     >
                       <CircularProgress size={16} />
-                      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                      <Typography
+                        variant="body2"
+                        sx={{ color: "text.secondary" }}
+                      >
                         Thinking...
                       </Typography>
                     </Box>
                   </Box>
                 )}
-                
+
                 <div ref={messagesEndRef} />
               </Box>
 
               {/* Quick Questions */}
               {messages.length === 1 && (
                 <Box sx={{ p: 2, pt: 0 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block', fontWeight: 500 }}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ mb: 1, display: "block", fontWeight: 500 }}
+                  >
                     Quick questions:
                   </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                     {quickQuestions.map((question, index) => (
                       <Chip
                         key={index}
@@ -438,17 +494,18 @@ const Chatbot = () => {
                         size="small"
                         onClick={() => setInputValue(question)}
                         sx={{
-                          fontSize: '0.7rem',
-                          cursor: 'pointer',
-                          background: 'rgba(30, 60, 114, 0.1)',
-                          color: '#1e3c72',
-                          border: '1px solid rgba(30, 60, 114, 0.2)',
-                          '&:hover': {
-                            background: '#1e3c72',
-                            color: 'white',
-                            transform: 'scale(1.05)',
+                          fontSize: "0.7rem",
+                          cursor: "pointer",
+                          background: "rgba(212, 175, 55, 0.1)",
+                          color: "#B8941F",
+                          border: "1px solid rgba(212, 175, 55, 0.3)",
+                          "&:hover": {
+                            background:
+                              "linear-gradient(135deg, #D4AF37, #B8941F)",
+                            color: "#1a1a1a",
+                            transform: "scale(1.05)",
                           },
-                          transition: 'all 0.2s ease',
+                          transition: "all 0.2s ease",
                         }}
                       />
                     ))}
@@ -457,22 +514,29 @@ const Chatbot = () => {
               )}
 
               {/* Input */}
-              <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider', background: 'white' }}>
+              <Box
+                sx={{
+                  p: 2,
+                  borderTop: 1,
+                  borderColor: "divider",
+                  background: "white",
+                }}
+              >
                 {error && (
-                  <Typography 
-                    variant="caption" 
-                    color="error" 
-                    sx={{ 
-                      display: 'block', 
-                      mb: 1, 
-                      textAlign: 'center',
-                      fontSize: '0.75rem'
+                  <Typography
+                    variant="caption"
+                    color="error"
+                    sx={{
+                      display: "block",
+                      mb: 1,
+                      textAlign: "center",
+                      fontSize: "0.75rem",
                     }}
                   >
                     {error}
                   </Typography>
                 )}
-                <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
+                <Box sx={{ display: "flex", gap: 1, alignItems: "flex-end" }}>
                   <TextField
                     fullWidth
                     placeholder="Type your message..."
@@ -484,31 +548,33 @@ const Chatbot = () => {
                     multiline
                     maxRows={3}
                     sx={{
-                      '& .MuiOutlinedInput-root': {
+                      "& .MuiOutlinedInput-root": {
                         borderRadius: 2,
-                        fontSize: '0.875rem',
-                      }
+                        fontSize: "0.875rem",
+                      },
                     }}
                   />
                   <IconButton
                     onClick={sendMessage}
                     disabled={!inputValue.trim() || isLoading}
                     sx={{
-                      background: inputValue.trim() && !isLoading 
-                        ? 'linear-gradient(45deg, #1e3c72, #2a5298)' 
-                        : 'grey.300',
-                      color: 'white',
+                      background:
+                        inputValue.trim() && !isLoading
+                          ? "linear-gradient(135deg, #D4AF37, #B8941F)"
+                          : "grey.300",
+                      color: "#1a1a1a",
                       p: 1,
-                      '&:hover': {
-                        background: inputValue.trim() && !isLoading 
-                          ? 'linear-gradient(45deg, #2a5298, #1e3c72)' 
-                          : 'grey.400',
+                      "&:hover": {
+                        background:
+                          inputValue.trim() && !isLoading
+                            ? "linear-gradient(135deg, #B8941F, #D4AF37)"
+                            : "grey.400",
                       },
-                      '&:disabled': {
-                        background: 'grey.300',
-                        color: 'grey.500',
+                      "&:disabled": {
+                        background: "grey.300",
+                        color: "grey.500",
                       },
-                      transition: 'all 0.2s ease',
+                      transition: "all 0.2s ease",
                     }}
                   >
                     <Send sx={{ fontSize: 20 }} />
