@@ -36,6 +36,7 @@ export default function Dashboard({ user }) {
   const [featuredUsers, setFeaturedUsers] = useState([]);
   const [loadingFeaturedUsers, setLoadingFeaturedUsers] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState({}); // Track current image index for each user
+  const [currentItemImageIndex, setCurrentItemImageIndex] = useState({}); // Track current image index for each featured item
 
   // Check if user is in premium category
   const premiumCategories = ["Sugar Mummy", "Sponsor", "Ben 10"];
@@ -59,7 +60,7 @@ export default function Dashboard({ user }) {
     featuredUsers.forEach((userData) => {
       const images = getAllImages(userData);
       const userId = userData.id;
-      
+
       // Preload all images for smooth transitions
       images.forEach((imageSrc) => {
         const img = new Image();
@@ -92,6 +93,50 @@ export default function Dashboard({ user }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [featuredUsers]);
+
+  // Auto-transition images for each featured market item
+  useEffect(() => {
+    if (featuredItems.length === 0) return;
+
+    const intervals = {};
+    const newIndices = {};
+
+    featuredItems.forEach((item) => {
+      const images = item.images || [];
+      const itemId = item.id;
+
+      // Preload all images for smooth transitions
+      images.forEach((imagePath) => {
+        const img = new Image();
+        img.src = getImageUrl(imagePath);
+      });
+
+      // Always reset to 0 for new items
+      newIndices[itemId] = 0;
+
+      if (images.length > 1) {
+        const imageCount = images.length;
+
+        // Set up interval for this item
+        intervals[itemId] = setInterval(() => {
+          setCurrentItemImageIndex((prev) => {
+            const currentIdx = prev[itemId] || 0;
+            const nextIdx = (currentIdx + 1) % imageCount;
+            return { ...prev, [itemId]: nextIdx };
+          });
+        }, 3000); // Change image every 3 seconds
+      }
+    });
+
+    // Set all indices to 0
+    setCurrentItemImageIndex(newIndices);
+
+    // Cleanup intervals on unmount or when items change
+    return () => {
+      Object.values(intervals).forEach((interval) => clearInterval(interval));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [featuredItems]);
 
   const fetchFeaturedItems = async () => {
     try {
@@ -634,14 +679,60 @@ export default function Dashboard({ user }) {
                   },
                 }}
               >
-                {item.image ? (
-                  <CardMedia
-                    component="img"
-                    height="180"
-                    image={getImageUrl(item.image)}
-                    alt={item.title}
-                    sx={{ objectFit: "cover" }}
-                  />
+                {item.images && item.images.length > 0 ? (
+                  <Box
+                    sx={{
+                      position: "relative",
+                      width: "100%",
+                      height: 180,
+                      overflow: "hidden",
+                    }}
+                  >
+                    {item.images.map((imagePath, index) => {
+                      const currentIdx = currentItemImageIndex[item.id] || 0;
+                      return (
+                        <Box
+                          key={`${item.id}-img-${index}`}
+                          component="img"
+                          src={getImageUrl(imagePath)}
+                          alt={item.title}
+                          sx={{
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            opacity: currentIdx === index ? 1 : 0,
+                            transition: "opacity 1.5s ease-in-out",
+                            zIndex: currentIdx === index ? 1 : 0,
+                          }}
+                          onError={(e) => {
+                            e.target.style.display = "none";
+                          }}
+                        />
+                      );
+                    })}
+                    {item.images.length > 1 && (
+                      <Box
+                        sx={{
+                          position: "absolute",
+                          top: 8,
+                          left: 8,
+                          backgroundColor: "rgba(0, 0, 0, 0.7)",
+                          color: "white",
+                          px: 1,
+                          py: 0.5,
+                          borderRadius: 1,
+                          fontSize: "0.75rem",
+                          fontWeight: 600,
+                          zIndex: 2,
+                        }}
+                      >
+                        +{item.images.length - 1} more
+                      </Box>
+                    )}
+                  </Box>
                 ) : (
                   <Box
                     sx={{
@@ -660,10 +751,10 @@ export default function Dashboard({ user }) {
                 {item.tag !== "none" && (
                   <Box
                     sx={{
-                      position: "relative",
-                      top: -180,
-                      left: 8,
-                      mt: 2,
+                      position: "absolute",
+                      top: 8,
+                      right: 8,
+                      zIndex: 3,
                     }}
                   >
                     <Chip

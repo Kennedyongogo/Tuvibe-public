@@ -33,6 +33,8 @@ const Market = ({ user }) => {
   const [activeTab, setActiveTab] = useState(0);
   const [selectedItem, setSelectedItem] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState({}); // Track current image index for each item
+  const [dialogImageIndex, setDialogImageIndex] = useState(0); // Track current image index in dialog
 
   const tabs = [
     { label: "All Items", value: "all" },
@@ -43,6 +45,65 @@ const Market = ({ user }) => {
   useEffect(() => {
     fetchItems();
   }, [activeTab]);
+
+  // Auto-transition images for each market item
+  useEffect(() => {
+    if (items.length === 0) return;
+
+    const intervals = {};
+    const newIndices = {};
+
+    items.forEach((item) => {
+      const images = item.images || [];
+      const itemId = item.id;
+
+      // Preload all images for smooth transitions
+      images.forEach((imagePath) => {
+        const img = new Image();
+        img.src = getImageUrl(imagePath);
+      });
+
+      // Always reset to 0 for new items
+      newIndices[itemId] = 0;
+
+      if (images.length > 1) {
+        const imageCount = images.length;
+
+        // Set up interval for this item
+        intervals[itemId] = setInterval(() => {
+          setCurrentImageIndex((prev) => {
+            const currentIdx = prev[itemId] || 0;
+            const nextIdx = (currentIdx + 1) % imageCount;
+            return { ...prev, [itemId]: nextIdx };
+          });
+        }, 3000); // Change image every 3 seconds
+      }
+    });
+
+    // Set all indices to 0
+    setCurrentImageIndex(newIndices);
+
+    // Cleanup intervals on unmount or when items change
+    return () => {
+      Object.values(intervals).forEach((interval) => clearInterval(interval));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
+
+  // Auto-transition images in dialog
+  useEffect(() => {
+    if (!selectedItem || !dialogOpen) return;
+
+    const images = selectedItem.images || [];
+    if (images.length <= 1) return;
+
+    setDialogImageIndex(0);
+    const interval = setInterval(() => {
+      setDialogImageIndex((prev) => (prev + 1) % images.length);
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [selectedItem, dialogOpen]);
 
   const fetchItems = async () => {
     try {
@@ -150,7 +211,8 @@ const Market = ({ user }) => {
           TuVibe Market
         </Typography>
         <Typography variant="body1" sx={{ opacity: 0.9 }}>
-          Browse our curated collection of items. Contact sellers directly via WhatsApp.
+          Browse our curated collection of items. Contact sellers directly via
+          WhatsApp.
         </Typography>
       </Box>
 
@@ -206,7 +268,9 @@ const Market = ({ user }) => {
             border: "1px solid rgba(212, 175, 55, 0.2)",
           }}
         >
-          <StoreIcon sx={{ fontSize: 64, color: "#D4AF37", mb: 2, opacity: 0.5 }} />
+          <StoreIcon
+            sx={{ fontSize: 64, color: "#D4AF37", mb: 2, opacity: 0.5 }}
+          />
           <Typography variant="h6" sx={{ color: "#666", mb: 1 }}>
             No items available
           </Typography>
@@ -240,209 +304,255 @@ const Market = ({ user }) => {
               <Card
                 key={item.id}
                 sx={{
-                height: "100%",
-                minHeight: { xs: "auto", sm: "250px" },
-                display: "flex",
-                flexDirection: { xs: "column", sm: "row" },
-                borderRadius: "16px",
-                background:
-                  "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
-                border: "1px solid rgba(212, 175, 55, 0.2)",
-                boxShadow: "0 4px 20px rgba(212, 175, 55, 0.1)",
-                transition: "all 0.3s ease",
-                "&:hover": {
-                  transform: "translateY(-4px)",
-                  boxShadow: "0 8px 30px rgba(212, 175, 55, 0.2)",
-                },
-                overflow: "hidden",
-              }}
-            >
-              {/* Photo Section */}
-              <Box
-                sx={{
-                  position: "relative",
-                  width: { xs: "100%", sm: "250px", md: "300px" },
-                  minWidth: { xs: "100%", sm: "250px", md: "300px" },
-                  height: { xs: "250px", sm: "250px" },
-                  minHeight: { xs: "250px", sm: "250px" },
-                  backgroundColor: "rgba(212, 175, 55, 0.1)",
-                  overflow: "visible",
-                  flexShrink: 0,
+                  height: "100%",
+                  minHeight: { xs: "auto", sm: "250px" },
+                  display: "flex",
+                  flexDirection: { xs: "column", sm: "row" },
+                  borderRadius: "16px",
+                  background:
+                    "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
+                  border: "1px solid rgba(212, 175, 55, 0.2)",
+                  boxShadow: "0 4px 20px rgba(212, 175, 55, 0.1)",
+                  transition: "all 0.3s ease",
+                  "&:hover": {
+                    transform: "translateY(-4px)",
+                    boxShadow: "0 8px 30px rgba(212, 175, 55, 0.2)",
+                  },
+                  overflow: "hidden",
                 }}
               >
-                {/* Image Container */}
+                {/* Photo Section */}
                 <Box
                   sx={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    width: "100%",
-                    height: "100%",
-                    overflow: "hidden",
+                    position: "relative",
+                    width: { xs: "100%", sm: "250px", md: "300px" },
+                    minWidth: { xs: "100%", sm: "250px", md: "300px" },
+                    height: { xs: "250px", sm: "250px" },
+                    minHeight: { xs: "250px", sm: "250px" },
+                    backgroundColor: "rgba(212, 175, 55, 0.1)",
+                    overflow: "visible",
+                    flexShrink: 0,
                   }}
                 >
-                  {item.image ? (
-                    <Box
-                      component="img"
-                      src={getImageUrl(item.image)}
-                      alt={item.title}
+                  {/* Image Container */}
+                  <Box
+                    sx={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      height: "100%",
+                      overflow: "hidden",
+                    }}
+                  >
+                    {item.images && item.images.length > 0 ? (
+                      <>
+                        {item.images.map((imagePath, index) => {
+                          const currentIdx = currentImageIndex[item.id] || 0;
+                          return (
+                            <Box
+                              key={`${item.id}-img-${index}`}
+                              component="img"
+                              src={getImageUrl(imagePath)}
+                              alt={item.title}
+                              sx={{
+                                position: "absolute",
+                                top: 0,
+                                left: 0,
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                                opacity: currentIdx === index ? 1 : 0,
+                                transition: "opacity 1.5s ease-in-out",
+                                zIndex: currentIdx === index ? 1 : 0,
+                                cursor: "pointer",
+                              }}
+                              onClick={() => handleViewDetails(item)}
+                              onError={(e) => {
+                                e.target.style.display = "none";
+                              }}
+                            />
+                          );
+                        })}
+                        {item.images.length > 1 && (
+                          <Box
+                            sx={{
+                              position: "absolute",
+                              top: 8,
+                              left: 8,
+                              backgroundColor: "rgba(0, 0, 0, 0.7)",
+                              color: "white",
+                              px: 1,
+                              py: 0.5,
+                              borderRadius: 1,
+                              fontSize: "0.75rem",
+                              fontWeight: 600,
+                              zIndex: 2,
+                            }}
+                          >
+                            +{item.images.length - 1} more
+                          </Box>
+                        )}
+                      </>
+                    ) : (
+                      <Box
+                        sx={{
+                          width: "100%",
+                          height: "100%",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                        onClick={() => handleViewDetails(item)}
+                      >
+                        <StoreIcon
+                          sx={{ fontSize: 64, color: "#D4AF37", opacity: 0.3 }}
+                        />
+                      </Box>
+                    )}
+                  </Box>
+
+                  {/* Featured Badge */}
+                  {item.is_featured && (
+                    <Chip
+                      icon={
+                        <StarIcon
+                          sx={{
+                            fontSize: "1rem !important",
+                            color: "#FFD700 !important",
+                          }}
+                        />
+                      }
+                      label="Featured"
+                      size="small"
                       sx={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                        cursor: "pointer",
-                      }}
-                      onClick={() => handleViewDetails(item)}
-                      onError={(e) => {
-                        e.target.style.display = "none";
+                        position: "absolute",
+                        bottom: 8,
+                        right: 8,
+                        bgcolor: "rgba(255, 255, 255, 0.95)",
+                        fontWeight: 600,
+                        fontSize: { xs: "0.65rem", sm: "0.7rem" },
+                        border: "1px solid rgba(212, 175, 55, 0.3)",
+                        zIndex: 25,
+                        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
                       }}
                     />
-                  ) : (
-                    <Box
+                  )}
+
+                  {/* Tag Badge */}
+                  {item.tag !== "none" && (
+                    <Chip
+                      label={
+                        item.tag === "hot_deals"
+                          ? "🔥 Hot Deal"
+                          : "⭐ Weekend Pick"
+                      }
+                      size="small"
                       sx={{
-                        width: "100%",
-                        height: "100%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
+                        position: "absolute",
+                        bottom: 8,
+                        left: 8,
+                        bgcolor:
+                          item.tag === "hot_deals"
+                            ? "rgba(255, 107, 107, 0.95)"
+                            : "rgba(78, 205, 196, 0.95)",
+                        color: "white",
+                        fontWeight: 700,
+                        fontSize: { xs: "0.65rem", sm: "0.7rem" },
+                        border: "1px solid rgba(255, 255, 255, 0.3)",
+                        zIndex: 25,
+                        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
                       }}
-                      onClick={() => handleViewDetails(item)}
-                    >
-                      <StoreIcon sx={{ fontSize: 64, color: "#D4AF37", opacity: 0.3 }} />
-                    </Box>
+                    />
                   )}
                 </Box>
 
-                {/* Featured Badge */}
-                {item.is_featured && (
-                  <Chip
-                    icon={<StarIcon sx={{ fontSize: "1rem !important", color: "#FFD700 !important" }} />}
-                    label="Featured"
-                    size="small"
-                    sx={{
-                      position: "absolute",
-                      bottom: 8,
-                      right: 8,
-                      bgcolor: "rgba(255, 255, 255, 0.95)",
-                      fontWeight: 600,
-                      fontSize: { xs: "0.65rem", sm: "0.7rem" },
-                      border: "1px solid rgba(212, 175, 55, 0.3)",
-                      zIndex: 25,
-                      boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
-                    }}
-                  />
-                )}
-
-                {/* Tag Badge */}
-                {item.tag !== "none" && (
-                  <Chip
-                    label={item.tag === "hot_deals" ? "🔥 Hot Deal" : "⭐ Weekend Pick"}
-                    size="small"
-                    sx={{
-                      position: "absolute",
-                      bottom: 8,
-                      left: 8,
-                      bgcolor:
-                        item.tag === "hot_deals"
-                          ? "rgba(255, 107, 107, 0.95)"
-                          : "rgba(78, 205, 196, 0.95)",
-                      color: "white",
-                      fontWeight: 700,
-                      fontSize: { xs: "0.65rem", sm: "0.7rem" },
-                      border: "1px solid rgba(255, 255, 255, 0.3)",
-                      zIndex: 25,
-                      boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
-                    }}
-                  />
-                )}
-              </Box>
-
-              {/* Content Section */}
-              <CardContent
-                sx={{
-                  flexGrow: 1,
-                  display: "flex",
-                  flexDirection: "column",
-                  p: 3,
-                }}
-              >
-                <Typography
-                  variant="h6"
+                {/* Content Section */}
+                <CardContent
                   sx={{
-                    fontWeight: 700,
-                    fontSize: { xs: "1rem", sm: "1.25rem" },
-                    color: "#1a1a1a",
-                    mb: 1,
-                    lineHeight: 1.2,
-                    cursor: "pointer",
-                    "&:hover": {
-                      color: "#D4AF37",
-                    },
-                  }}
-                  onClick={() => handleViewDetails(item)}
-                >
-                  {item.title}
-                </Typography>
-
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: "rgba(26, 26, 26, 0.7)",
-                    mb: 2,
                     flexGrow: 1,
-                    display: "-webkit-box",
-                    WebkitLineClamp: 3,
-                    WebkitBoxOrient: "vertical",
-                    overflow: "hidden",
-                    fontSize: { xs: "0.875rem", sm: "0.95rem" },
-                  }}
-                >
-                  {item.description || "No description available"}
-                </Typography>
-
-                <Box
-                  sx={{
                     display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    mb: 2,
+                    flexDirection: "column",
+                    p: 3,
                   }}
                 >
                   <Typography
-                    variant="h5"
+                    variant="h6"
                     sx={{
                       fontWeight: 700,
-                      color: "#D4AF37",
-                      fontSize: { xs: "1.25rem", sm: "1.5rem" },
+                      fontSize: { xs: "1rem", sm: "1.25rem" },
+                      color: "#1a1a1a",
+                      mb: 1,
+                      lineHeight: 1.2,
+                      cursor: "pointer",
+                      "&:hover": {
+                        color: "#D4AF37",
+                      },
+                    }}
+                    onClick={() => handleViewDetails(item)}
+                  >
+                    {item.title}
+                  </Typography>
+
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: "rgba(26, 26, 26, 0.7)",
+                      mb: 2,
+                      flexGrow: 1,
+                      display: "-webkit-box",
+                      WebkitLineClamp: 3,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                      fontSize: { xs: "0.875rem", sm: "0.95rem" },
                     }}
                   >
-                    KES {parseFloat(item.price).toLocaleString()}
+                    {item.description || "No description available"}
                   </Typography>
-                </Box>
 
-                <Button
-                  variant="contained"
-                  startIcon={<WhatsAppIcon />}
-                  onClick={() => handleWhatsAppClick(item)}
-                  sx={{
-                    background: "linear-gradient(135deg, #25D366, #128C7E)",
-                    color: "white",
-                    fontWeight: 600,
-                    textTransform: "none",
-                    borderRadius: "8px",
-                    py: 1,
-                    fontSize: { xs: "0.875rem", sm: "0.95rem" },
-                    "&:hover": {
-                      background: "linear-gradient(135deg, #128C7E, #25D366)",
-                      transform: "translateY(-1px)",
-                    },
-                  }}
-                >
-                  Contact via WhatsApp
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      mb: 2,
+                    }}
+                  >
+                    <Typography
+                      variant="h5"
+                      sx={{
+                        fontWeight: 700,
+                        color: "#D4AF37",
+                        fontSize: { xs: "1.25rem", sm: "1.5rem" },
+                      }}
+                    >
+                      KES {parseFloat(item.price).toLocaleString()}
+                    </Typography>
+                  </Box>
+
+                  <Button
+                    variant="contained"
+                    startIcon={<WhatsAppIcon />}
+                    onClick={() => handleWhatsAppClick(item)}
+                    sx={{
+                      background: "linear-gradient(135deg, #25D366, #128C7E)",
+                      color: "white",
+                      fontWeight: 600,
+                      textTransform: "none",
+                      borderRadius: "8px",
+                      py: 1,
+                      fontSize: { xs: "0.875rem", sm: "0.95rem" },
+                      "&:hover": {
+                        background: "linear-gradient(135deg, #128C7E, #25D366)",
+                        transform: "translateY(-1px)",
+                      },
+                    }}
+                  >
+                    Contact via WhatsApp
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
           </Box>
         </Box>
       )}
@@ -459,8 +569,7 @@ const Market = ({ user }) => {
         sx={{
           "& .MuiDialog-paper": {
             borderRadius: "16px",
-            background:
-              "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
+            background: "#ffffff",
             border: "1px solid rgba(212, 175, 55, 0.3)",
           },
         }}
@@ -495,9 +604,10 @@ const Market = ({ user }) => {
               )}
             </DialogTitle>
             <DialogContent sx={{ pt: 3 }}>
-              {selectedItem.image && (
+              {selectedItem.images && selectedItem.images.length > 0 && (
                 <Box
                   sx={{
+                    position: "relative",
                     width: "100%",
                     height: 300,
                     borderRadius: "12px",
@@ -505,15 +615,47 @@ const Market = ({ user }) => {
                     mb: 3,
                   }}
                 >
-                  <img
-                    src={getImageUrl(selectedItem.image)}
-                    alt={selectedItem.title}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                    }}
-                  />
+                  {selectedItem.images.map((imagePath, index) => (
+                    <Box
+                      key={`dialog-img-${index}`}
+                      component="img"
+                      src={getImageUrl(imagePath)}
+                      alt={selectedItem.title}
+                      sx={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        opacity: dialogImageIndex === index ? 1 : 0,
+                        transition: "opacity 1.5s ease-in-out",
+                        zIndex: dialogImageIndex === index ? 1 : 0,
+                      }}
+                      onError={(e) => {
+                        e.target.style.display = "none";
+                      }}
+                    />
+                  ))}
+                  {selectedItem.images.length > 1 && (
+                    <Box
+                      sx={{
+                        position: "absolute",
+                        top: 8,
+                        right: 8,
+                        backgroundColor: "rgba(0, 0, 0, 0.7)",
+                        color: "white",
+                        px: 1.5,
+                        py: 0.5,
+                        borderRadius: 1,
+                        fontSize: "0.75rem",
+                        fontWeight: 600,
+                        zIndex: 2,
+                      }}
+                    >
+                      {dialogImageIndex + 1} / {selectedItem.images.length}
+                    </Box>
+                  )}
                 </Box>
               )}
               {selectedItem.tag !== "none" && (
@@ -605,4 +747,3 @@ const Market = ({ user }) => {
 };
 
 export default Market;
-
