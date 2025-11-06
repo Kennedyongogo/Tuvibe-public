@@ -16,6 +16,8 @@ import {
   InputAdornment,
   IconButton,
   Avatar,
+  Card,
+  CardContent,
 } from "@mui/material";
 import {
   Login,
@@ -1259,6 +1261,110 @@ export default function HeroSection() {
             </Box>
           </Box>
         </Fade>
+      </Box>
+
+      {/* Centered Card - Same line as chatbot */}
+      <Box
+        sx={{
+          position: "fixed",
+          bottom: 24,
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 999,
+          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+          "&:hover": {
+            transform: "translateX(-50%) translateY(-4px)",
+          },
+        }}
+      >
+        <Card
+          sx={{
+            position: "relative",
+            borderRadius: "16px",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            backgroundColor: "rgba(255, 255, 255, 0.25)",
+            border: "2px solid rgba(255, 255, 255, 0.5)",
+            boxShadow: `
+              0 10px 40px rgba(0, 0, 0, 0.15),
+              0 0 0 1px rgba(255, 255, 255, 0.3) inset,
+              0 2px 0 rgba(255, 255, 255, 0.6) inset,
+              0 -1px 8px rgba(0, 0, 0, 0.1) inset,
+              0 0 20px rgba(255, 215, 0, 0.1)
+            `,
+            minWidth: { xs: "240px", sm: "280px", md: "320px" },
+            maxWidth: { xs: "280px", sm: "320px", md: "360px" },
+            transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+            overflow: "hidden",
+            "&::before": {
+              content: '""',
+              position: "absolute",
+              top: 0,
+              left: "-100%",
+              width: "100%",
+              height: "100%",
+              background:
+                "linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent)",
+              transition: "left 0.6s ease",
+              zIndex: 0,
+            },
+            "&:hover": {
+              backgroundColor: "rgba(255, 255, 255, 0.45)",
+              borderColor: "rgba(255, 255, 255, 0.8)",
+              boxShadow: `
+                0 0 30px rgba(255, 215, 0, 0.4),
+                0 15px 50px rgba(0, 0, 0, 0.2),
+                0 0 0 1px rgba(255, 255, 255, 0.4) inset,
+                0 3px 0 rgba(255, 255, 255, 0.7) inset,
+                0 -1px 12px rgba(0, 0, 0, 0.15) inset,
+                0 0 30px rgba(255, 215, 0, 0.2)
+              `,
+              "&::before": {
+                left: "100%",
+              },
+            },
+          }}
+        >
+          <CardContent
+            sx={{
+              position: "relative",
+              zIndex: 1,
+              p: { xs: 1.5, sm: 2.5 },
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: { xs: 0.25, sm: 0.5 },
+              "&:last-child": {
+                pb: { xs: 1.5, sm: 2.5 },
+              },
+            }}
+          >
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: 500,
+                fontSize: { xs: "0.7rem", sm: "0.8rem", md: "0.875rem" },
+                color: "rgba(0, 0, 0, 0.7)",
+                textAlign: "center",
+                lineHeight: 1.2,
+              }}
+            >
+              Developed by
+            </Typography>
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: 700,
+                fontSize: { xs: "0.75rem", sm: "0.95rem", md: "1.1rem" },
+                color: "rgba(0, 0, 0, 0.9)",
+                textAlign: "center",
+                lineHeight: 1.2,
+              }}
+            >
+              Carlvyne Technologies Ltd
+            </Typography>
+          </CardContent>
+        </Card>
       </Box>
 
       {/* Registration Dialog */}

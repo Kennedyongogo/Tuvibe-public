@@ -38,6 +38,7 @@ const Chatbot = () => {
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [suggestions, setSuggestions] = useState([]);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -49,6 +50,7 @@ const Chatbot = () => {
     setIsOpen(true);
     setMessages([initialMessage]);
     setError(null);
+    setSuggestions([]);
   };
 
   useEffect(() => {
@@ -64,29 +66,35 @@ const Chatbot = () => {
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
     const currentInput = inputValue;
     setInputValue("");
     setIsLoading(true);
     setError(null);
 
-    try {
-      // Build conversation history for context
-      const conversationHistory = messages
-        .filter((msg) => msg.timestamp) // Only include messages with timestamps
-        .slice(-5) // Last 5 messages for context
-        .map((msg) => ({
-          text: msg.text,
-          isBot: msg.isBot,
-        }));
+    // Build conversation history BEFORE adding the new message
+    // Include the new user message in the history calculation
+    const updatedMessages = [...messages, userMessage];
+    const conversationHistory = updatedMessages
+      .filter((msg) => msg.timestamp) // Only include messages with timestamps
+      .slice(-6) // Last 6 messages (including the new user message)
+      .map((msg) => ({
+        text: msg.text,
+        isBot: msg.isBot,
+      }));
 
-      const response = await fetch("/api/chatbot/chat", {
+    // Add user message to state immediately
+    setMessages(updatedMessages);
+
+    // Now send the API request with proper conversation history
+    try {
+      // Use ML service endpoint with data service integration
+      const response = await fetch("/api/ml/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          message: currentInput,
+          question: currentInput,
           conversation_history: conversationHistory,
         }),
       });
@@ -99,14 +107,22 @@ const Chatbot = () => {
       const data = result.data;
 
       const botMessage = {
-        text: data.reply || data.answer,
+        text: data.answer || data.reply || "I'm here to help!",
         isBot: true,
         timestamp: new Date(),
         intent: data.intent,
         confidence: data.confidence,
+        suggestions: data.suggestions || [],
       };
 
       setMessages((prev) => [...prev, botMessage]);
+
+      // Update suggestions if available
+      if (data.suggestions && data.suggestions.length > 0) {
+        setSuggestions(data.suggestions);
+      } else {
+        setSuggestions([]);
+      }
     } catch (error) {
       console.error("Chatbot error:", error);
       setError(
@@ -129,6 +145,85 @@ const Chatbot = () => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       sendMessage();
+    }
+  };
+
+  // Handle sending suggestion questions directly
+  const handleSuggestionSend = async (questionText) => {
+    if (isLoading) return;
+
+    const userMessage = {
+      text: questionText,
+      isBot: false,
+      timestamp: new Date(),
+    };
+
+    setInputValue("");
+    setIsLoading(true);
+    setError(null);
+    setSuggestions([]); // Clear suggestions when sending
+
+    // Build conversation history including the new user message
+    const updatedMessages = [...messages, userMessage];
+    const conversationHistory = updatedMessages
+      .filter((msg) => msg.timestamp)
+      .slice(-6) // Last 6 messages (including the new user message)
+      .map((msg) => ({
+        text: msg.text,
+        isBot: msg.isBot,
+      }));
+
+    // Add user message to state
+    setMessages(updatedMessages);
+
+    try {
+      const response = await fetch("/api/ml/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          question: questionText,
+          conversation_history: conversationHistory,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      const data = result.data;
+
+      const botMessage = {
+        text: data.answer || data.reply || "I'm here to help!",
+        isBot: true,
+        timestamp: new Date(),
+        intent: data.intent,
+        confidence: data.confidence,
+        suggestions: data.suggestions || [],
+      };
+
+      setMessages((prev) => [...prev, botMessage]);
+
+      if (data.suggestions && data.suggestions.length > 0) {
+        setSuggestions(data.suggestions);
+      }
+    } catch (error) {
+      console.error("Chatbot error:", error);
+      setError(
+        "Sorry, I'm having trouble connecting right now. Please try again later."
+      );
+
+      const errorMessage = {
+        text: "I'm sorry, I'm having trouble connecting right now. Please try again in a moment or refresh the page.",
+        isBot: true,
+        timestamp: new Date(),
+        intent: "error",
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -168,7 +263,7 @@ const Chatbot = () => {
         <Box
           sx={{
             position: "fixed",
-            bottom: 24,
+            bottom: { xs: 100, sm: 24 }, // Position above card on mobile
             right: 24,
             zIndex: 1000,
           }}
@@ -236,6 +331,7 @@ const Chatbot = () => {
                 // Reset messages when expanding from minimized state
                 setMessages([initialMessage]);
                 setError(null);
+                setSuggestions([]);
               }
             }}
           >
@@ -281,6 +377,7 @@ const Chatbot = () => {
                   // Reset messages when fully closed
                   setMessages([initialMessage]);
                   setError(null);
+                  setSuggestions([]);
                 }}
                 sx={{ color: "#1a1a1a", p: 0.5 }}
               >
@@ -476,23 +573,40 @@ const Chatbot = () => {
                 <div ref={messagesEndRef} />
               </Box>
 
-              {/* Quick Questions */}
-              {messages.length === 1 && (
+              {/* Quick Questions / Suggestions */}
+              {(messages.length === 1 || suggestions.length > 0) && (
                 <Box sx={{ p: 2, pt: 0 }}>
                   <Typography
                     variant="caption"
                     color="text.secondary"
                     sx={{ mb: 1, display: "block", fontWeight: 500 }}
                   >
-                    Quick questions:
+                    {suggestions.length > 0
+                      ? "Suggested questions:"
+                      : "Quick questions:"}
                   </Typography>
                   <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-                    {quickQuestions.map((question, index) => (
+                    {(suggestions.length > 0
+                      ? suggestions
+                      : quickQuestions
+                    ).map((question, index) => (
                       <Chip
                         key={index}
                         label={question}
                         size="small"
-                        onClick={() => setInputValue(question)}
+                        onClick={() => {
+                          setInputValue(question);
+                          // Auto-send the suggestion question
+                          setTimeout(() => {
+                            const userMessage = {
+                              text: question,
+                              isBot: false,
+                              timestamp: new Date(),
+                            };
+                            setMessages((prev) => [...prev, userMessage]);
+                            handleSuggestionSend(question);
+                          }, 100);
+                        }}
                         sx={{
                           fontSize: "0.7rem",
                           cursor: "pointer",
