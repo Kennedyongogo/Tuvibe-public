@@ -251,6 +251,8 @@ export default function Wallet({ user, setUser }) {
           borderRadius: "12px",
           bgcolor: "rgba(212, 175, 55, 0.1)",
           border: "1px solid rgba(212, 175, 55, 0.3)",
+          maxWidth: { xs: "90%", sm: "100%" },
+          mx: { xs: "auto", sm: 0 },
           "& .MuiAlert-icon": {
             color: "#D4AF37",
           },
@@ -275,6 +277,8 @@ export default function Wallet({ user, setUser }) {
             "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
           border: "2px solid rgba(212, 175, 55, 0.3)",
           boxShadow: "0 8px 32px rgba(212, 175, 55, 0.15)",
+          maxWidth: { xs: "90%", sm: "100%" },
+          mx: { xs: "auto", sm: 0 },
         }}
       >
         <Stack direction="row" spacing={{ xs: 2, sm: 3 }} alignItems="center">
@@ -348,6 +352,8 @@ export default function Wallet({ user, setUser }) {
             "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
           border: "1px solid rgba(212, 175, 55, 0.2)",
           boxShadow: "0 4px 20px rgba(212, 175, 55, 0.1)",
+          maxWidth: { xs: "90%", sm: "100%" },
+          mx: { xs: "auto", sm: 0 },
         }}
       >
         <Typography
@@ -447,6 +453,8 @@ export default function Wallet({ user, setUser }) {
             "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
           border: "1px solid rgba(212, 175, 55, 0.2)",
           boxShadow: "0 4px 20px rgba(212, 175, 55, 0.1)",
+          maxWidth: { xs: "90%", sm: "100%" },
+          mx: { xs: "auto", sm: 0 },
         }}
       >
         <Typography
@@ -589,8 +597,7 @@ export default function Wallet({ user, setUser }) {
         sx={{
           "& .MuiDialog-paper": {
             borderRadius: "16px",
-            background:
-              "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
+            background: "#ffffff",
             border: "1px solid rgba(212, 175, 55, 0.3)",
           },
         }}
