@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  useRef,
+} from "react";
 import {
   Box,
   Typography,
@@ -105,20 +111,22 @@ export default function PremiumLounge({ user }) {
     }
 
     const selectedCategory = categories[selectedTab].value;
-    
+
     // Check if we already fetched this category/tab combination
     if (
       lastFetchedRef.current.category === selectedCategory &&
       lastFetchedRef.current.tab === selectedTab
     ) {
-      console.log("PremiumLounge - Already fetched this category/tab, skipping...");
+      console.log(
+        "PremiumLounge - Already fetched this category/tab, skipping..."
+      );
       return;
     }
 
     try {
       fetchingRef.current = true;
       setLoading(true);
-      
+
       const response = await fetch(
         `/api/verification/lounge/${encodeURIComponent(selectedCategory)}`,
         {
@@ -135,7 +143,7 @@ export default function PremiumLounge({ user }) {
         const fetchedUsers = data.data.users || [];
         setUsers(fetchedUsers);
         setTokenCost(data.data.cost || 0);
-        
+
         // Update last fetched reference
         lastFetchedRef.current = {
           category: selectedCategory,
@@ -213,7 +221,7 @@ export default function PremiumLounge({ user }) {
   useEffect(() => {
     // Check localStorage as fallback if user prop is not available yet
     let userCategory = user?.category;
-    
+
     if (!userCategory) {
       try {
         const storedUser = localStorage.getItem("user");
@@ -1123,8 +1131,7 @@ export default function PremiumLounge({ user }) {
             sx={{
               "& .MuiDialog-paper": {
                 borderRadius: "16px",
-                background:
-                  "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
+                background: "#FFFFFF",
                 border: "1px solid rgba(212, 175, 55, 0.3)",
               },
             }}
@@ -1145,7 +1152,7 @@ export default function PremiumLounge({ user }) {
                 ? `${selectedLookingForPost.userName}'s Looking For`
                 : "Looking For"}
             </DialogTitle>
-            <DialogContent sx={{ pt: 3 }}>
+            <DialogContent sx={{ pt: 3, backgroundColor: "#FFFFFF" }}>
               {selectedLookingForPost?.content && (
                 <Box>
                   <Typography
@@ -1185,7 +1192,7 @@ export default function PremiumLounge({ user }) {
               sx={{
                 p: 2,
                 borderTop: "1px solid rgba(212, 175, 55, 0.2)",
-                backgroundColor: "rgba(212, 175, 55, 0.05)",
+                backgroundColor: "#FFFFFF",
               }}
             >
               <Button
