@@ -251,17 +251,27 @@ export default function Wallet({ user, setUser }) {
           borderRadius: "12px",
           bgcolor: "rgba(212, 175, 55, 0.1)",
           border: "1px solid rgba(212, 175, 55, 0.3)",
-          maxWidth: { xs: "90%", sm: "100%" },
+          maxWidth: { xs: "85%", sm: "100%" },
           mx: { xs: "auto", sm: 0 },
           "& .MuiAlert-icon": {
             color: "#D4AF37",
           },
         }}
       >
-        <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            fontWeight: 600,
+            mb: 0.5,
+            fontSize: { xs: "0.7rem", sm: "0.875rem" },
+          }}
+        >
           🧪 Test Mode - Mock Payments
         </Typography>
-        <Typography variant="body2" sx={{ fontSize: "0.875rem" }}>
+        <Typography
+          variant="body2"
+          sx={{ fontSize: { xs: "0.65rem", sm: "0.875rem" } }}
+        >
           M-PESA integration is under development. All purchases are mock/test
           transactions for development purposes only.
         </Typography>
@@ -277,7 +287,7 @@ export default function Wallet({ user, setUser }) {
             "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
           border: "2px solid rgba(212, 175, 55, 0.3)",
           boxShadow: "0 8px 32px rgba(212, 175, 55, 0.15)",
-          maxWidth: { xs: "90%", sm: "100%" },
+          maxWidth: { xs: "85%", sm: "100%" },
           mx: { xs: "auto", sm: 0 },
         }}
       >
@@ -305,7 +315,7 @@ export default function Wallet({ user, setUser }) {
               sx={{
                 color: "rgba(26, 26, 26, 0.7)",
                 mb: 1,
-                fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                fontSize: { xs: "0.65rem", sm: "0.875rem" },
               }}
             >
               Current Balance
@@ -317,7 +327,7 @@ export default function Wallet({ user, setUser }) {
                 variant="h3"
                 sx={{
                   fontWeight: 700,
-                  fontSize: { xs: "1.5rem", sm: "2rem", md: "3rem" },
+                  fontSize: { xs: "1.2rem", sm: "2rem", md: "3rem" },
                   background: "linear-gradient(45deg, #D4AF37, #B8941F)",
                   backgroundClip: "text",
                   WebkitBackgroundClip: "text",
@@ -333,7 +343,7 @@ export default function Wallet({ user, setUser }) {
               sx={{
                 color: "rgba(26, 26, 26, 0.6)",
                 mt: 0.5,
-                fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                fontSize: { xs: "0.65rem", sm: "0.875rem" },
               }}
             >
               1 Token = KES 1
@@ -352,7 +362,7 @@ export default function Wallet({ user, setUser }) {
             "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
           border: "1px solid rgba(212, 175, 55, 0.2)",
           boxShadow: "0 4px 20px rgba(212, 175, 55, 0.1)",
-          maxWidth: { xs: "90%", sm: "100%" },
+          maxWidth: { xs: "85%", sm: "100%" },
           mx: { xs: "auto", sm: 0 },
         }}
       >
@@ -365,11 +375,11 @@ export default function Wallet({ user, setUser }) {
             display: "flex",
             alignItems: "center",
             gap: 1,
-            fontSize: { xs: "1rem", sm: "1.125rem", md: "1.25rem" },
+            fontSize: { xs: "0.85rem", sm: "1.125rem", md: "1.25rem" },
           }}
         >
           <Add
-            sx={{ fontSize: { xs: "1.2rem", md: "1.5rem" }, color: "#D4AF37" }}
+            sx={{ fontSize: { xs: "1rem", md: "1.5rem" }, color: "#D4AF37" }}
           />
           Quick Buy Tokens
         </Typography>
@@ -413,7 +423,7 @@ export default function Wallet({ user, setUser }) {
                   sx={{
                     fontWeight: 700,
                     mb: 0.5,
-                    fontSize: { xs: "0.875rem", sm: "1rem", md: "1.25rem" },
+                    fontSize: { xs: "0.75rem", sm: "1rem", md: "1.25rem" },
                   }}
                 >
                   {option.label}
@@ -422,7 +432,7 @@ export default function Wallet({ user, setUser }) {
                   variant="body2"
                   sx={{
                     color: "rgba(26, 26, 26, 0.7)",
-                    fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                    fontSize: { xs: "0.65rem", sm: "0.875rem" },
                   }}
                 >
                   {option.price}
@@ -453,7 +463,7 @@ export default function Wallet({ user, setUser }) {
             "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
           border: "1px solid rgba(212, 175, 55, 0.2)",
           boxShadow: "0 4px 20px rgba(212, 175, 55, 0.1)",
-          maxWidth: { xs: "90%", sm: "100%" },
+          maxWidth: { xs: "85%", sm: "100%" },
           mx: { xs: "auto", sm: 0 },
         }}
       >
@@ -507,7 +517,7 @@ export default function Wallet({ user, setUser }) {
                     sx={{
                       fontWeight: 600,
                       color: "#1a1a1a",
-                      fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                      fontSize: { xs: "0.65rem", sm: "0.875rem" },
                     }}
                   >
                     Date
@@ -516,7 +526,7 @@ export default function Wallet({ user, setUser }) {
                     sx={{
                       fontWeight: 600,
                       color: "#1a1a1a",
-                      fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                      fontSize: { xs: "0.65rem", sm: "0.875rem" },
                     }}
                   >
                     Amount
@@ -526,6 +536,7 @@ export default function Wallet({ user, setUser }) {
                       fontWeight: 600,
                       color: "#1a1a1a",
                       fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                      display: { xs: "none", sm: "table-cell" },
                     }}
                   >
                     Method
@@ -543,7 +554,7 @@ export default function Wallet({ user, setUser }) {
                     <TableCell
                       sx={{
                         color: "rgba(26, 26, 26, 0.7)",
-                        fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                        fontSize: { xs: "0.65rem", sm: "0.875rem" },
                       }}
                     >
                       {formatDate(transaction.createdAt)}
@@ -557,14 +568,18 @@ export default function Wallet({ user, setUser }) {
                             Number(transaction.amount) > 0
                               ? "#4caf50"
                               : "#f44336",
-                          fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                          fontSize: { xs: "0.65rem", sm: "0.875rem" },
                         }}
                       >
                         {Number(transaction.amount) > 0 ? "+" : ""}
                         {Number(transaction.amount).toFixed(2)} Tokens
                       </Typography>
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      sx={{
+                        display: { xs: "none", sm: "table-cell" },
+                      }}
+                    >
                       <Chip
                         label={transaction.payment_method || "system"}
                         size="small"
