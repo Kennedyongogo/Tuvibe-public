@@ -128,12 +128,12 @@ export default function Profile({ user, setUser }) {
 
     // Sync scroll position
     if (!galleryScrollRef.current || isScrollingRef.current) return;
-    
+
     // Small delay to ensure DOM is ready
     const timeoutId = setTimeout(() => {
       const container = galleryScrollRef.current;
       if (!container) return;
-      
+
       const containerWidth = container.clientWidth;
       if (containerWidth === 0) return;
 
@@ -155,7 +155,10 @@ export default function Profile({ user, setUser }) {
     console.log("=== USER PHOTOS CHANGED ===");
     console.log("User photos:", user?.photos);
     console.log("User photos length:", user?.photos?.length);
-    console.log("User photos array:", Array.isArray(user?.photos) ? user.photos : "Not an array");
+    console.log(
+      "User photos array:",
+      Array.isArray(user?.photos) ? user.photos : "Not an array"
+    );
   }, [user?.photos]);
 
   // Calculate boost time remaining
@@ -195,7 +198,7 @@ export default function Profile({ user, setUser }) {
       const isPremiumCategory =
         user?.category &&
         ["Sugar Mummy", "Sponsor", "Ben 10"].includes(user.category);
-      
+
       // If user is already verified or not premium, no need to check
       if (!isPremiumCategory || user?.isVerified) {
         return;
@@ -211,16 +214,16 @@ export default function Profile({ user, setUser }) {
             "Content-Type": "application/json",
           },
         });
-        
+
         // If endpoint doesn't exist (404), silently fail
         if (response.status === 404) {
           return;
         }
-        
+
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const data = await response.json();
         if (data.success && data.data) {
           setVerificationStatus(data.data.status);
@@ -228,7 +231,10 @@ export default function Profile({ user, setUser }) {
       } catch (err) {
         // Silently handle 404 errors (endpoint doesn't exist)
         // Only log other errors
-        if (!err.message || (!err.message.includes("404") && !err.message.includes("Not Found"))) {
+        if (
+          !err.message ||
+          (!err.message.includes("404") && !err.message.includes("Not Found"))
+        ) {
           console.error("Failed to fetch verification status:", err);
         }
       }
@@ -910,11 +916,11 @@ export default function Profile({ user, setUser }) {
   const handleRemoveGalleryPhoto = async (index) => {
     console.log("=== DELETE PHOTO DEBUG START ===");
     console.log("Delete index:", index);
-    
+
     const existingCount =
       user?.photos && Array.isArray(user.photos) ? user.photos.length : 0;
     const newPhotoIndex = index - existingCount;
-    
+
     console.log("Existing photos count:", existingCount);
     console.log("Current user photos:", user?.photos);
     console.log("Is existing photo?", index < existingCount);
@@ -941,7 +947,7 @@ export default function Profile({ user, setUser }) {
       try {
         setLoadingPosts(true); // Reuse loading state
         console.log("Calling DELETE API:", `/api/public/me/photos/${index}`);
-        
+
         const response = await fetch(`/api/public/me/photos/${index}`, {
           method: "DELETE",
           headers: {
@@ -957,21 +963,21 @@ export default function Profile({ user, setUser }) {
         if (data.success) {
           console.log("Delete API succeeded");
           console.log("Delete response data:", data);
-          
+
           // Use the updated user data from the delete response if available
           let updatedUserData = data.data?.user;
-          
+
           if (!updatedUserData) {
             console.log("No user data in response, fetching fresh data...");
             // Fallback: Refresh user data if not included in response
             const userResponse = await fetch("/api/public/me", {
               headers: { Authorization: `Bearer ${token}` },
             });
-            
+
             console.log("User refresh response status:", userResponse.status);
             const userData = await userResponse.json();
             console.log("User refresh response data:", userData);
-            
+
             if (userData.success) {
               updatedUserData = userData.data;
             } else {
@@ -979,25 +985,32 @@ export default function Profile({ user, setUser }) {
               throw new Error("Failed to get updated user data");
             }
           }
-          
+
           console.log("Updated photos array:", updatedUserData?.photos);
           console.log("Updated photos count:", updatedUserData?.photos?.length);
-          
+
           // Update localStorage
           localStorage.setItem("user", JSON.stringify(updatedUserData));
           setUser(updatedUserData);
-          console.log("User state updated with new photos:", updatedUserData.photos);
-          
+          console.log(
+            "User state updated with new photos:",
+            updatedUserData.photos
+          );
+
           // Calculate new total photos count
-          const newExistingCount = updatedUserData?.photos && Array.isArray(updatedUserData.photos)
-            ? updatedUserData.photos.length
-            : 0;
+          const newExistingCount =
+            updatedUserData?.photos && Array.isArray(updatedUserData.photos)
+              ? updatedUserData.photos.length
+              : 0;
           const newTotalPhotos = newExistingCount + galleryPhotos.length;
-          
+
           console.log("New existing count:", newExistingCount);
           console.log("New total photos:", newTotalPhotos);
-          console.log("Current photo index before adjustment:", currentPhotoIndex);
-          
+          console.log(
+            "Current photo index before adjustment:",
+            currentPhotoIndex
+          );
+
           // Reset current photo index to ensure it's valid
           if (newTotalPhotos === 0) {
             setCurrentPhotoIndex(0);
@@ -1009,7 +1022,10 @@ export default function Profile({ user, setUser }) {
           } else if (currentPhotoIndex >= index) {
             // If we deleted a photo before or at current position, adjust index
             setCurrentPhotoIndex(Math.max(0, currentPhotoIndex - 1));
-            console.log("Adjusted index to:", Math.max(0, currentPhotoIndex - 1));
+            console.log(
+              "Adjusted index to:",
+              Math.max(0, currentPhotoIndex - 1)
+            );
           }
 
           console.log("=== DELETE PHOTO DEBUG END - SUCCESS ===");
@@ -1042,7 +1058,9 @@ export default function Profile({ user, setUser }) {
       // It's a new photo (File object), remove from local state
       if (newPhotoIndex >= 0) {
         setGalleryPhotos((prev) => prev.filter((_, i) => i !== newPhotoIndex));
-        setGalleryPreviews((prev) => prev.filter((_, i) => i !== newPhotoIndex));
+        setGalleryPreviews((prev) =>
+          prev.filter((_, i) => i !== newPhotoIndex)
+        );
         // Adjust photo index if needed
         if (currentPhotoIndex >= index) {
           setCurrentPhotoIndex(Math.max(0, currentPhotoIndex - 1));
@@ -1928,11 +1946,11 @@ export default function Profile({ user, setUser }) {
                   scrollTimeoutRef.current = setTimeout(() => {
                     // Double-check scrolling flag
                     if (isScrollingRef.current) return;
-                    
+
                     const container = e.target;
                     const containerWidth = container.clientWidth;
                     if (containerWidth === 0) return;
-                    
+
                     const scrollLeft = container.scrollLeft;
 
                     // Find which photo is most visible/centered
@@ -2041,7 +2059,8 @@ export default function Profile({ user, setUser }) {
                             },
                           },
                           scrollbarWidth: "thin",
-                          scrollbarColor: "rgba(212, 175, 55, 0.5) rgba(212, 175, 55, 0.1)",
+                          scrollbarColor:
+                            "rgba(212, 175, 55, 0.5) rgba(212, 175, 55, 0.1)",
                           msOverflowStyle: "auto",
                         }}
                       >
@@ -2230,8 +2249,6 @@ export default function Profile({ user, setUser }) {
                           );
                         })}
                       </Box>
-
-
                     </Box>
                   </>
                 );
@@ -2609,7 +2626,7 @@ export default function Profile({ user, setUser }) {
           </Box>
         )}
 
-        {/* Token Balance & Boost Section */}
+        {/* Profile Views & Boost Section */}
         <Card
           sx={{
             p: { xs: 2, sm: 3 },
@@ -2631,7 +2648,7 @@ export default function Profile({ user, setUser }) {
                   fontSize: { xs: "0.7rem", sm: "0.75rem" },
                 }}
               >
-                Token Balance
+                Profile Views
               </Typography>
               <Typography
                 variant="h6"
@@ -2641,7 +2658,7 @@ export default function Profile({ user, setUser }) {
                   fontSize: { xs: "1rem", sm: "1.25rem" },
                 }}
               >
-                {user?.token_balance || "0.00"}
+                {user?.profile_views || "0"}
               </Typography>
             </Box>
             <Box sx={{ mb: 2 }}>

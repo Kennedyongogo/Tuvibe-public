@@ -147,6 +147,7 @@ function PageRoutes() {
           flexGrow: 1,
           p: { xs: 2, sm: 3 },
           mt: { xs: 8, sm: 9 },
+          pb: { xs: 10, md: 3 }, // Extra bottom padding on mobile for bottom navigation
           backgroundColor: "#FAFAFA",
           minHeight: "100vh",
         }}

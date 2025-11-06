@@ -15,8 +15,6 @@ import {
   Explore,
   Store,
   Store as StoreIcon,
-  Wallet,
-  Star,
   Star as StarIcon,
   WhatsApp as WhatsAppIcon,
   LocalOffer as TagIcon,
@@ -25,6 +23,8 @@ import {
   Cake,
   Verified,
   TrendingUp,
+  Favorite,
+  LockOpen,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
@@ -38,11 +38,7 @@ export default function Dashboard({ user }) {
   const [loadingFeaturedUsers, setLoadingFeaturedUsers] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState({}); // Track current image index for each user
   const [currentItemImageIndex, setCurrentItemImageIndex] = useState({}); // Track current image index for each featured item
-
-  // Check if user is in premium category
-  const premiumCategories = ["Sugar Mummy", "Sponsor", "Ben 10"];
-  const isPremiumCategory =
-    user?.category && premiumCategories.includes(user.category);
+  const favoritesSectionRef = React.useRef(null);
 
   // Fetch featured market items and users
   useEffect(() => {
@@ -243,26 +239,14 @@ export default function Dashboard({ user }) {
     navigate("/market");
   };
 
-  const stats = [
-    {
-      title: "Token Balance",
-      value: user?.token_balance || "0",
-      icon: <Wallet />,
-      color: "#D4AF37",
-    },
-    {
-      title: "Profile Views",
-      value: user?.profile_views || "0",
-      icon: <Explore />,
-      color: "#B8A9D9",
-    },
-    {
-      title: isPremiumCategory ? "Premium Status" : "Account Category",
-      value: user?.category || "Regular",
-      icon: <Star />,
-      color: isPremiumCategory ? "#FFD6CC" : "#B8A9D9",
-    },
-  ];
+  const handleScrollToFavorites = () => {
+    if (favoritesSectionRef.current) {
+      favoritesSectionRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+  };
 
   return (
     <Box>
@@ -285,6 +269,115 @@ export default function Dashboard({ user }) {
           Discover, connect, and explore the TuVibe community
         </Typography>
       </Box>
+
+      {/* Meet Your Favorites & Unlocked Profiles Card */}
+      <Card
+        onClick={handleScrollToFavorites}
+        sx={{
+          mb: 4,
+          p: { xs: 1.25, sm: 1.5, md: 2 },
+          borderRadius: "16px",
+          textTransform: "none",
+          cursor: "pointer",
+          position: "relative",
+          color: "rgba(0, 0, 0, 0.9)",
+          border: "2px solid rgba(255, 255, 255, 0.5)",
+          fontSize: { xs: "0.9rem", sm: "1rem", md: "1.1rem" },
+          fontWeight: 700,
+          letterSpacing: "0.5px",
+          // Enhanced glassmorphism with subtle glow
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          backgroundColor: "rgba(255, 255, 255, 0.25)",
+          boxShadow: `
+            0 10px 40px rgba(0, 0, 0, 0.15),
+            0 0 0 1px rgba(255, 255, 255, 0.3) inset,
+            0 2px 0 rgba(255, 255, 255, 0.6) inset,
+            0 -1px 8px rgba(0, 0, 0, 0.1) inset,
+            0 0 20px rgba(255, 215, 0, 0.1)
+          `,
+          transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+          overflow: "hidden",
+          "&::before": {
+            content: '""',
+            position: "absolute",
+            top: 0,
+            left: "-100%",
+            width: "100%",
+            height: "100%",
+            background:
+              "linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent)",
+            transition: "left 0.6s ease",
+          },
+          "&:hover": {
+            backgroundColor: "rgba(255, 255, 255, 0.45)",
+            borderColor: "rgba(255, 255, 255, 0.8)",
+            borderWidth: "2px",
+            transform: "translateY(-2px) scale(1.02)",
+            boxShadow: `
+              0 0 30px rgba(255, 215, 0, 0.4),
+              0 15px 50px rgba(0, 0, 0, 0.2),
+              0 0 0 1px rgba(255, 255, 255, 0.4) inset,
+              0 3px 0 rgba(255, 255, 255, 0.7) inset,
+              0 -1px 12px rgba(0, 0, 0, 0.15) inset,
+              0 0 30px rgba(255, 215, 0, 0.2)
+            `,
+            "&::before": {
+              left: "100%",
+            },
+          },
+          "&:active": {
+            transform: "translateY(0) scale(1)",
+            boxShadow: `
+              0 0 20px rgba(255, 215, 0, 0.3),
+              0 8px 30px rgba(0, 0, 0, 0.15),
+              0 0 0 1px rgba(255, 255, 255, 0.3) inset,
+              0 1px 0 rgba(255, 255, 255, 0.5) inset
+            `,
+          },
+        }}
+      >
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: { xs: 1.5, sm: 2 },
+            flexWrap: "wrap",
+          }}
+        >
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+            }}
+          >
+            <Favorite
+              sx={{
+                fontSize: { xs: "1.25rem", sm: "1.5rem", md: "1.75rem" },
+                color: "#ff6b9d",
+              }}
+            />
+            <LockOpen
+              sx={{
+                fontSize: { xs: "1.25rem", sm: "1.5rem", md: "1.75rem" },
+                color: "#D4AF37",
+              }}
+            />
+          </Box>
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 700,
+              fontSize: { xs: "0.95rem", sm: "1.05rem", md: "1.15rem" },
+              textAlign: "center",
+            }}
+          >
+            Meet Your Favorites & Unlocked Profiles
+          </Typography>
+        </Box>
+      </Card>
 
       {/* Featured Users Carousel */}
       <Card
@@ -786,190 +879,10 @@ export default function Dashboard({ user }) {
         )}
       </Card>
 
-      {/* Stats Cards */}
-      <Box
-        sx={{
-          display: "flex",
-          gap: 3,
-          mb: 4,
-          flexDirection: { xs: "column", sm: "row" },
-          width: "100%",
-        }}
-      >
-        {stats.map((stat, index) => (
-          <Card
-            key={index}
-            sx={{
-              p: 3,
-              borderRadius: "16px",
-              background:
-                "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
-              border: "1px solid rgba(212, 175, 55, 0.2)",
-              boxShadow: "0 4px 20px rgba(212, 175, 55, 0.1)",
-              transition: "all 0.3s ease",
-              flex: {
-                xs: "0 0 100%",
-                sm: "0 0 calc(33.333% - 16px)",
-                md: "1 1 0%",
-              },
-              "&:hover": {
-                transform: "translateY(-4px)",
-                boxShadow: "0 8px 32px rgba(212, 175, 55, 0.2)",
-              },
-            }}
-          >
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <Box>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: "rgba(26, 26, 26, 0.7)",
-                    mb: 1,
-                    fontWeight: 500,
-                  }}
-                >
-                  {stat.title}
-                </Typography>
-                <Typography
-                  variant="h5"
-                  sx={{
-                    fontWeight: 700,
-                    color: "#1a1a1a",
-                  }}
-                >
-                  {stat.value}
-                </Typography>
-              </Box>
-              <Avatar
-                sx={{
-                  bgcolor: `${stat.color}20`,
-                  color: stat.color,
-                  width: 56,
-                  height: 56,
-                }}
-              >
-                {stat.icon}
-              </Avatar>
-            </Box>
-          </Card>
-        ))}
-      </Box>
-
       {/* Favorites and Unlocked Chats */}
-      <UserLists user={user} showTabs={true} defaultTab="favorites" />
-
-      {/* Quick Actions */}
-      <Card
-        sx={{
-          p: 4,
-          borderRadius: "16px",
-          background:
-            "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
-          border: "1px solid rgba(212, 175, 55, 0.2)",
-          boxShadow: "0 4px 20px rgba(212, 175, 55, 0.1)",
-        }}
-      >
-        <Typography
-          variant="h6"
-          sx={{
-            fontWeight: 600,
-            mb: 3,
-            color: "#1a1a1a",
-          }}
-        >
-          Quick Actions
-        </Typography>
-        <Box
-          sx={{
-            display: "flex",
-            gap: 2,
-            flexDirection: { xs: "column", sm: "row" },
-            width: "100%",
-          }}
-        >
-          <Box
-            onClick={() => navigate("/explore")}
-            sx={{
-              p: 2,
-              borderRadius: "12px",
-              backgroundColor: "rgba(212, 175, 55, 0.1)",
-              textAlign: "center",
-              cursor: "pointer",
-              transition: "all 0.3s ease",
-              flex: {
-                xs: "0 0 100%",
-                sm: "0 0 calc(33.333% - 11px)",
-                md: "1 1 0%",
-              },
-              "&:hover": {
-                backgroundColor: "rgba(212, 175, 55, 0.15)",
-                transform: "translateY(-2px)",
-              },
-            }}
-          >
-            <Explore sx={{ fontSize: 40, color: "#D4AF37", mb: 1 }} />
-            <Typography variant="body2" sx={{ fontWeight: 500 }}>
-              Explore Profiles
-            </Typography>
-          </Box>
-          <Box
-            onClick={() => navigate("/market")}
-            sx={{
-              p: 2,
-              borderRadius: "12px",
-              backgroundColor: "rgba(212, 175, 55, 0.1)",
-              textAlign: "center",
-              cursor: "pointer",
-              transition: "all 0.3s ease",
-              flex: {
-                xs: "0 0 100%",
-                sm: "0 0 calc(33.333% - 11px)",
-                md: "1 1 0%",
-              },
-              "&:hover": {
-                backgroundColor: "rgba(212, 175, 55, 0.15)",
-                transform: "translateY(-2px)",
-              },
-            }}
-          >
-            <Store sx={{ fontSize: 40, color: "#D4AF37", mb: 1 }} />
-            <Typography variant="body2" sx={{ fontWeight: 500 }}>
-              Browse Market
-            </Typography>
-          </Box>
-          <Box
-            onClick={() => navigate("/wallet")}
-            sx={{
-              p: 2,
-              borderRadius: "12px",
-              backgroundColor: "rgba(212, 175, 55, 0.1)",
-              textAlign: "center",
-              cursor: "pointer",
-              transition: "all 0.3s ease",
-              flex: {
-                xs: "0 0 100%",
-                sm: "0 0 calc(33.333% - 11px)",
-                md: "1 1 0%",
-              },
-              "&:hover": {
-                backgroundColor: "rgba(212, 175, 55, 0.15)",
-                transform: "translateY(-2px)",
-              },
-            }}
-          >
-            <Wallet sx={{ fontSize: 40, color: "#D4AF37", mb: 1 }} />
-            <Typography variant="body2" sx={{ fontWeight: 500 }}>
-              Buy Tokens
-            </Typography>
-          </Box>
-        </Box>
-      </Card>
+      <Box ref={favoritesSectionRef}>
+        <UserLists user={user} showTabs={true} defaultTab="favorites" />
+      </Box>
     </Box>
   );
 }

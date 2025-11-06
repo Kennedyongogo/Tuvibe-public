@@ -7,7 +7,6 @@ import {
   List,
   Typography,
   Divider,
-  IconButton,
   ListItem,
   ListItemButton,
   ListItemIcon,
@@ -15,11 +14,11 @@ import {
   Avatar,
   Menu,
   MenuItem,
-  useTheme,
-  useMediaQuery,
+  BottomNavigation,
+  BottomNavigationAction,
+  Paper,
 } from "@mui/material";
 import {
-  Menu as MenuIcon,
   Home,
   Explore,
   AccountCircle,
@@ -27,8 +26,6 @@ import {
   Store,
   Wallet,
   Star,
-  ChevronLeft,
-  ChevronRight,
   ArrowDropDown,
   Report,
 } from "@mui/icons-material";
@@ -38,28 +35,46 @@ import Swal from "sweetalert2";
 const drawerWidth = 260;
 
 export default function Navbar({ user, setUser }) {
-  const theme = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
-  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
+  const [bottomNavValue, setBottomNavValue] = useState(0);
   const prevPathnameRef = useRef(location.pathname);
   const anchorElRef = useRef(null);
 
   const menuItems = [
-    { text: "Home", icon: <Home />, path: "/home" },
-    { text: "Explore", icon: <Explore />, path: "/explore" },
-    { text: "Premium Lounge", icon: <Star />, path: "/premium" },
-    { text: "TuVibe Market", icon: <Store />, path: "/market" },
-    { text: "Token Wallet", icon: <Wallet />, path: "/wallet" },
-    { text: "Reports", icon: <Report />, path: "/reports" },
-    { text: "Profile", icon: <AccountCircle />, path: "/profile" },
+    { text: "Home", icon: <Home />, path: "/home", mobileLabel: "Home" },
+    {
+      text: "Explore",
+      icon: <Explore />,
+      path: "/explore",
+      mobileLabel: "Explore",
+    },
+    {
+      text: "Premium Lounge",
+      icon: <Star />,
+      path: "/premium",
+      mobileLabel: "Premium",
+    },
+    {
+      text: "TuVibe Market",
+      icon: <Store />,
+      path: "/market",
+      mobileLabel: "Market",
+    },
+    {
+      text: "Token Wallet",
+      icon: <Wallet />,
+      path: "/wallet",
+      mobileLabel: "Wallet",
+    },
+    {
+      text: "Profile",
+      icon: <AccountCircle />,
+      path: "/profile",
+      mobileLabel: "Profile",
+    },
   ];
-
-  const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
-  };
 
   const handleProfileMenuOpen = (event) => {
     const target = event.currentTarget;
@@ -87,6 +102,17 @@ export default function Navbar({ user, setUser }) {
 
     // Update the ref for next time
     prevPathnameRef.current = currentPath;
+  }, [location.pathname]);
+
+  // Update bottom navigation value based on current route
+  useEffect(() => {
+    const currentPath = location.pathname;
+    const activeIndex = menuItems.findIndex(
+      (item) => item.path === currentPath
+    );
+    if (activeIndex !== -1) {
+      setBottomNavValue(activeIndex);
+    }
   }, [location.pathname]);
 
   const handleLogout = async () => {
@@ -153,7 +179,6 @@ export default function Navbar({ user, setUser }) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          position: "relative",
           minHeight: "64px", // Match AppBar/Toolbar height
           height: "64px",
           px: 3,
@@ -163,21 +188,6 @@ export default function Navbar({ user, setUser }) {
           borderBottom: "1px solid rgba(212, 175, 55, 0.2)",
         }}
       >
-        {/* Close button - only visible on mobile */}
-        <IconButton
-          onClick={handleDrawerToggle}
-          sx={{
-            position: "absolute",
-            left: 8,
-            display: { xs: "flex", md: "none" },
-            color: "#1a1a1a",
-            "&:hover": {
-              backgroundColor: "rgba(212, 175, 55, 0.1)",
-            },
-          }}
-        >
-          <ChevronLeft />
-        </IconButton>
         <img
           src="/tuvibe.png"
           alt="Tuvibe Logo"
@@ -210,10 +220,6 @@ export default function Navbar({ user, setUser }) {
               <ListItemButton
                 onClick={() => {
                   navigate(item.path);
-                  // Close mobile drawer when item is clicked
-                  if (isMobile) {
-                    setMobileOpen(false);
-                  }
                 }}
                 sx={{
                   borderRadius: "12px",
@@ -322,29 +328,6 @@ export default function Navbar({ user, setUser }) {
         }}
       >
         <Toolbar>
-          <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
-            onClick={(e) => {
-              handleDrawerToggle();
-              e.currentTarget.blur();
-            }}
-            sx={{
-              mr: 2,
-              color: "#1a1a1a",
-              display: { md: "none" },
-              "&:focus": {
-                outline: "none",
-              },
-              "&:focus-visible": {
-                outline: "2px solid rgba(212, 175, 55, 0.5)",
-                outlineOffset: "2px",
-              },
-            }}
-          >
-            <MenuIcon />
-          </IconButton>
           <Box sx={{ flexGrow: 1 }} />
           <Box
             sx={{
@@ -421,11 +404,11 @@ export default function Navbar({ user, setUser }) {
             <MenuItem
               onClick={() => {
                 handleProfileMenuClose();
-                navigate("/profile");
+                navigate("/reports");
               }}
             >
-              <AccountCircle sx={{ mr: 2, color: "#D4AF37" }} />
-              Profile
+              <Report sx={{ mr: 2, color: "#D4AF37" }} />
+              Reports
             </MenuItem>
             <Divider />
             <MenuItem
@@ -441,30 +424,11 @@ export default function Navbar({ user, setUser }) {
         </Toolbar>
       </AppBar>
 
-      {/* Drawer */}
+      {/* Drawer - Desktop Only */}
       <Box
         component="nav"
         sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}
       >
-        <Drawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={handleDrawerToggle}
-          ModalProps={{
-            keepMounted: true,
-          }}
-          sx={{
-            display: { xs: "block", md: "none" },
-            "& .MuiDrawer-paper": {
-              boxSizing: "border-box",
-              width: drawerWidth,
-              borderRight: "1px solid rgba(212, 175, 55, 0.2)",
-              backgroundColor: "white",
-            },
-          }}
-        >
-          {drawer}
-        </Drawer>
         <Drawer
           variant="permanent"
           sx={{
@@ -482,6 +446,70 @@ export default function Navbar({ user, setUser }) {
           {drawer}
         </Drawer>
       </Box>
+
+      {/* Bottom Navigation - Mobile Only */}
+      <Paper
+        sx={{
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 1000,
+          display: { xs: "block", md: "none" },
+          borderTop: "1px solid rgba(212, 175, 55, 0.2)",
+          boxShadow: "0 -4px 20px rgba(212, 175, 55, 0.1)",
+          backgroundColor: "rgba(255, 255, 255, 0.98)",
+          backdropFilter: "blur(20px)",
+        }}
+        elevation={3}
+      >
+        <BottomNavigation
+          value={bottomNavValue}
+          onChange={(event, newValue) => {
+            setBottomNavValue(newValue);
+            navigate(menuItems[newValue].path);
+          }}
+          showLabels
+          sx={{
+            backgroundColor: "transparent",
+            height: 70,
+            "& .MuiBottomNavigationAction-root": {
+              color: "rgba(26, 26, 26, 0.6)",
+              minWidth: 0,
+              padding: "6px 12px",
+              outline: "none",
+              "&:focus": {
+                outline: "none",
+              },
+              "&:focus-visible": {
+                outline: "none",
+              },
+              "&.Mui-selected": {
+                color: "#D4AF37",
+                fontWeight: 600,
+              },
+            },
+            "& .MuiBottomNavigationAction-label": {
+              fontSize: "0.7rem",
+              fontWeight: 500,
+              marginTop: "4px",
+              "&.Mui-selected": {
+                fontSize: "0.7rem",
+                fontWeight: 600,
+              },
+            },
+          }}
+        >
+          {menuItems.map((item, index) => (
+            <BottomNavigationAction
+              key={item.text}
+              label={item.mobileLabel || item.text}
+              icon={item.icon}
+              value={index}
+            />
+          ))}
+        </BottomNavigation>
+      </Paper>
     </Box>
   );
 }
