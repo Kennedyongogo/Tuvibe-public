@@ -214,19 +214,27 @@ export default function Wallet({ user, setUser }) {
   };
 
   return (
-    <Box>
+    <Box
+      sx={{
+        width: "100%",
+        maxWidth: "100%",
+        overflowX: "hidden",
+        boxSizing: "border-box",
+      }}
+    >
       {/* Header */}
-      <Box sx={{ mb: 4 }}>
+      <Box sx={{ mb: { xs: 1.5, sm: 2, md: 3 } }}>
         <Typography
           variant="h4"
           sx={{
             fontWeight: 700,
-            mb: 1,
-            fontSize: { xs: "1.5rem", sm: "2rem", md: "2.125rem" },
+            mb: { xs: 0.5, sm: 1 },
+            fontSize: { xs: "1.25rem", sm: "1.75rem", md: "2.125rem" },
             background: "linear-gradient(45deg, #D4AF37, #B8941F)",
             backgroundClip: "text",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
+            wordBreak: "break-word",
           }}
         >
           Token Wallet
@@ -235,7 +243,8 @@ export default function Wallet({ user, setUser }) {
           variant="body1"
           sx={{
             color: "rgba(26, 26, 26, 0.7)",
-            fontSize: { xs: "0.875rem", sm: "1rem" },
+            fontSize: { xs: "0.75rem", sm: "0.875rem", md: "1rem" },
+            wordBreak: "break-word",
           }}
         >
           Manage your tokens and view transaction history
@@ -247,12 +256,13 @@ export default function Wallet({ user, setUser }) {
         severity="info"
         icon={<Payment />}
         sx={{
-          mb: 3,
+          mb: { xs: 1.5, sm: 2, md: 3 },
           borderRadius: "12px",
           bgcolor: "rgba(212, 175, 55, 0.1)",
           border: "1px solid rgba(212, 175, 55, 0.3)",
-          maxWidth: { xs: "85%", sm: "100%" },
-          mx: { xs: "auto", sm: 0 },
+          width: "100%",
+          maxWidth: "100%",
+          boxSizing: "border-box",
           "& .MuiAlert-icon": {
             color: "#D4AF37",
           },
@@ -280,22 +290,27 @@ export default function Wallet({ user, setUser }) {
       {/* Balance Card */}
       <Card
         sx={{
-          p: { xs: 2, sm: 3, md: 4 },
-          mb: 3,
+          p: { xs: 1, sm: 2, md: 3 },
+          mb: { xs: 1.5, sm: 2, md: 3 },
           borderRadius: "16px",
           background:
             "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
           border: "2px solid rgba(212, 175, 55, 0.3)",
           boxShadow: "0 8px 32px rgba(212, 175, 55, 0.15)",
-          maxWidth: { xs: "85%", sm: "100%" },
-          mx: { xs: "auto", sm: 0 },
+          width: "100%",
+          maxWidth: "100%",
+          boxSizing: "border-box",
         }}
       >
-        <Stack direction="row" spacing={{ xs: 2, sm: 3 }} alignItems="center">
+        <Stack
+          direction="row"
+          spacing={{ xs: 1.5, sm: 2, md: 3 }}
+          alignItems="center"
+        >
           <Box
             sx={{
-              width: { xs: 60, sm: 70, md: 80 },
-              height: { xs: 60, sm: 70, md: 80 },
+              width: { xs: 50, sm: 60, md: 80 },
+              height: { xs: 50, sm: 60, md: 80 },
               borderRadius: "50%",
               background: "linear-gradient(135deg, #D4AF37, #B8941F)",
               display: "flex",
@@ -306,7 +321,7 @@ export default function Wallet({ user, setUser }) {
             }}
           >
             <AccountBalanceWallet
-              sx={{ fontSize: { xs: 30, sm: 35, md: 40 }, color: "#1a1a1a" }}
+              sx={{ fontSize: { xs: 24, sm: 30, md: 40 }, color: "#1a1a1a" }}
             />
           </Box>
           <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -355,15 +370,16 @@ export default function Wallet({ user, setUser }) {
       {/* Quick Buy Section */}
       <Card
         sx={{
-          p: { xs: 2, sm: 3, md: 4 },
-          mb: 3,
+          p: { xs: 1, sm: 2, md: 3 },
+          mb: { xs: 1.5, sm: 2, md: 3 },
           borderRadius: "16px",
           background:
             "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
           border: "1px solid rgba(212, 175, 55, 0.2)",
           boxShadow: "0 4px 20px rgba(212, 175, 55, 0.1)",
-          maxWidth: { xs: "85%", sm: "100%" },
-          mx: { xs: "auto", sm: 0 },
+          width: "100%",
+          maxWidth: "100%",
+          boxSizing: "border-box",
         }}
       >
         <Typography
@@ -391,7 +407,7 @@ export default function Wallet({ user, setUser }) {
               sm: "repeat(2, 1fr)",
               md: "repeat(4, 1fr)",
             },
-            gap: 2,
+            gap: { xs: 1, sm: 1.5, md: 2 },
           }}
         >
           {quickBuyOptions.map((option) => (
@@ -401,7 +417,7 @@ export default function Wallet({ user, setUser }) {
               onClick={() => handlePurchase(option.amount)}
               disabled={purchasing}
               sx={{
-                p: { xs: 1.5, sm: 2, md: 2.5 },
+                p: { xs: 1, sm: 1.5, md: 2 },
                 borderRadius: "12px",
                 borderColor: "rgba(212, 175, 55, 0.5)",
                 color: "#1a1a1a",
@@ -457,14 +473,15 @@ export default function Wallet({ user, setUser }) {
       {/* Transaction History */}
       <Card
         sx={{
-          p: { xs: 2, sm: 3, md: 4 },
+          p: { xs: 1, sm: 2, md: 3 },
           borderRadius: "16px",
           background:
             "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
           border: "1px solid rgba(212, 175, 55, 0.2)",
           boxShadow: "0 4px 20px rgba(212, 175, 55, 0.1)",
-          maxWidth: { xs: "85%", sm: "100%" },
-          mx: { xs: "auto", sm: 0 },
+          width: "100%",
+          maxWidth: "100%",
+          boxSizing: "border-box",
         }}
       >
         <Typography
@@ -510,7 +527,13 @@ export default function Wallet({ user, setUser }) {
               overflowX: "auto",
             }}
           >
-            <Table size="small" sx={{ minWidth: 400 }}>
+            <Table
+              size="small"
+              sx={{
+                minWidth: { xs: 280, sm: 400 },
+                width: "100%",
+              }}
+            >
               <TableHead>
                 <TableRow>
                   <TableCell
