@@ -37,6 +37,9 @@ export default function Wallet({ user, setUser }) {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
+  const paystackPublicKey =
+    import.meta.env.VITE_PAYSTACK_PUBLIC_KEY ||
+    "pk_test_8b4f0871bfe813030448e29f56301b3c58eb986f";
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const navigate = useNavigate();
@@ -88,91 +91,199 @@ export default function Wallet({ user, setUser }) {
     }
   };
 
-  const handlePurchase = async (amount) => {
-    const confirmResult = await Swal.fire({
-      icon: "question",
-      title: "Mock Payment - Test Mode",
-      html: `
-        <p><strong>Purchase ${amount} tokens for ${amount} KES</strong></p>
-        <p style="font-size: 0.9em; color: #666; margin-top: 10px;">
-          ⚠️ This is a test purchase. No actual payment will be processed.
-        </p>
-        <p style="font-size: 0.9em; color: #666;">
-          M-PESA integration is under development.
-        </p>
-      `,
-      showCancelButton: true,
-      confirmButtonText: "Confirm Purchase",
-      cancelButtonText: "Cancel",
-      confirmButtonColor: "#D4AF37",
-      didOpen: () => {
-        const swal = document.querySelector(".swal2-popup");
-        if (swal) {
-          swal.style.borderRadius = "20px";
-        }
-      },
-    });
+  const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-    if (!confirmResult.isConfirmed) return;
+  const updateStatusMessage = (message) => {
+    const statusEl = document.querySelector(".swal-paystack-status");
+    if (statusEl) {
+      statusEl.textContent = message;
+    }
+  };
 
-    setPurchasing(true);
+  const pollPaymentStatus = async (reference, attempt = 1) => {
+    const MAX_ATTEMPTS = 12; // ~1 min if interval is 5s
+    const STATUS_INTERVAL = 5000;
+
+    if (attempt === 1) {
+      updateStatusMessage("Waiting for Paystack confirmation...");
+    }
+
+    if (attempt > MAX_ATTEMPTS) {
+      return { status: "timeout" };
+    }
+
+    await wait(STATUS_INTERVAL);
+    updateStatusMessage(
+      `Checking payment status (${attempt}/${MAX_ATTEMPTS})...`
+    );
+
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch("/api/tokens/purchase", {
+      const response = await fetch(
+        `/api/paystack/verify?reference=${reference}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        updateStatusMessage("Payment confirmed! Updating wallet...");
+        return { status: "success", data };
+      }
+
+      if (response.status === 400) {
+        const message = (data.message || "").toLowerCase();
+        if (message.includes("not successful")) {
+          return pollPaymentStatus(reference, attempt + 1);
+        }
+        return { status: "failed", data };
+      }
+
+      throw new Error(data.message || "Verification failed");
+    } catch (error) {
+      console.error("verifyPayment error:", error);
+      if (attempt >= MAX_ATTEMPTS) {
+        return { status: "error", message: error.message };
+      }
+      return pollPaymentStatus(reference, attempt + 1);
+    }
+  };
+
+  const handlePurchase = async (amount) => {
+    if (purchasing) return;
+
+    if (!paystackPublicKey) {
+      Swal.fire({
+        icon: "error",
+        title: "Missing Paystack Key",
+        text: "Set VITE_PAYSTACK_PUBLIC_KEY in your frontend environment to enable payments.",
+        confirmButtonColor: "#D4AF37",
+      });
+      return;
+    }
+
+    const currentUser =
+      user || JSON.parse(localStorage.getItem("user") || "{}");
+    if (!currentUser?.email) {
+      Swal.fire({
+        icon: "error",
+        title: "Missing Email",
+        text: "We could not determine your account email. Please re-login and try again.",
+        confirmButtonColor: "#D4AF37",
+      });
+      return;
+    }
+
+    setPurchasing(true);
+
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch("/api/paystack/initialize", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          amount: amount,
-          method: "system",
-          reference: `MOCK-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          email: currentUser.email,
+          amount,
         }),
       });
 
       const data = await response.json();
 
-      if (data.success) {
-        await fetchWallet();
-        Swal.fire({
-          icon: "success",
-          title: "Tokens Purchased!",
-          html: `
-            <p><strong>${amount} tokens</strong> added to your wallet!</p>
-            <p style="font-size: 0.9em; color: #666; margin-top: 10px;">
-              New Balance: <strong>${data.data.balance} tokens</strong>
-            </p>
-          `,
-          timer: 2500,
-          showConfirmButton: false,
-          confirmButtonColor: "#D4AF37",
-          didOpen: () => {
-            const swal = document.querySelector(".swal2-popup");
-            if (swal) {
-              swal.style.borderRadius = "20px";
-            }
-          },
-        });
-      } else {
-        throw new Error(data.message || "Purchase failed");
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Failed to initialize payment");
       }
-    } catch (error) {
-      console.error("Purchase error:", error);
+
+      const { authorization_url, reference } = data;
+
+      window.open(authorization_url, "_blank", "noopener");
+
       Swal.fire({
-        icon: "error",
-        title: "Purchase Failed",
-        text: error.message || "Failed to purchase tokens. Please try again.",
-        confirmButtonColor: "#D4AF37",
+        icon: "info",
+        title: "Complete Paystack Payment",
+        html: `
+          <p style="margin-bottom: 8px;">We opened a secure Paystack window in a new tab.</p>
+          <p style="margin-bottom: 8px;">Pay with the provided test card and OTP:</p>
+          <ul style="text-align: left; font-size: 0.85rem; margin: 0 0 10px 15px;">
+            <li>Card: <code>4084 0840 8408 4081</code></li>
+            <li>Expiry: Any future date</li>
+            <li>CVV: <code>123</code></li>
+            <li>OTP: <code>123456</code></li>
+          </ul>
+          <p class="swal-paystack-status" style="margin: 12px 0; font-weight: 600; color: #555;">Waiting for Paystack confirmation...</p>
+        `,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
         didOpen: () => {
           const swal = document.querySelector(".swal2-popup");
           if (swal) {
             swal.style.borderRadius = "20px";
           }
+          Swal.showLoading();
         },
       });
-    } finally {
+
+      const result = await pollPaymentStatus(reference);
+
+      Swal.close();
+
       setPurchasing(false);
+
+      if (result.status === "success") {
+        await fetchWallet();
+        Swal.fire({
+          icon: "success",
+          title: "Payment Confirmed",
+          html: `
+            <p><strong>${amount} tokens</strong> added to your wallet.</p>
+            <p style="font-size: 0.9em; color: #666; margin-top: 10px;">
+              Reference: <code>${reference}</code>
+            </p>
+          `,
+          timer: 2600,
+          showConfirmButton: false,
+          confirmButtonColor: "#D4AF37",
+        });
+      } else if (result.status === "timeout") {
+        Swal.fire({
+          icon: "info",
+          title: "Awaiting Confirmation",
+          html: `
+            <p>We did not receive Paystack confirmation yet.</p>
+            <p style="margin-top: 10px;">If you completed payment, your tokens will arrive shortly once Paystack notifies us.</p>
+            <p style="margin-top: 10px;">You can refresh the wallet later to confirm.</p>
+          `,
+          confirmButtonColor: "#D4AF37",
+        });
+      } else if (result.status === "failed") {
+        Swal.fire({
+          icon: "warning",
+          title: "Payment Not Completed",
+          text:
+            result.data?.message ||
+            "Paystack reported that the payment was not completed.",
+          confirmButtonColor: "#D4AF37",
+        });
+      } else if (result.status === "error") {
+        throw new Error(result.message || "Failed to verify payment");
+      }
+    } catch (error) {
+      console.error("Purchase error:", error);
+      setPurchasing(false);
+      Swal.fire({
+        icon: "error",
+        title: "Purchase Failed",
+        text:
+          error.message ||
+          "Failed to start Paystack payment. Please try again.",
+        confirmButtonColor: "#D4AF37",
+      });
     }
   };
 
@@ -276,14 +387,15 @@ export default function Wallet({ user, setUser }) {
             fontSize: { xs: "0.7rem", sm: "0.875rem" },
           }}
         >
-          🧪 Test Mode - Mock Payments
+          🧪 Paystack Test Mode
         </Typography>
         <Typography
           variant="body2"
           sx={{ fontSize: { xs: "0.65rem", sm: "0.875rem" } }}
         >
-          M-PESA integration is under development. All purchases are mock/test
-          transactions for development purposes only.
+          Payments run through Paystack's sandbox. Use the provided test card
+          details during checkout. Tokens post automatically once Paystack
+          confirms the transaction.
         </Typography>
       </Alert>
 
@@ -415,7 +527,7 @@ export default function Wallet({ user, setUser }) {
               key={option.amount}
               variant="outlined"
               onClick={() => handlePurchase(option.amount)}
-              disabled={purchasing}
+              disabled={purchasing || !paystackPublicKey}
               sx={{
                 p: { xs: 1, sm: 1.5, md: 2 },
                 borderRadius: "12px",
