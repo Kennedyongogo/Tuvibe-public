@@ -39,7 +39,7 @@ export default function Wallet({ user, setUser }) {
   const [purchasing, setPurchasing] = useState(false);
   const paystackPublicKey =
     import.meta.env.VITE_PAYSTACK_PUBLIC_KEY ||
-    "pk_test_8b4f0871bfe813030448e29f56301b3c58eb986f";
+    "pk_live_b0619e438241d7c4756dd17e043788337919578c";
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const navigate = useNavigate();
