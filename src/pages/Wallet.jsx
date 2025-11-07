@@ -207,14 +207,8 @@ export default function Wallet({ user, setUser }) {
         icon: "info",
         title: "Complete Paystack Payment",
         html: `
-          <p style="margin-bottom: 8px;">We opened a secure Paystack window in a new tab.</p>
-          <p style="margin-bottom: 8px;">Pay with the provided test card and OTP:</p>
-          <ul style="text-align: left; font-size: 0.85rem; margin: 0 0 10px 15px;">
-            <li>Card: <code>4084 0840 8408 4081</code></li>
-            <li>Expiry: Any future date</li>
-            <li>CVV: <code>123</code></li>
-            <li>OTP: <code>123456</code></li>
-          </ul>
+          <p style="margin-bottom: 12px;">We opened a secure Paystack checkout window in a new tab.</p>
+          <p style="margin-bottom: 12px;">Authorize the payment there and return here once you receive confirmation.</p>
           <p class="swal-paystack-status" style="margin: 12px 0; font-weight: 600; color: #555;">Waiting for Paystack confirmation...</p>
         `,
         allowOutsideClick: false,
@@ -369,8 +363,8 @@ export default function Wallet({ user, setUser }) {
         sx={{
           mb: { xs: 1.5, sm: 2, md: 3 },
           borderRadius: "12px",
-          bgcolor: "rgba(212, 175, 55, 0.1)",
-          border: "1px solid rgba(212, 175, 55, 0.3)",
+          bgcolor: "rgba(212, 175, 55, 0.07)",
+          border: "1px solid rgba(212, 175, 55, 0.25)",
           width: "100%",
           maxWidth: "100%",
           boxSizing: "border-box",
@@ -384,18 +378,18 @@ export default function Wallet({ user, setUser }) {
           sx={{
             fontWeight: 600,
             mb: 0.5,
-            fontSize: { xs: "0.7rem", sm: "0.875rem" },
+            fontSize: { xs: "0.75rem", sm: "0.9rem" },
           }}
         >
-          🧪 Paystack Test Mode
+          🔒 Secure Paystack Checkout
         </Typography>
         <Typography
           variant="body2"
-          sx={{ fontSize: { xs: "0.65rem", sm: "0.875rem" } }}
+          sx={{ fontSize: { xs: "0.7rem", sm: "0.9rem" } }}
         >
-          Payments run through Paystack's sandbox. Use the provided test card
-          details during checkout. Tokens post automatically once Paystack
-          confirms the transaction.
+          Your purchase is completed through Paystack. Approve the charge in the
+          Paystack window and we’ll update your wallet instantly once the
+          payment is confirmed.
         </Typography>
       </Alert>
 
