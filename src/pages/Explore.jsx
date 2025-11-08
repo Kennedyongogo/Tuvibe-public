@@ -44,6 +44,8 @@ import {
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import ViewProfile from "../components/ViewProfile";
+import UpgradeDialog from "../components/UpgradeDialog";
+import { formatKshFromTokens } from "../utils/pricing";
 
 export default function Explore({ user }) {
   const navigate = useNavigate();
@@ -135,14 +137,6 @@ export default function Explore({ user }) {
       const data = await response.json();
 
       if (data.success) {
-        // Debug: Log online status
-        const onlineUsers = (data.data || []).filter((u) => u.is_online);
-        if (onlineUsers.length > 0) {
-          console.log(
-            "Online users:",
-            onlineUsers.map((u) => ({ name: u.name, is_online: u.is_online }))
-          );
-        }
         setUsers(data.data || []);
         setTotalPages(data.pagination?.totalPages || 1);
         setTotalUsers(data.pagination?.total || 0);
@@ -320,7 +314,7 @@ export default function Explore({ user }) {
         Swal.fire({
           icon: "warning",
           title: "Insufficient Tokens",
-          html: `<p>You need ${cost} tokens to unlock this contact.</p><p>Your balance: ${user.token_balance || 0} tokens</p>`,
+          html: `<p>You need ${cost} tokens (${formatKshFromTokens(cost)}) to unlock this contact.</p><p>Your balance: ${user.token_balance || 0} tokens</p>`,
           confirmButtonText: "Buy Tokens",
           cancelButtonText: "Cancel",
           showCancelButton: true,
@@ -343,7 +337,7 @@ export default function Explore({ user }) {
       const confirmResult = await Swal.fire({
         icon: "question",
         title: "Unlock WhatsApp Contact?",
-        html: `<p>This will cost you <strong>${cost} tokens</strong></p><p>Your balance: ${user.token_balance || 0} tokens</p>`,
+        html: `<p>This will cost you <strong>${cost} tokens</strong> (${formatKshFromTokens(cost)})</p><p>Your balance: ${user.token_balance || 0} tokens</p>`,
         showCancelButton: true,
         confirmButtonText: "Unlock",
         cancelButtonText: "Cancel",

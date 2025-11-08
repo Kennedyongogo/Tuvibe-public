@@ -17,6 +17,10 @@ import {
 import { Star, Info } from "@mui/icons-material";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
+import {
+  formatKshValue,
+  describeExchangeRate,
+} from "../utils/pricing";
 
 export default function UpgradeDialog({ open, onClose }) {
   const navigate = useNavigate();
@@ -24,15 +28,6 @@ export default function UpgradeDialog({ open, onClose }) {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [upgrading, setUpgrading] = useState(false);
   const [tokenBalance, setTokenBalance] = useState(0);
-
-  // Debug: Log when open prop changes
-  useEffect(() => {
-    console.log("UpgradeDialog - open prop changed to:", open);
-    console.log(
-      "UpgradeDialog - Dialog component will render with open=",
-      open
-    );
-  }, [open]);
 
   // Fetch and update token balance
   useEffect(() => {
@@ -76,19 +71,17 @@ export default function UpgradeDialog({ open, onClose }) {
     const selectedCat = upgradeCategories.find(
       (cat) => cat.category === category
     );
-    const cost = selectedCat?.cost || 0;
+    const costTokens = selectedCat?.costTokens || 0;
+    const costKsh = selectedCat?.costKsh || 0;
 
-    // Check if balance is zero or insufficient
-    if (Number(tokenBalance) === 0 || Number(tokenBalance) < cost) {
-      // Close upgrade dialog first
+    if (Number(tokenBalance) === 0 || Number(tokenBalance) < costTokens) {
       onClose();
 
-      // Small delay to ensure dialog is closed before showing Swal
       setTimeout(() => {
         Swal.fire({
           icon: "warning",
           title: "Insufficient Tokens",
-          html: `<p>You need ${cost} tokens to upgrade to ${category}.</p><p>Your balance: ${Number(tokenBalance).toFixed(2)} tokens</p>`,
+          html: `<p>You need ${costTokens} tokens (${formatKshValue(costKsh)}) to upgrade to ${category}.</p><p>Your balance: ${Number(tokenBalance).toFixed(2)} tokens</p>`,
           confirmButtonText: "Buy Tokens",
           cancelButtonText: "Cancel",
           showCancelButton: true,
@@ -108,7 +101,6 @@ export default function UpgradeDialog({ open, onClose }) {
       return;
     }
 
-    // If balance is sufficient, select the category
     setSelectedCategory(category);
   };
 
@@ -126,19 +118,19 @@ export default function UpgradeDialog({ open, onClose }) {
       return;
     }
 
-    // Check balance one more time before submitting
     const selectedCat = upgradeCategories.find(
       (cat) => cat.category === selectedCategory
     );
-    const cost = selectedCat?.cost || 0;
+    const costTokens = selectedCat?.costTokens || 0;
+    const costKsh = selectedCat?.costKsh || 0;
 
-    if (Number(tokenBalance) === 0 || Number(tokenBalance) < cost) {
+    if (Number(tokenBalance) === 0 || Number(tokenBalance) < costTokens) {
       onClose();
       setTimeout(() => {
         Swal.fire({
           icon: "warning",
           title: "Insufficient Tokens",
-          html: `<p>You need ${cost} tokens to upgrade to ${selectedCategory}.</p><p>Your balance: ${Number(tokenBalance).toFixed(2)} tokens</p>`,
+          html: `<p>You need ${costTokens} tokens (${formatKshValue(costKsh)}) to upgrade to ${selectedCategory}.</p><p>Your balance: ${Number(tokenBalance).toFixed(2)} tokens</p>`,
           confirmButtonText: "Buy Tokens",
           cancelButtonText: "Cancel",
           showCancelButton: true,
@@ -174,7 +166,10 @@ export default function UpgradeDialog({ open, onClose }) {
         Swal.fire({
           icon: "success",
           title: "Upgrade Successful!",
-          text: "You have been upgraded to premium and automatically verified.",
+          html: `
+            <p>You have been upgraded to <strong>${selectedCategory}</strong>.</p>
+            <p style="font-size: 0.9rem; color: rgba(26, 26, 26, 0.7);">Weekly cost: ${costTokens} tokens (${formatKshValue(costKsh)})</p>
+          `,
           confirmButtonColor: "#D4AF37",
           allowOutsideClick: false,
           allowEscapeKey: false,
@@ -310,7 +305,7 @@ export default function UpgradeDialog({ open, onClose }) {
         </Alert>
         <Typography variant="body2" sx={{ mb: 3, color: "text.secondary" }}>
           Choose a premium category to upgrade. You will be automatically
-          verified upon upgrade.
+          verified upon upgrade. Exchange rate: {describeExchangeRate()}.
         </Typography>
 
         {upgradeCategories.length === 0 ? (
@@ -360,7 +355,7 @@ export default function UpgradeDialog({ open, onClose }) {
                       </Typography>
                     </Box>
                     <Chip
-                      label={`${cat.cost} tokens`}
+                      label={`${cat.costTokens} tokens (${formatKshValue(cat.costKsh)})`}
                       color="primary"
                       sx={{
                         backgroundColor: "#D4AF37",
@@ -388,13 +383,15 @@ export default function UpgradeDialog({ open, onClose }) {
               <strong>Selected:</strong> {selectedCategory}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Cost:{" "}
-              {
+              Cost: {upgradeCategories.find(
+                (cat) => cat.category === selectedCategory
+              )?.costTokens || 0} tokens (
+              {formatKshValue(
                 upgradeCategories.find(
                   (cat) => cat.category === selectedCategory
-                )?.cost
-              }{" "}
-              tokens
+                )?.costKsh || 0
+              )}
+              )
             </Typography>
           </Box>
         )}

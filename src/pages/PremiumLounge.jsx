@@ -4,6 +4,7 @@ import React, {
   useLayoutEffect,
   useCallback,
   useRef,
+  useMemo,
 } from "react";
 import {
   Box,
@@ -41,6 +42,7 @@ import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import ViewProfile from "../components/ViewProfile";
 import UpgradeDialog from "../components/UpgradeDialog";
+import { formatKshFromTokens } from "../utils/pricing";
 
 export default function PremiumLounge({ user }) {
   const navigate = useNavigate();
@@ -86,7 +88,6 @@ export default function PremiumLounge({ user }) {
   const fetchPremiumUsers = useCallback(async () => {
     // Prevent duplicate fetches
     if (fetchingRef.current) {
-      console.log("PremiumLounge - Already fetching, skipping...");
       return;
     }
 
@@ -117,9 +118,6 @@ export default function PremiumLounge({ user }) {
       lastFetchedRef.current.category === selectedCategory &&
       lastFetchedRef.current.tab === selectedTab
     ) {
-      console.log(
-        "PremiumLounge - Already fetched this category/tab, skipping..."
-      );
       return;
     }
 
@@ -334,7 +332,7 @@ export default function PremiumLounge({ user }) {
         Swal.fire({
           icon: "warning",
           title: "Insufficient Tokens",
-          html: `<p>You need ${cost} tokens to unlock this contact.</p><p>Your balance: ${currentUser.token_balance || 0} tokens</p>`,
+          html: `<p>You need ${cost} tokens (${formatKshFromTokens(cost)}) to unlock this contact.</p><p>Your balance: ${currentUser.token_balance || 0} tokens</p>`,
           confirmButtonText: "Buy Tokens",
           cancelButtonText: "Cancel",
           showCancelButton: true,
@@ -350,7 +348,7 @@ export default function PremiumLounge({ user }) {
       const confirmResult = await Swal.fire({
         icon: "question",
         title: "Unlock WhatsApp Contact?",
-        html: `<p>This will cost you <strong>${cost} tokens</strong></p><p>Your balance: ${currentUser.token_balance || 0} tokens</p>`,
+        html: `<p>This will cost you <strong>${cost} tokens</strong> (${formatKshFromTokens(cost)})</p><p>Your balance: ${currentUser.token_balance || 0} tokens</p>`,
         showCancelButton: true,
         confirmButtonText: "Unlock",
         cancelButtonText: "Cancel",
@@ -609,7 +607,7 @@ export default function PremiumLounge({ user }) {
                         fontSize: { xs: "1.25rem", sm: "1.5rem" },
                       }}
                     >
-                      {tokenCost} Tokens
+                      {tokenCost} Tokens ({formatKshFromTokens(tokenCost)})
                     </Typography>
                   </Box>
                   <Button
@@ -1068,38 +1066,32 @@ export default function PremiumLounge({ user }) {
                       <Tooltip title="Unlock WhatsApp Contact">
                         <Button
                           variant="contained"
-                          size="small"
-                          fullWidth
-                          startIcon={
-                            unlocking[userData.id] ? (
-                              <CircularProgress size={16} color="inherit" />
-                            ) : (
-                              <Chat />
-                            )
-                          }
-                          onClick={() =>
-                            handleWhatsAppUnlock(userData.id, userData.name)
-                          }
+                          color="primary"
+                          onClick={() => handleWhatsAppUnlock(userData.id, userData.name)}
                           disabled={unlocking[userData.id]}
                           sx={{
-                            background:
-                              "linear-gradient(135deg, #D4AF37, #B8941F)",
+                            mt: 1,
+                            background: "linear-gradient(135deg, #D4AF37, #B8941F)",
                             color: "#1a1a1a",
                             fontWeight: 600,
                             textTransform: "none",
-                            borderRadius: "8px",
-                            fontSize: "0.75rem",
+                            borderRadius: "12px",
+                            px: 3,
+                            py: 1,
+                            transition: "all 0.3s",
                             "&:hover": {
-                              background:
-                                "linear-gradient(135deg, #B8941F, #D4AF37)",
-                              transform: "translateY(-1px)",
+                              background: "linear-gradient(135deg, #B8941F, #D4AF37)",
+                              transform: "translateY(-2px)",
                             },
                             "&:disabled": {
-                              background: "rgba(212, 175, 55, 0.3)",
+                              opacity: 0.6,
+                              cursor: "not-allowed",
                             },
                           }}
                         >
-                          Chat ({tokenCost} tokens)
+                          {unlocking[userData.id]
+                            ? "Unlocking..."
+                            : `Chat (${tokenCost} tokens | ${formatKshFromTokens(tokenCost)})`}
                         </Button>
                       </Tooltip>
                     </Stack>

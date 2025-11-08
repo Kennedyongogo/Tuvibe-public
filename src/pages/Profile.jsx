@@ -241,17 +241,6 @@ export default function Profile({ user, setUser }) {
     return () => clearTimeout(timeoutId);
   }, [user?.photos?.length, galleryPhotos.length, galleryPreviews.length]); // Watch for photo changes
 
-  // Debug: Log when user photos change
-  useEffect(() => {
-    console.log("=== USER PHOTOS CHANGED ===");
-    console.log("User photos:", user?.photos);
-    console.log("User photos length:", user?.photos?.length);
-    console.log(
-      "User photos array:",
-      Array.isArray(user?.photos) ? user.photos : "Not an array"
-    );
-  }, [user?.photos]);
-
   // Fetch verification status (only for premium categories that might have pending requests)
   useEffect(() => {
     const fetchVerificationStatus = async () => {
@@ -575,16 +564,11 @@ export default function Profile({ user, setUser }) {
         const numericLng = parseFloat(lng);
 
         if (Number.isNaN(numericLat) || Number.isNaN(numericLng)) {
-          console.log("Auto-save skipped: invalid coordinates", {
-            numericLat,
-            numericLng,
-          });
           return;
         }
 
         const token = localStorage.getItem("token");
         if (!token) {
-          console.log("Auto-save skipped: missing auth token");
           return;
         }
 
@@ -642,7 +626,6 @@ export default function Profile({ user, setUser }) {
     }
 
     if (locationWatchIdRef.current !== null) {
-      console.log("Clearing location watch:", locationWatchIdRef.current);
       navigator.geolocation.clearWatch(locationWatchIdRef.current);
       locationWatchIdRef.current = null;
     }
@@ -651,13 +634,11 @@ export default function Profile({ user, setUser }) {
 
   const startLocationWatch = () => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
-      console.log("Location watch skipped: geolocation is not supported.");
       setIsLocationTracking(false);
       return;
     }
 
     if (locationWatchIdRef.current !== null) {
-      console.log("Location watch already active:", locationWatchIdRef.current);
       setIsLocationTracking(true);
       return;
     }
@@ -666,7 +647,6 @@ export default function Profile({ user, setUser }) {
       const watchId = navigator.geolocation.watchPosition(
         (position) => {
           const { lat, lng } = updateCoordinatesFromCoords(position.coords);
-          console.log("Location watch update:", { lat, lng });
           setIsLocationTracking(true);
         },
         (error) => {
@@ -681,7 +661,6 @@ export default function Profile({ user, setUser }) {
       );
 
       locationWatchIdRef.current = watchId;
-      console.log("Location watch started:", watchId);
       setIsLocationTracking(true);
     } catch (err) {
       console.error("Failed to start location watch:", err);
@@ -701,7 +680,6 @@ export default function Profile({ user, setUser }) {
       try {
         await getCurrentLocation(false);
       } catch (error) {
-        console.log("Initial location sync failed:", error.message);
         setIsLocationTracking(false);
       } finally {
         if (isMounted) {
@@ -797,12 +775,10 @@ export default function Profile({ user, setUser }) {
       try {
         await getCurrentLocation(false);
       } catch (error) {
-        console.log("Initial location sync failed:", error.message);
         setIsLocationTracking(false);
       }
       startLocationWatch();
     } else {
-      console.log("Geolocation not available, skipping automatic updates.");
       setIsLocationTracking(false);
     }
   };
@@ -993,17 +969,9 @@ export default function Profile({ user, setUser }) {
   };
 
   const handleRemoveGalleryPhoto = async (index) => {
-    console.log("=== DELETE PHOTO DEBUG START ===");
-    console.log("Delete index:", index);
-
     const existingCount =
       user?.photos && Array.isArray(user.photos) ? user.photos.length : 0;
     const newPhotoIndex = index - existingCount;
-
-    console.log("Existing photos count:", existingCount);
-    console.log("Current user photos:", user?.photos);
-    console.log("Is existing photo?", index < existingCount);
-
     // If it's an existing photo (index < existingCount), delete from server
     if (index < existingCount) {
       const result = await Swal.fire({
@@ -1018,14 +986,12 @@ export default function Profile({ user, setUser }) {
       });
 
       if (!result.isConfirmed) {
-        console.log("User cancelled deletion");
         return;
       }
 
       const token = localStorage.getItem("token");
       try {
         setLoadingPosts(true); // Reuse loading state
-        console.log("Calling DELETE API:", `/api/public/me/photos/${index}`);
 
         const response = await fetch(`/api/public/me/photos/${index}`, {
           method: "DELETE",
@@ -1035,27 +1001,19 @@ export default function Profile({ user, setUser }) {
           },
         });
 
-        console.log("Delete API response status:", response.status);
         const data = await response.json();
-        console.log("Delete API response data:", data);
 
         if (data.success) {
-          console.log("Delete API succeeded");
-          console.log("Delete response data:", data);
-
           // Use the updated user data from the delete response if available
           let updatedUserData = data.data?.user;
 
           if (!updatedUserData) {
-            console.log("No user data in response, fetching fresh data...");
             // Fallback: Refresh user data if not included in response
             const userResponse = await fetch("/api/public/me", {
               headers: { Authorization: `Bearer ${token}` },
             });
 
-            console.log("User refresh response status:", userResponse.status);
             const userData = await userResponse.json();
-            console.log("User refresh response data:", userData);
 
             if (userData.success) {
               updatedUserData = userData.data;
@@ -1065,16 +1023,9 @@ export default function Profile({ user, setUser }) {
             }
           }
 
-          console.log("Updated photos array:", updatedUserData?.photos);
-          console.log("Updated photos count:", updatedUserData?.photos?.length);
-
           // Update localStorage
           localStorage.setItem("user", JSON.stringify(updatedUserData));
           setUser(updatedUserData);
-          console.log(
-            "User state updated with new photos:",
-            updatedUserData.photos
-          );
 
           // Calculate new total photos count
           const newExistingCount =
@@ -1083,31 +1034,17 @@ export default function Profile({ user, setUser }) {
               : 0;
           const newTotalPhotos = newExistingCount + galleryPhotos.length;
 
-          console.log("New existing count:", newExistingCount);
-          console.log("New total photos:", newTotalPhotos);
-          console.log(
-            "Current photo index before adjustment:",
-            currentPhotoIndex
-          );
-
           // Reset current photo index to ensure it's valid
           if (newTotalPhotos === 0) {
             setCurrentPhotoIndex(0);
-            console.log("No photos left, reset index to 0");
           } else if (currentPhotoIndex >= newTotalPhotos) {
             // If current index is out of bounds, set to last photo
             setCurrentPhotoIndex(newTotalPhotos - 1);
-            console.log("Index out of bounds, set to:", newTotalPhotos - 1);
           } else if (currentPhotoIndex >= index) {
             // If we deleted a photo before or at current position, adjust index
             setCurrentPhotoIndex(Math.max(0, currentPhotoIndex - 1));
-            console.log(
-              "Adjusted index to:",
-              Math.max(0, currentPhotoIndex - 1)
-            );
           }
 
-          console.log("=== DELETE PHOTO DEBUG END - SUCCESS ===");
           Swal.fire({
             icon: "success",
             title: "Deleted!",
@@ -1118,12 +1055,10 @@ export default function Profile({ user, setUser }) {
           });
         } else {
           console.error("Delete API failed:", data);
-          console.log("=== DELETE PHOTO DEBUG END - API FAILED ===");
           throw new Error(data.message || "Failed to delete photo");
         }
       } catch (err) {
         console.error("Delete photo error:", err);
-        console.log("=== DELETE PHOTO DEBUG END - ERROR ===");
         Swal.fire({
           icon: "error",
           title: "Error",
@@ -2796,7 +2731,7 @@ export default function Profile({ user, setUser }) {
                   fontSize: { xs: "0.7rem", sm: "0.75rem" },
                 }}
               >
-                Boost Score
+                Boost Status
               </Typography>
               <Typography
                 variant="h6"
@@ -2806,7 +2741,11 @@ export default function Profile({ user, setUser }) {
                   fontSize: { xs: "1rem", sm: "1.25rem" },
                 }}
               >
-                {user?.boost_score || 0}
+                {user?.active_boost_until
+                  ? `Active until ${new Date(
+                      user.active_boost_until
+                    ).toLocaleString()}`
+                  : "No active boost"}
               </Typography>
             </Box>
             <Alert

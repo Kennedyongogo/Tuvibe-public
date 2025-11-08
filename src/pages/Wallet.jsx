@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Box,
   Typography,
@@ -32,6 +32,19 @@ import {
 } from "@mui/icons-material";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
+import {
+  TOKENS_PER_KSH,
+  convertTokensToKsh,
+  describeExchangeRate,
+} from "../utils/pricing";
+
+const QUICK_TOKEN_PACKS = [100, 250, 500, 1000];
+
+const formatKsh = (kshValue) =>
+  `KES ${Number(kshValue).toLocaleString("en-KE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 
 export default function Wallet({ user, setUser }) {
   const [balance, setBalance] = useState(user?.token_balance || 0);
@@ -40,19 +53,16 @@ export default function Wallet({ user, setUser }) {
   const [purchasing, setPurchasing] = useState(false);
   const [customAmount, setCustomAmount] = useState("");
   const [customAmountError, setCustomAmountError] = useState("");
-  const paystackPublicKey =
-    import.meta.env.VITE_PAYSTACK_PUBLIC_KEY ||
-    "pk_live_b0619e438241d7c4756dd17e043788337919578c";
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const navigate = useNavigate();
+  const paymentAbortRef = useRef(false);
 
-  const quickBuyOptions = [
-    { amount: 10, label: "10 Tokens", price: "KES 10" },
-    { amount: 50, label: "50 Tokens", price: "KES 50" },
-    { amount: 100, label: "100 Tokens", price: "KES 100" },
-    { amount: 500, label: "500 Tokens", price: "KES 500" },
-  ];
+  const quickBuyOptions = QUICK_TOKEN_PACKS.map((tokens) => ({
+    tokens,
+    label: `${tokens.toLocaleString()} Tokens`,
+    price: formatKsh(convertTokensToKsh(tokens)),
+  }));
 
   useEffect(() => {
     fetchWallet();
@@ -103,9 +113,21 @@ export default function Wallet({ user, setUser }) {
     }
   };
 
+const handlePaystackCancel = () => {
+  paymentAbortRef.current = true;
+  updateStatusMessage("Cancelling payment...");
+  Swal.hideLoading();
+  setPurchasing(false);
+  Swal.close();
+};
+
   const pollPaymentStatus = async (reference, attempt = 1) => {
     const MAX_ATTEMPTS = 12; // ~1 min if interval is 5s
     const STATUS_INTERVAL = 5000;
+
+  if (paymentAbortRef.current) {
+    return { status: "cancelled" };
+  }
 
     if (attempt === 1) {
       updateStatusMessage("Waiting for Paystack confirmation...");
@@ -116,6 +138,11 @@ export default function Wallet({ user, setUser }) {
     }
 
     await wait(STATUS_INTERVAL);
+
+  if (paymentAbortRef.current) {
+    return { status: "cancelled" };
+  }
+
     updateStatusMessage(
       `Checking payment status (${attempt}/${MAX_ATTEMPTS})...`
     );
@@ -151,22 +178,15 @@ export default function Wallet({ user, setUser }) {
       if (attempt >= MAX_ATTEMPTS) {
         return { status: "error", message: error.message };
       }
+    if (paymentAbortRef.current) {
+      return { status: "cancelled" };
+    }
       return pollPaymentStatus(reference, attempt + 1);
     }
   };
 
-  const handlePurchase = async (amount) => {
+  const handlePurchase = async (tokensRequested) => {
     if (purchasing) return;
-
-    if (!paystackPublicKey) {
-      Swal.fire({
-        icon: "error",
-        title: "Missing Paystack Key",
-        text: "Set VITE_PAYSTACK_PUBLIC_KEY in your frontend environment to enable payments.",
-        confirmButtonColor: "#D4AF37",
-      });
-      return;
-    }
 
     const currentUser =
       user || JSON.parse(localStorage.getItem("user") || "{}");
@@ -180,6 +200,7 @@ export default function Wallet({ user, setUser }) {
       return;
     }
 
+    paymentAbortRef.current = false;
     setPurchasing(true);
 
     try {
@@ -192,7 +213,7 @@ export default function Wallet({ user, setUser }) {
         },
         body: JSON.stringify({
           email: currentUser.email,
-          amount,
+          amount: tokensRequested,
         }),
       });
 
@@ -202,7 +223,45 @@ export default function Wallet({ user, setUser }) {
         throw new Error(data.message || "Failed to initialize payment");
       }
 
-      const { authorization_url, reference } = data;
+      const { authorization_url, reference, bypassed, credited_tokens, balance: updatedBalance } = data;
+      const effectiveTokens = credited_tokens || tokensRequested;
+      const effectiveKsh = convertTokensToKsh(effectiveTokens);
+
+      if (bypassed) {
+         const parsedBalance = updatedBalance !== undefined ? Number(updatedBalance) : NaN;
+         const balanceToApply = Number.isFinite(parsedBalance)
+           ? parsedBalance
+           : Number.isFinite(Number(balance))
+           ? Number(balance)
+           : null;
+         if (balanceToApply !== null) {
+           setBalance(balanceToApply);
+           const updatedUserData = {
+             ...(currentUser || {}),
+             token_balance: balanceToApply,
+           };
+           localStorage.setItem("user", JSON.stringify(updatedUserData));
+           if (setUser) setUser(updatedUserData);
+         }
+
+         await fetchWallet();
+         setPurchasing(false);
+         Swal.fire({
+          icon: "success",
+          title: "Tokens Added",
+          html: `
+            <p><strong>${effectiveTokens.toLocaleString()} tokens</strong> added to your wallet.</p>
+            <p style="font-size: 0.9em; color: #666; margin-top: 8px;">Equivalent to ${formatKsh(effectiveKsh)}</p>
+            <p style="font-size: 0.85em; color: #888; margin-top: 6px;">Reference: <code>${reference}</code></p>
+          `,
+          confirmButtonColor: "#D4AF37",
+        });
+        return;
+      }
+
+      if (!authorization_url) {
+        throw new Error("Missing Paystack authorization URL");
+      }
 
       window.open(authorization_url, "_blank", "noopener");
 
@@ -217,12 +276,44 @@ export default function Wallet({ user, setUser }) {
         allowOutsideClick: false,
         allowEscapeKey: false,
         showConfirmButton: false,
+        showCancelButton: true,
+        cancelButtonText: "Cancel payment",
+        cancelButtonColor: "#9E9E9E",
         didOpen: () => {
           const swal = document.querySelector(".swal2-popup");
           if (swal) {
             swal.style.borderRadius = "20px";
           }
+          const cancelButton = Swal.getCancelButton();
+          if (cancelButton) {
+            cancelButton.style.fontWeight = "600";
+            cancelButton.style.borderRadius = "999px";
+            cancelButton.addEventListener("click", handlePaystackCancel);
+          }
+          const htmlContainer = Swal.getHtmlContainer();
+          if (htmlContainer) {
+            const isSmallScreen = window.matchMedia("(max-width: 480px)").matches;
+            if (isSmallScreen) {
+              htmlContainer.style.fontSize = "14px";
+              htmlContainer.style.lineHeight = "1.4";
+              htmlContainer.querySelectorAll("p").forEach((p) => {
+                p.style.fontSize = "14px";
+                p.style.lineHeight = "1.4";
+              });
+            } else {
+              htmlContainer.style.fontSize = "16px";
+              htmlContainer.querySelectorAll("p").forEach((p) => {
+                p.style.lineHeight = "1.5";
+              });
+            }
+          }
           Swal.showLoading();
+        },
+        willClose: () => {
+          const cancelButton = Swal.getCancelButton();
+          if (cancelButton) {
+            cancelButton.removeEventListener("click", handlePaystackCancel);
+          }
         },
       });
 
@@ -238,13 +329,19 @@ export default function Wallet({ user, setUser }) {
           icon: "success",
           title: "Payment Confirmed",
           html: `
-            <p><strong>${amount} tokens</strong> added to your wallet.</p>
-            <p style="font-size: 0.9em; color: #666; margin-top: 10px;">
-              Reference: <code>${reference}</code>
-            </p>
+            <p><strong>${effectiveTokens.toLocaleString()} tokens</strong> added to your wallet.</p>
+            <p style="font-size: 0.9em; color: #666; margin-top: 8px;">Equivalent to ${formatKsh(effectiveKsh)}</p>
+            <p style="font-size: 0.85em; color: #888; margin-top: 6px;">Reference: <code>${reference}</code></p>
           `,
           timer: 2600,
           showConfirmButton: false,
+          confirmButtonColor: "#D4AF37",
+        });
+      } else if (result.status === "cancelled") {
+        Swal.fire({
+          icon: "info",
+          title: "Payment Cancelled",
+          text: "You can restart the payment whenever you’re ready.",
           confirmButtonColor: "#D4AF37",
         });
       } else if (result.status === "timeout") {
@@ -495,7 +592,8 @@ export default function Wallet({ user, setUser }) {
                 fontSize: { xs: "0.65rem", sm: "0.875rem" },
               }}
             >
-              1 Token = KES 1
+              Exchange rate: {describeExchangeRate()} (≈ KES
+              {convertTokensToKsh(1).toFixed(2)} per token)
             </Typography>
           </Box>
         </Stack>
@@ -533,6 +631,16 @@ export default function Wallet({ user, setUser }) {
           />
           Quick Buy Tokens
         </Typography>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "rgba(26, 26, 26, 0.6)",
+            mb: { xs: 1, sm: 1.5 },
+            fontSize: { xs: "0.7rem", sm: "0.85rem" },
+          }}
+        >
+          Each KES adds {TOKENS_PER_KSH.toLocaleString()} tokens ({describeExchangeRate()})
+        </Typography>
         <Stack
           direction={{ xs: "column", sm: "row" }}
           spacing={{ xs: 1, sm: 1.5 }}
@@ -550,11 +658,11 @@ export default function Wallet({ user, setUser }) {
             }}
             fullWidth
             inputProps={{ min: 1, step: 1 }}
-            disabled={purchasing || !paystackPublicKey}
+            disabled={purchasing}
             error={Boolean(customAmountError)}
             helperText={
               customAmountError ||
-              "Enter the number of tokens you want to add."
+              `1 purchase: ${describeExchangeRate()} (enter tokens)`
             }
             sx={{
               "& .MuiOutlinedInput-root": {
@@ -565,7 +673,7 @@ export default function Wallet({ user, setUser }) {
           <Button
             variant="contained"
             onClick={handleCustomPurchase}
-            disabled={purchasing || !paystackPublicKey}
+            disabled={purchasing}
             sx={{
               minWidth: { xs: "100%", sm: 180 },
               borderRadius: "12px",
@@ -598,10 +706,10 @@ export default function Wallet({ user, setUser }) {
         >
           {quickBuyOptions.map((option) => (
             <Button
-              key={option.amount}
+              key={option.tokens}
               variant="outlined"
-              onClick={() => handlePurchase(option.amount)}
-              disabled={purchasing || !paystackPublicKey}
+              onClick={() => handlePurchase(option.tokens)}
+              disabled={purchasing}
               sx={{
                 p: { xs: 1, sm: 1.5, md: 2 },
                 borderRadius: "12px",
