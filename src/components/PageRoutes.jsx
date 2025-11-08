@@ -165,7 +165,10 @@ function PageRoutes() {
           </Box>
         ) : (
           <Routes>
-            <Route path="home" element={<Dashboard user={user} />} />
+            <Route
+              path="home"
+              element={<Dashboard user={user} setUser={setUser} />}
+            />
             <Route path="explore" element={<Explore user={user} />} />
             <Route path="premium" element={<PremiumLounge user={user} />} />
             <Route path="market" element={<Market user={user} />} />

@@ -20,6 +20,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  TextField,
 } from "@mui/material";
 import {
   AccountBalanceWallet,
@@ -37,6 +38,8 @@ export default function Wallet({ user, setUser }) {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
+  const [customAmount, setCustomAmount] = useState("");
+  const [customAmountError, setCustomAmountError] = useState("");
   const paystackPublicKey =
     import.meta.env.VITE_PAYSTACK_PUBLIC_KEY ||
     "pk_live_b0619e438241d7c4756dd17e043788337919578c";
@@ -281,6 +284,31 @@ export default function Wallet({ user, setUser }) {
     }
   };
 
+  const handleCustomPurchase = async () => {
+    if (purchasing) return;
+
+    const parsedAmount = Number(customAmount);
+
+    if (!customAmount || Number.isNaN(parsedAmount)) {
+      setCustomAmountError("Enter how many tokens you want to buy.");
+      return;
+    }
+
+    if (!Number.isInteger(parsedAmount) || parsedAmount <= 0) {
+      setCustomAmountError("Use a positive whole number of tokens.");
+      return;
+    }
+
+    setCustomAmountError("");
+
+    try {
+      await handlePurchase(parsedAmount);
+      setCustomAmount("");
+    } catch (error) {
+      console.error("Custom purchase error:", error);
+    }
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
     const date = new Date(dateString);
@@ -505,6 +533,58 @@ export default function Wallet({ user, setUser }) {
           />
           Quick Buy Tokens
         </Typography>
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={{ xs: 1, sm: 1.5 }}
+          sx={{ mb: { xs: 1.5, sm: 2 } }}
+        >
+          <TextField
+            label="Custom tokens"
+            type="number"
+            value={customAmount}
+            onChange={(event) => {
+              setCustomAmount(event.target.value);
+              if (customAmountError) {
+                setCustomAmountError("");
+              }
+            }}
+            fullWidth
+            inputProps={{ min: 1, step: 1 }}
+            disabled={purchasing || !paystackPublicKey}
+            error={Boolean(customAmountError)}
+            helperText={
+              customAmountError ||
+              "Enter the number of tokens you want to add."
+            }
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                borderRadius: "12px",
+              },
+            }}
+          />
+          <Button
+            variant="contained"
+            onClick={handleCustomPurchase}
+            disabled={purchasing || !paystackPublicKey}
+            sx={{
+              minWidth: { xs: "100%", sm: 180 },
+              borderRadius: "12px",
+              bgcolor: "#D4AF37",
+              color: "#1a1a1a",
+              fontWeight: 600,
+              textTransform: "none",
+              "&:hover": {
+                bgcolor: "#B8941F",
+                transform: "translateY(-2px)",
+              },
+              "&:disabled": {
+                opacity: 0.6,
+              },
+            }}
+          >
+            Buy Tokens
+          </Button>
+        </Stack>
         <Box
           sx={{
             display: "grid",

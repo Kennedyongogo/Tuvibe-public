@@ -52,7 +52,7 @@ export default function HeroSection() {
     email: "",
     password: "",
     gender: "",
-    age: "",
+    birthYear: "",
     bio: "",
   });
   const [loginFormData, setLoginFormData] = useState({
@@ -88,7 +88,7 @@ export default function HeroSection() {
       email: "",
       password: "",
       gender: "",
-      age: "",
+      birthYear: "",
       bio: "",
     });
     setPhotoFile(null);
@@ -350,7 +350,9 @@ export default function HeroSection() {
       password: formData.password,
     };
     if (formData.gender) submitData.gender = formData.gender;
-    if (formData.age) submitData.age = parseInt(formData.age);
+    if (formData.birthYear) {
+      submitData.birth_year = parseInt(formData.birthYear, 10);
+    }
 
     handleRegisterClose();
 
@@ -393,8 +395,12 @@ export default function HeroSection() {
           formDataToSend.append("email", formData.email);
           formDataToSend.append("password", formData.password);
           if (formData.gender) formDataToSend.append("gender", formData.gender);
-          if (formData.age)
-            formDataToSend.append("age", parseInt(formData.age));
+          if (formData.birthYear) {
+            formDataToSend.append(
+              "birth_year",
+              parseInt(formData.birthYear, 10)
+            );
+          }
           if (formData.bio) formDataToSend.append("bio", formData.bio);
           // Add photo file
           formDataToSend.append("profile_image", photoFile);
@@ -1591,13 +1597,16 @@ export default function HeroSection() {
                   </Select>
                 </FormControl>
                 <TextField
-                  label="Age"
+                  label="Year of Birth"
                   type="number"
-                  value={formData.age}
-                  onChange={handleInputChange("age")}
+                  value={formData.birthYear}
+                  onChange={handleInputChange("birthYear")}
                   fullWidth
                   variant="outlined"
-                  inputProps={{ min: 18, max: 100 }}
+                  inputProps={{
+                    min: 1900,
+                    max: new Date().getFullYear(),
+                  }}
                   sx={{
                     "& .MuiOutlinedInput-root": {
                       borderRadius: "12px",

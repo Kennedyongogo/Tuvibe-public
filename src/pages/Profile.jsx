@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   Box,
   Typography,
@@ -17,10 +17,6 @@ import {
   Select,
   CircularProgress,
   Tooltip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Alert,
 } from "@mui/material";
 import {
@@ -44,8 +40,6 @@ import {
   Add,
   Delete,
   Visibility,
-  TrendingUp,
-  AccessTime,
   ChevronLeft,
   ChevronRight,
 } from "@mui/icons-material";
@@ -54,6 +48,65 @@ import { useNavigate } from "react-router-dom";
 
 export default function Profile({ user, setUser }) {
   const navigate = useNavigate();
+
+  const resolveBirthYearFromUser = (userObj) => {
+    if (!userObj) return "";
+    if (userObj.birth_year !== undefined && userObj.birth_year !== null) {
+      return String(userObj.birth_year);
+    }
+    if (userObj.age !== undefined && userObj.age !== null) {
+      const numericAge = parseInt(userObj.age, 10);
+      if (!Number.isNaN(numericAge) && numericAge > 0) {
+        const currentYear = new Date().getFullYear();
+        const derivedYear = currentYear - numericAge;
+        if (derivedYear > 1900 && derivedYear <= currentYear) {
+          return String(derivedYear);
+        }
+      }
+    }
+    return "";
+  };
+
+  const computeAgeFromBirthYear = (birthYearValue) => {
+    if (birthYearValue === undefined || birthYearValue === null || birthYearValue === "") {
+      return "";
+    }
+
+    const numericYear = parseInt(birthYearValue, 10);
+    const currentYear = new Date().getFullYear();
+
+    if (
+      Number.isNaN(numericYear) ||
+      numericYear < 1900 ||
+      numericYear > currentYear
+    ) {
+      return "";
+    }
+
+    const resolvedAge = currentYear - numericYear;
+    return resolvedAge > 0 && resolvedAge <= 120 ? resolvedAge : "";
+  };
+
+  const resolveAgeFromUser = (userObj) => {
+    if (!userObj) return "";
+
+    if (userObj.birth_year !== undefined && userObj.birth_year !== null) {
+      const ageFromBirthYear = computeAgeFromBirthYear(userObj.birth_year);
+      if (ageFromBirthYear !== "") {
+        return ageFromBirthYear;
+      }
+    }
+
+    if (userObj.age !== undefined && userObj.age !== null) {
+      const numericAge = parseInt(userObj.age, 10);
+      if (!Number.isNaN(numericAge) && numericAge > 0 && numericAge <= 120) {
+        return numericAge;
+      }
+    }
+
+    return "";
+  };
+
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
@@ -67,6 +120,19 @@ export default function Profile({ user, setUser }) {
   const galleryScrollRef = useRef(null);
   const isScrollingRef = useRef(false);
   const scrollTimeoutRef = useRef(null);
+  const locationWatchIdRef = useRef(null);
+  const autoSaveTimeoutRef = useRef(null);
+  const lastSavedCoordsRef = useRef({
+    lat:
+      user?.latitude !== undefined && user?.latitude !== null
+        ? String(user.latitude)
+        : "",
+    lng:
+      user?.longitude !== undefined && user?.longitude !== null
+        ? String(user.longitude)
+        : "",
+  });
+  const [isLocationTracking, setIsLocationTracking] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState(null);
   const [requestingVerification, setRequestingVerification] = useState(false);
   const [lookingForPosts, setLookingForPosts] = useState([]);
@@ -74,13 +140,10 @@ export default function Profile({ user, setUser }) {
   const [editingPostId, setEditingPostId] = useState(null);
   const [postContent, setPostContent] = useState("");
   const [showPostForm, setShowPostForm] = useState(false);
-  const [boostDialogOpen, setBoostDialogOpen] = useState(false);
-  const [boosting, setBoosting] = useState(false);
-  const [boostTimeRemaining, setBoostTimeRemaining] = useState(null);
   const [formData, setFormData] = useState({
     name: user?.name || "",
     gender: user?.gender || "",
-    age: user?.age?.toString() || "",
+    birthYear: resolveBirthYearFromUser(user),
     county: user?.county || "",
     phone: user?.phone || "",
     email: user?.email || "",
@@ -90,13 +153,19 @@ export default function Profile({ user, setUser }) {
     longitude: user?.longitude?.toString() || "",
   });
 
+  const userAge = useMemo(() => resolveAgeFromUser(user), [user]);
+  const birthYearAgePreview = useMemo(
+    () => computeAgeFromBirthYear(formData.birthYear),
+    [formData.birthYear]
+  );
+
   // Update formData when user changes, but only if not editing
   useEffect(() => {
     if (!isEditing && user) {
       setFormData({
         name: user?.name || "",
         gender: user?.gender || "",
-        age: user?.age?.toString() || "",
+        birthYear: resolveBirthYearFromUser(user),
         county: user?.county || "",
         phone: user?.phone || "",
         email: user?.email || "",
@@ -111,6 +180,28 @@ export default function Profile({ user, setUser }) {
       setCurrentPhotoIndex(0);
     }
   }, [user, isEditing]);
+
+  useEffect(
+    () => () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    lastSavedCoordsRef.current = {
+      lat:
+        user?.latitude !== undefined && user?.latitude !== null
+          ? String(user.latitude)
+          : "",
+      lng:
+        user?.longitude !== undefined && user?.longitude !== null
+          ? String(user.longitude)
+          : "",
+    };
+  }, [user?.latitude, user?.longitude]);
 
   // Sync scroll position and validate photo index when photos change
   useEffect(() => {
@@ -160,34 +251,6 @@ export default function Profile({ user, setUser }) {
       Array.isArray(user?.photos) ? user.photos : "Not an array"
     );
   }, [user?.photos]);
-
-  // Calculate boost time remaining
-  useEffect(() => {
-    if (!user?.is_featured_until) {
-      setBoostTimeRemaining(null);
-      return;
-    }
-
-    const calculateTimeRemaining = () => {
-      const now = new Date();
-      const until = new Date(user.is_featured_until);
-      const diff = until - now;
-
-      if (diff <= 0) {
-        setBoostTimeRemaining(null);
-        return;
-      }
-
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      setBoostTimeRemaining({ hours, minutes });
-    };
-
-    calculateTimeRemaining();
-    const interval = setInterval(calculateTimeRemaining, 60000); // Update every minute
-
-    return () => clearInterval(interval);
-  }, [user?.is_featured_until]);
 
   // Fetch verification status (only for premium categories that might have pending requests)
   useEffect(() => {
@@ -491,113 +554,174 @@ export default function Profile({ user, setUser }) {
     }
   };
 
-  const handleBoostProfile = async (hours = 24, cost = 20) => {
-    setBoosting(true);
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        Swal.fire({
-          icon: "error",
-          title: "Authentication Required",
-          text: "Please login to boost your profile.",
-          confirmButtonColor: "#D4AF37",
-        });
+  const scheduleLocationAutoSave = useCallback(
+    (lat, lng) => {
+      if (lat === "" || lng === "") return;
+
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+        autoSaveTimeoutRef.current = null;
+      }
+
+      const { lat: lastLat, lng: lastLng } = lastSavedCoordsRef.current;
+      if (lastLat === lat && lastLng === lng) {
         return;
       }
 
-      const response = await fetch("/api/tokens/boost", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ hours, cost }),
-      });
+      autoSaveTimeoutRef.current = setTimeout(async () => {
+        autoSaveTimeoutRef.current = null;
 
-      const data = await response.json();
+        const numericLat = parseFloat(lat);
+        const numericLng = parseFloat(lng);
 
-      if (response.status === 402) {
-        // Close boost dialog first so buy tokens dialog appears on top
-        setBoostDialogOpen(false);
-
-        // Small delay to ensure dialog is closed before showing Swal
-        await new Promise((resolve) => setTimeout(resolve, 100));
-
-        Swal.fire({
-          icon: "warning",
-          title: "Insufficient Tokens",
-          text: `You need ${cost} tokens to boost your profile. Please purchase more tokens.`,
-          confirmButtonColor: "#D4AF37",
-          showCancelButton: true,
-          cancelButtonColor: "#999",
-          confirmButtonText: "Buy Tokens",
-          cancelButtonText: "Cancel",
-          didOpen: () => {
-            const swal = document.querySelector(".swal2-popup");
-            if (swal) {
-              swal.style.borderRadius = "20px";
-              swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
-            }
-          },
-        }).then((result) => {
-          if (result.isConfirmed) {
-            // Navigate to wallet page using React Router
-            navigate("/wallet");
-          }
-        });
-        return;
-      }
-
-      if (data.success) {
-        // Refresh user data
-        const userResponse = await fetch("/api/public/me", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const userData = await userResponse.json();
-        if (userData.success) {
-          setUser(userData.data);
+        if (Number.isNaN(numericLat) || Number.isNaN(numericLng)) {
+          console.log("Auto-save skipped: invalid coordinates", {
+            numericLat,
+            numericLng,
+          });
+          return;
         }
 
-        Swal.fire({
-          icon: "success",
-          title: "Profile Boosted!",
-          html: `Your profile is now boosted for ${hours} hours!<br/>
-                 <small>Boost expires: ${new Date(data.data.is_featured_until).toLocaleString()}</small>`,
-          confirmButtonColor: "#D4AF37",
-          didOpen: () => {
-            const swal = document.querySelector(".swal2-popup");
-            if (swal) {
-              swal.style.borderRadius = "20px";
-              swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
-              swal.style.boxShadow = "0 20px 60px rgba(212, 175, 55, 0.25)";
-            }
-          },
-        });
-        setBoostDialogOpen(false);
-      } else {
-        Swal.fire({
-          icon: "error",
-          title: "Boost Failed",
-          text: data.message || "Failed to boost profile. Please try again.",
-          confirmButtonColor: "#D4AF37",
-        });
-      }
+        const token = localStorage.getItem("token");
+        if (!token) {
+          console.log("Auto-save skipped: missing auth token");
+          return;
+        }
+
+        try {
+          const response = await fetch("/api/public/me", {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              latitude: numericLat,
+              longitude: numericLng,
+            }),
+          });
+
+          const data = await response.json();
+
+          if (!response.ok || !data.success) {
+            console.error("Auto-save location failed:", data);
+            return;
+          }
+
+          lastSavedCoordsRef.current = { lat, lng };
+
+          if (data.data) {
+            localStorage.setItem("user", JSON.stringify(data.data));
+            setUser(data.data);
+          }
+        } catch (err) {
+          console.error("Auto-save location error:", err);
+        }
+      }, 3000);
+    },
+    [setUser]
+  );
+
+  const updateCoordinatesFromCoords = (coords) => {
+    const lat = coords.latitude.toFixed(8);
+    const lng = coords.longitude.toFixed(8);
+    setFormData((prev) => ({
+      ...prev,
+      latitude: lat,
+      longitude: lng,
+    }));
+    scheduleLocationAutoSave(lat, lng);
+    return { lat, lng };
+  };
+
+  const stopLocationWatch = () => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setIsLocationTracking(false);
+      return;
+    }
+
+    if (locationWatchIdRef.current !== null) {
+      console.log("Clearing location watch:", locationWatchIdRef.current);
+      navigator.geolocation.clearWatch(locationWatchIdRef.current);
+      locationWatchIdRef.current = null;
+    }
+    setIsLocationTracking(false);
+  };
+
+  const startLocationWatch = () => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      console.log("Location watch skipped: geolocation is not supported.");
+      setIsLocationTracking(false);
+      return;
+    }
+
+    if (locationWatchIdRef.current !== null) {
+      console.log("Location watch already active:", locationWatchIdRef.current);
+      setIsLocationTracking(true);
+      return;
+    }
+
+    try {
+      const watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          const { lat, lng } = updateCoordinatesFromCoords(position.coords);
+          console.log("Location watch update:", { lat, lng });
+          setIsLocationTracking(true);
+        },
+        (error) => {
+          console.error("Location watch error:", error);
+          setIsLocationTracking(false);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 1000,
+        }
+      );
+
+      locationWatchIdRef.current = watchId;
+      console.log("Location watch started:", watchId);
+      setIsLocationTracking(true);
     } catch (err) {
-      console.error("Boost profile error:", err);
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: "Failed to boost profile. Please try again later.",
-        confirmButtonColor: "#D4AF37",
-      });
-    } finally {
-      setBoosting(false);
+      console.error("Failed to start location watch:", err);
+      setIsLocationTracking(false);
     }
   };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const initializeTracking = async () => {
+      if (typeof navigator === "undefined" || !navigator.geolocation) {
+        setIsLocationTracking(false);
+        return;
+      }
+
+      try {
+        await getCurrentLocation(false);
+      } catch (error) {
+        console.log("Initial location sync failed:", error.message);
+        setIsLocationTracking(false);
+      } finally {
+        if (isMounted) {
+          startLocationWatch();
+        }
+      }
+    };
+
+    initializeTracking();
+
+    return () => {
+      isMounted = false;
+      stopLocationWatch();
+    };
+  }, []);
 
   const getCurrentLocation = (showSuccess = true) => {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
+        setIsLocationTracking(false);
         reject(new Error("Geolocation is not supported by your browser."));
         return;
       }
@@ -605,13 +729,7 @@ export default function Profile({ user, setUser }) {
       setLocationLoading(true);
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          const lat = position.coords.latitude.toFixed(8);
-          const lng = position.coords.longitude.toFixed(8);
-          setFormData((prev) => ({
-            ...prev,
-            latitude: lat,
-            longitude: lng,
-          }));
+          const { lat, lng } = updateCoordinatesFromCoords(position.coords);
           setLocationLoading(false);
           if (showSuccess) {
             Swal.fire({
@@ -638,6 +756,7 @@ export default function Profile({ user, setUser }) {
         },
         (error) => {
           setLocationLoading(false);
+          setIsLocationTracking(false);
           const errorMessage =
             error.code === 1
               ? "Location access denied. Please enable location permissions or enter manually."
@@ -674,57 +793,17 @@ export default function Profile({ user, setUser }) {
 
   const handleEdit = async () => {
     setIsEditing(true);
-    // Close boost dialog when entering edit mode
-    if (boostDialogOpen) {
-      setBoostDialogOpen(false);
-    }
-
-    // Check if coordinates are empty
-    const hasCoordinates =
-      formData.latitude &&
-      formData.longitude &&
-      formData.latitude.trim() !== "" &&
-      formData.longitude.trim() !== "";
-
-    if (!hasCoordinates) {
-      // Auto-fill coordinates if empty
+    if (typeof navigator !== "undefined" && navigator.geolocation) {
       try {
-        await getCurrentLocation(false); // Don't show success message for auto-fill
+        await getCurrentLocation(false);
       } catch (error) {
-        // Silently fail - user can manually enter or use the location button later
-        console.log("Auto-location failed:", error.message);
+        console.log("Initial location sync failed:", error.message);
+        setIsLocationTracking(false);
       }
+      startLocationWatch();
     } else {
-      // Coordinates exist - prompt user if they want to update
-      const result = await Swal.fire({
-        icon: "question",
-        title: "Update Location?",
-        text: "You already have location coordinates. Would you like to update them to your current location?",
-        showCancelButton: true,
-        confirmButtonText: "Yes, Update",
-        cancelButtonText: "No, Keep Current",
-        confirmButtonColor: "#D4AF37",
-        cancelButtonColor: "#757575",
-        didOpen: () => {
-          const swal = document.querySelector(".swal2-popup");
-          if (swal) {
-            swal.style.borderRadius = "20px";
-            swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
-            swal.style.boxShadow = "0 20px 60px rgba(212, 175, 55, 0.25)";
-            swal.style.background =
-              "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)";
-            swal.style.backdropFilter = "blur(20px)";
-          }
-        },
-      });
-
-      if (result.isConfirmed) {
-        try {
-          await getCurrentLocation(true);
-        } catch (error) {
-          // Error already handled in getCurrentLocation
-        }
-      }
+      console.log("Geolocation not available, skipping automatic updates.");
+      setIsLocationTracking(false);
     }
   };
 
@@ -732,7 +811,7 @@ export default function Profile({ user, setUser }) {
     setFormData({
       name: user?.name || "",
       gender: user?.gender || "",
-      age: user?.age?.toString() || "",
+      birthYear: resolveBirthYearFromUser(user),
       county: user?.county || "",
       phone: user?.phone || "",
       email: user?.email || "",
@@ -1096,7 +1175,12 @@ export default function Profile({ user, setUser }) {
         // Add all form fields
         formDataToSend.append("name", formData.name);
         if (formData.gender) formDataToSend.append("gender", formData.gender);
-        if (formData.age) formDataToSend.append("age", parseInt(formData.age));
+        if (formData.birthYear) {
+          formDataToSend.append(
+            "birth_year",
+            parseInt(formData.birthYear, 10)
+          );
+        }
         if (formData.county) formDataToSend.append("county", formData.county);
         if (formData.bio) formDataToSend.append("bio", formData.bio);
         formDataToSend.append("email", formData.email);
@@ -1129,33 +1213,52 @@ export default function Profile({ user, setUser }) {
         });
       } else {
         // Prepare update data (only include allowed fields from backend)
-        const allowedFields = [
-          "name",
-          "gender",
-          "age",
-          "county",
-          "bio",
-          "email",
-          "phone",
-          "latitude",
-          "longitude",
+        const fieldConfigs = [
+          {
+            key: "name",
+          },
+          {
+            key: "gender",
+          },
+          {
+            key: "birthYear",
+            payloadKey: "birth_year",
+            transform: (value) => parseInt(value, 10),
+          },
+          {
+            key: "county",
+          },
+          {
+            key: "bio",
+          },
+          {
+            key: "email",
+          },
+          {
+            key: "phone",
+          },
+          {
+            key: "latitude",
+            transform: (value) => parseFloat(value),
+          },
+          {
+            key: "longitude",
+            transform: (value) => parseFloat(value),
+          },
         ];
         const updateData = {};
-        allowedFields.forEach((field) => {
-          if (
-            formData[field] !== undefined &&
-            formData[field] !== null &&
-            formData[field] !== ""
-          ) {
-            if (field === "age" && formData[field]) {
-              updateData[field] = parseInt(formData[field]);
-            } else if (
-              (field === "latitude" || field === "longitude") &&
-              formData[field]
-            ) {
-              updateData[field] = parseFloat(formData[field]);
+
+        fieldConfigs.forEach(({ key, payloadKey, transform }) => {
+          const value = formData[key];
+          if (value !== undefined && value !== null && value !== "") {
+            const targetKey = payloadKey || key;
+            if (transform) {
+              const transformed = transform(value);
+              if (!Number.isNaN(transformed)) {
+                updateData[targetKey] = transformed;
+              }
             } else {
-              updateData[field] = formData[field];
+              updateData[targetKey] = value;
             }
           }
         });
@@ -1212,6 +1315,16 @@ export default function Profile({ user, setUser }) {
           // Update localStorage
           localStorage.setItem("user", JSON.stringify(data.data));
           setUser(data.data);
+          lastSavedCoordsRef.current = {
+            lat:
+              data.data.latitude !== undefined && data.data.latitude !== null
+                ? String(data.data.latitude)
+                : "",
+            lng:
+              data.data.longitude !== undefined && data.data.longitude !== null
+                ? String(data.data.longitude)
+                : "",
+          };
           setIsEditing(false);
           setPhotoFile(null);
           setPhotoPreview(null);
@@ -1705,6 +1818,19 @@ export default function Profile({ user, setUser }) {
                 label="Verified"
                 sx={{
                   bgcolor: "rgba(212, 175, 55, 0.15)",
+                  color: "#1a1a1a",
+                  fontWeight: 600,
+                }}
+              />
+            )}
+            {(isEditing ? birthYearAgePreview : userAge) !== "" && (
+              <Chip
+                icon={<Cake sx={{ color: "#D4AF37 !important" }} />}
+                label={`${
+                  isEditing ? birthYearAgePreview : userAge
+                } yrs`}
+                sx={{
+                  bgcolor: "rgba(212, 175, 55, 0.1)",
                   color: "#1a1a1a",
                   fontWeight: 600,
                 }}
@@ -2683,83 +2809,18 @@ export default function Profile({ user, setUser }) {
                 {user?.boost_score || 0}
               </Typography>
             </Box>
-            {boostTimeRemaining && (
-              <Box
-                sx={{
-                  mb: 2,
-                  p: 1.5,
-                  borderRadius: "8px",
-                  bgcolor: "rgba(212, 175, 55, 0.1)",
-                  border: "1px solid rgba(212, 175, 55, 0.3)",
-                }}
-              >
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: "rgba(26, 26, 26, 0.6)",
-                    fontWeight: 600,
-                    fontSize: { xs: "0.7rem", sm: "0.75rem" },
-                    display: "block",
-                    mb: 0.5,
-                  }}
-                >
-                  Active Boost Status
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    fontWeight: 600,
-                    color: "#D4AF37",
-                    fontSize: { xs: "0.875rem", sm: "1rem" },
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 0.5,
-                    mb: 0.5,
-                  }}
-                >
-                  <AccessTime sx={{ fontSize: "1rem" }} />
-                  {boostTimeRemaining.hours}h {boostTimeRemaining.minutes}m
-                  remaining
-                </Typography>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: "rgba(26, 26, 26, 0.7)",
-                    fontSize: { xs: "0.7rem", sm: "0.75rem" },
-                    display: "block",
-                  }}
-                >
-                  ✓ Featured in homepage carousel • ✓ Priority ranking in search
-                </Typography>
-              </Box>
-            )}
-            <Button
-              variant="contained"
-              fullWidth
-              startIcon={<TrendingUp />}
-              onClick={() => setBoostDialogOpen(true)}
-              disabled={isEditing}
+            <Alert
+              severity="info"
               sx={{
                 mt: 1,
-                background: isEditing
-                  ? "rgba(212, 175, 55, 0.3)"
-                  : "linear-gradient(45deg, #D4AF37, #B8941F)",
-                color: "#1a1a1a",
-                fontWeight: 700,
-                borderRadius: "12px",
-                py: 1.5,
-                "&:hover": {
-                  background: isEditing
-                    ? "rgba(212, 175, 55, 0.3)"
-                    : "linear-gradient(45deg, #B8941F, #9A7A1A)",
-                  boxShadow: isEditing
-                    ? "none"
-                    : "0 8px 24px rgba(212, 175, 55, 0.4)",
-                },
+                borderRadius: "10px",
+                bgcolor: "rgba(212, 175, 55, 0.08)",
+                border: "1px solid rgba(212, 175, 55, 0.2)",
+                color: "rgba(26, 26, 26, 0.7)",
               }}
             >
-              {boostTimeRemaining ? "Extend Boost" : "Boost Profile"}
-            </Button>
+              Manage your profile boosts directly from the dashboard.
+            </Alert>
           </Box>
         </Card>
 
@@ -2827,15 +2888,26 @@ export default function Profile({ user, setUser }) {
             </FormControl>
             <TextField
               fullWidth
-              label="Age"
-              name="age"
+              label="Year of Birth"
+              name="birthYear"
               type="number"
-              value={formData.age}
+              value={formData.birthYear}
               onChange={handleChange}
               disabled={!isEditing}
+              inputProps={{
+                min: 1900,
+                max: new Date().getFullYear(),
+              }}
               InputProps={{
                 startAdornment: <Cake sx={{ mr: 1, color: "#D4AF37" }} />,
               }}
+              helperText={
+                formData.birthYear
+                  ? birthYearAgePreview !== ""
+                    ? `Calculated age: ${birthYearAgePreview}`
+                    : "Enter a valid year between 1900 and the current year"
+                  : ""
+              }
               sx={{
                 "& .MuiOutlinedInput-root": {
                   "&:hover fieldset": {
@@ -2946,34 +3018,71 @@ export default function Profile({ user, setUser }) {
                 >
                   Location Coordinates
                 </Typography>
-                {isEditing && (
-                  <Button
-                    startIcon={
+                <Stack
+                  direction={{ xs: "column", sm: "row" }}
+                  spacing={1}
+                  alignItems={{ xs: "stretch", sm: "center" }}
+                  sx={{ width: "100%" }}
+                >
+                  <Chip
+                    size="small"
+                    icon={
                       locationLoading ? (
-                        <CircularProgress size={16} />
+                        <Pending sx={{ color: "#D4AF37 !important" }} />
+                      ) : isLocationTracking ? (
+                        <CheckCircle sx={{ color: "#2e7d32 !important" }} />
                       ) : (
-                        <MyLocation />
+                        <CancelIcon sx={{ color: "#b71c1c !important" }} />
                       )
                     }
-                    onClick={handleGetCurrentLocation}
-                    disabled={locationLoading}
-                    variant="outlined"
-                    size="small"
+                    label={
+                      locationLoading
+                        ? "Starting live tracking..."
+                        : isLocationTracking
+                        ? "Live tracking on"
+                        : "Live tracking off"
+                    }
                     sx={{
-                      borderColor: "rgba(212, 175, 55, 0.5)",
-                      color: "#D4AF37",
                       fontWeight: 600,
-                      textTransform: "none",
-                      borderRadius: "8px",
-                      "&:hover": {
-                        borderColor: "#D4AF37",
-                        backgroundColor: "rgba(212, 175, 55, 0.1)",
+                      color: isLocationTracking ? "#2e7d32" : "#1a1a1a",
+                      backgroundColor: isLocationTracking
+                        ? "rgba(46, 125, 50, 0.15)"
+                        : "rgba(212, 175, 55, 0.15)",
+                      "& .MuiChip-icon": {
+                        color: "inherit",
                       },
                     }}
-                  >
-                    Use Current Location
-                  </Button>
-                )}
+                  />
+                  {isEditing && (
+                    <Button
+                      startIcon={
+                        locationLoading ? (
+                          <CircularProgress size={16} />
+                        ) : (
+                          <MyLocation />
+                        )
+                      }
+                      onClick={handleGetCurrentLocation}
+                      disabled={locationLoading}
+                      variant="outlined"
+                      size="small"
+                    sx={{
+                        borderColor: "rgba(212, 175, 55, 0.5)",
+                        color: "#D4AF37",
+                        fontWeight: 600,
+                        textTransform: "none",
+                        borderRadius: "8px",
+                      width: { xs: "100%", sm: "auto" },
+                        "&:hover": {
+                          borderColor: "#D4AF37",
+                          backgroundColor: "rgba(212, 175, 55, 0.1)",
+                        },
+                      }}
+                    >
+                      Refresh Location
+                    </Button>
+                  )}
+                </Stack>
               </Box>
               <TextField
                 fullWidth
@@ -3407,290 +3516,6 @@ export default function Profile({ user, setUser }) {
           </Box>
         </Card>
       </Box>
-
-      {/* Boost Profile Dialog */}
-      <Dialog
-        open={boostDialogOpen && !isEditing}
-        onClose={() => !boosting && setBoostDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: "20px",
-            border: "1px solid rgba(212, 175, 55, 0.3)",
-            boxShadow: "0 20px 60px rgba(212, 175, 55, 0.25)",
-          },
-        }}
-      >
-        <DialogTitle
-          sx={{
-            background: "linear-gradient(45deg, #D4AF37, #B8941F)",
-            color: "#1a1a1a",
-            fontWeight: 700,
-            display: "flex",
-            alignItems: "center",
-            gap: 1,
-            py: 2,
-          }}
-        >
-          <TrendingUp />
-          {boostTimeRemaining ? "Extend Profile Boost" : "Boost Your Profile"}
-        </DialogTitle>
-        <DialogContent sx={{ pt: 3 }}>
-          <Alert
-            severity="info"
-            sx={{
-              mb: 3,
-              borderRadius: "12px",
-              bgcolor: "rgba(212, 175, 55, 0.1)",
-              border: "1px solid rgba(212, 175, 55, 0.3)",
-            }}
-          >
-            <Typography
-              variant="subtitle2"
-              sx={{ fontWeight: 700, mb: 1, color: "#1a1a1a" }}
-            >
-              Why Boost Your Profile?
-            </Typography>
-            <Box
-              component="ul"
-              sx={{ m: 0, pl: 2.5, "& li": { mb: 1, fontSize: "0.875rem" } }}
-            >
-              <li>
-                <strong>Higher Visibility:</strong> Boosted profiles appear
-                FIRST in search results and Explore page
-              </li>
-              <li>
-                <strong>Featured Section:</strong> Your profile appears in the
-                homepage featured carousel for maximum exposure
-              </li>
-              <li>
-                <strong>More Profile Views:</strong> Increased visibility means
-                more people discover and view your profile
-              </li>
-              <li>
-                <strong>Boost Score:</strong> Each boost permanently increases
-                your boost score, providing long-term ranking benefits
-              </li>
-              <li>
-                <strong>Active Boost Priority:</strong> Profiles with active
-                boosts rank above non-boosted profiles, even after your boost
-                expires
-              </li>
-            </Box>
-            {boostTimeRemaining && (
-              <Box
-                sx={{
-                  mt: 2,
-                  pt: 2,
-                  borderTop: "1px solid rgba(212, 175, 55, 0.3)",
-                }}
-              >
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  <strong>Active Boost:</strong> {boostTimeRemaining.hours}h{" "}
-                  {boostTimeRemaining.minutes}m remaining
-                </Typography>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: "rgba(26, 26, 26, 0.6)",
-                    display: "block",
-                    mt: 0.5,
-                  }}
-                >
-                  Extending now will add time to your current boost
-                </Typography>
-              </Box>
-            )}
-          </Alert>
-
-          <Box sx={{ mb: 3 }}>
-            <Typography
-              variant="h6"
-              sx={{ fontWeight: 700, mb: 2, color: "#1a1a1a" }}
-            >
-              Boost Options
-            </Typography>
-            <Stack spacing={2}>
-              <Card
-                sx={{
-                  p: 2,
-                  border: "2px solid #D4AF37",
-                  borderRadius: "12px",
-                  cursor: "pointer",
-                  transition: "all 0.3s",
-                  position: "relative",
-                  "&:hover": {
-                    boxShadow: "0 4px 12px rgba(212, 175, 55, 0.3)",
-                  },
-                }}
-                onClick={() => handleBoostProfile(24, 20)}
-              >
-                <Chip
-                  label="POPULAR"
-                  size="small"
-                  sx={{
-                    position: "absolute",
-                    top: 8,
-                    right: 8,
-                    bgcolor: "#D4AF37",
-                    color: "#1a1a1a",
-                    fontWeight: 700,
-                    fontSize: "0.7rem",
-                  }}
-                />
-                <Box
-                  sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <Box sx={{ pr: 6 }}>
-                    <Typography
-                      variant="h6"
-                      sx={{ fontWeight: 700, color: "#1a1a1a" }}
-                    >
-                      24 Hours
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      sx={{ color: "rgba(26, 26, 26, 0.6)", mb: 0.5 }}
-                    >
-                      Standard boost duration
-                    </Typography>
-                    <Typography
-                      variant="caption"
-                      sx={{ color: "rgba(26, 26, 26, 0.7)", display: "block" }}
-                    >
-                      Best value for regular visibility boost
-                    </Typography>
-                  </Box>
-                  <Typography
-                    variant="h6"
-                    sx={{ fontWeight: 700, color: "#D4AF37" }}
-                  >
-                    20 Tokens
-                  </Typography>
-                </Box>
-              </Card>
-
-              <Card
-                sx={{
-                  p: 2,
-                  border: "1px solid rgba(212, 175, 55, 0.3)",
-                  borderRadius: "12px",
-                  cursor: "pointer",
-                  transition: "all 0.3s",
-                  "&:hover": {
-                    borderColor: "#D4AF37",
-                    boxShadow: "0 4px 12px rgba(212, 175, 55, 0.2)",
-                  },
-                }}
-                onClick={() => handleBoostProfile(48, 38)}
-              >
-                <Box
-                  sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <Box>
-                    <Typography
-                      variant="h6"
-                      sx={{ fontWeight: 700, color: "#1a1a1a" }}
-                    >
-                      48 Hours
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      sx={{ color: "rgba(26, 26, 26, 0.6)" }}
-                    >
-                      Extended visibility
-                    </Typography>
-                  </Box>
-                  <Typography
-                    variant="h6"
-                    sx={{ fontWeight: 700, color: "#D4AF37" }}
-                  >
-                    38 Tokens
-                  </Typography>
-                </Box>
-              </Card>
-
-              <Card
-                sx={{
-                  p: 2,
-                  border: "1px solid rgba(212, 175, 55, 0.3)",
-                  borderRadius: "12px",
-                  cursor: "pointer",
-                  transition: "all 0.3s",
-                  "&:hover": {
-                    borderColor: "#D4AF37",
-                    boxShadow: "0 4px 12px rgba(212, 175, 55, 0.2)",
-                  },
-                }}
-                onClick={() => handleBoostProfile(72, 55)}
-              >
-                <Box
-                  sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <Box>
-                    <Typography
-                      variant="h6"
-                      sx={{ fontWeight: 700, color: "#1a1a1a" }}
-                    >
-                      72 Hours
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      sx={{ color: "rgba(26, 26, 26, 0.6)" }}
-                    >
-                      Maximum visibility
-                    </Typography>
-                  </Box>
-                  <Typography
-                    variant="h6"
-                    sx={{ fontWeight: 700, color: "#D4AF37" }}
-                  >
-                    55 Tokens
-                  </Typography>
-                </Box>
-              </Card>
-            </Stack>
-          </Box>
-
-          <Alert
-            severity="warning"
-            sx={{ borderRadius: "12px", bgcolor: "rgba(255, 152, 0, 0.1)" }}
-          >
-            <Typography variant="body2">
-              <strong>Current Balance:</strong> {user?.token_balance || "0.00"}{" "}
-              Tokens
-            </Typography>
-          </Alert>
-        </DialogContent>
-        <DialogActions sx={{ p: 3, pt: 2 }}>
-          <Button
-            onClick={() => setBoostDialogOpen(false)}
-            disabled={boosting}
-            sx={{
-              color: "rgba(26, 26, 26, 0.7)",
-              fontWeight: 600,
-            }}
-          >
-            Cancel
-          </Button>
-          {boosting && (
-            <CircularProgress size={24} sx={{ color: "#D4AF37", ml: 2 }} />
-          )}
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 }
