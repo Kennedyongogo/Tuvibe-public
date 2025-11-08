@@ -152,6 +152,8 @@ export default function Profile({ user, setUser }) {
     latitude: user?.latitude?.toString() || "",
     longitude: user?.longitude?.toString() || "",
   });
+  const [boostStatus, setBoostStatus] = useState({ status: "unknown", boost: null });
+  const [loadingBoostStatus, setLoadingBoostStatus] = useState(false);
 
   const userAge = useMemo(() => resolveAgeFromUser(user), [user]);
   const birthYearAgePreview = useMemo(
@@ -1394,6 +1396,38 @@ export default function Profile({ user, setUser }) {
       return "N/A";
     }
   };
+
+  useEffect(() => {
+    const fetchBoostStatus = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setBoostStatus({ status: "inactive", boost: null });
+        return;
+      }
+
+      setLoadingBoostStatus(true);
+      try {
+        const response = await fetch("/api/public/boosts/status", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data = await response.json();
+        if (response.ok && data.success) {
+          setBoostStatus(data.data || { status: "inactive", boost: null });
+        } else {
+          setBoostStatus({ status: "inactive", boost: null });
+        }
+      } catch (error) {
+        console.error("Error fetching boost status:", error);
+        setBoostStatus({ status: "inactive", boost: null });
+      } finally {
+        setLoadingBoostStatus(false);
+      }
+    };
+
+    fetchBoostStatus();
+  }, [user?.id]);
 
   return (
     <Box>
@@ -2741,11 +2775,13 @@ export default function Profile({ user, setUser }) {
                   fontSize: { xs: "1rem", sm: "1.25rem" },
                 }}
               >
-                {user?.active_boost_until
-                  ? `Active until ${new Date(
-                      user.active_boost_until
-                    ).toLocaleString()}`
-                  : "No active boost"}
+                {loadingBoostStatus
+                  ? "Checking boost status..."
+                  : boostStatus?.status === "active" && boostStatus?.boost?.ends_at
+                    ? `Active until ${new Date(
+                        boostStatus.boost.ends_at
+                      ).toLocaleString()}`
+                    : "No active boost"}
               </Typography>
             </Box>
             <Alert

@@ -27,9 +27,11 @@ import {
   Avatar,
   ListItemText,
   Divider,
-  Autocomplete,
 } from "@mui/material";
 import { keyframes } from "@mui/system";
+import Autocomplete, {
+  createFilterOptions,
+} from "@mui/material/Autocomplete";
 import {
   Explore,
   Store,
@@ -46,6 +48,7 @@ import {
   Favorite,
   LockOpen,
   NotificationsActive,
+  MyLocation,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
@@ -56,6 +59,7 @@ import {
   describeExchangeRate,
 } from "../utils/pricing";
 import { KENYA_COUNTIES, normalizeCountyName } from "../data/kenyaCounties";
+import GeoTargetPicker from "../components/Boost/GeoTargetPicker";
 
 const goldShine = keyframes`
   0% {
@@ -75,6 +79,23 @@ const goldShine = keyframes`
 const BOOST_CATEGORIES = ["Regular", "Sugar Mummy", "Sponsor", "Ben 10"];
 const MIN_BOOST_HOURS = 1;
 const MAX_BOOST_HOURS = 6;
+const DEFAULT_BOOST_RADIUS_KM = 10;
+const MIN_BOOST_RADIUS_KM = 1;
+const MAX_BOOST_RADIUS_KM = 200;
+
+const normalizeSearchText = (value) =>
+  (value || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+const parseNumericValue = (value) => {
+  if (value === null || value === undefined) return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+};
 
 export default function Dashboard({ user, setUser }) {
   const navigate = useNavigate();
@@ -104,17 +125,92 @@ export default function Dashboard({ user, setUser }) {
   const [loadingTargetedBoosts, setLoadingTargetedBoosts] = useState(false);
   const [targetedDialogOpen, setTargetedDialogOpen] = useState(false);
   const targetedCount = targetedBoosts.length;
+  const [boostLatitude, setBoostLatitude] = useState(null);
+  const [boostLongitude, setBoostLongitude] = useState(null);
+  const [viewerLatitude, setViewerLatitude] = useState(
+    parseNumericValue(user?.latitude)
+  );
+  const [viewerLongitude, setViewerLongitude] = useState(
+    parseNumericValue(user?.longitude)
+  );
+  const [boostRadiusKm, setBoostRadiusKm] = useState(DEFAULT_BOOST_RADIUS_KM);
+  const [locatingBoost, setLocatingBoost] = useState(false);
+  const [locationError, setLocationError] = useState("");
+  const [targetedBoostsError, setTargetedBoostsError] = useState(null);
+  const locationRequestedRef = React.useRef(false);
+  const sanitizedBoostRadiusKm = Math.min(
+    MAX_BOOST_RADIUS_KM,
+    Math.max(
+      MIN_BOOST_RADIUS_KM,
+      Number.parseFloat(boostRadiusKm) || DEFAULT_BOOST_RADIUS_KM
+    )
+  );
+  const targetedTooltip = loadingTargetedBoosts
+    ? "Checking for matching boosts..."
+    : targetedBoostsError
+      ? targetedBoostsError
+      : targetedCount > 0
+        ? `${targetedCount} boost match${targetedCount > 1 ? "es" : ""}`
+        : "No targeted boosts yet";
 
   const handleOpenTargetedDialog = () => setTargetedDialogOpen(true);
   const handleCloseTargetedDialog = () => setTargetedDialogOpen(false);
 
   const programmaticBoostCloseRef = React.useRef(false);
 
+  const requestCurrentLocation = useCallback(
+    ({ applyToBoost = false, onComplete } = {}) => {
+      if (typeof navigator === "undefined" || !navigator.geolocation) {
+        setLocationError(
+          "Geolocation is not supported by this device or browser."
+        );
+        if (onComplete) onComplete(false);
+        return;
+      }
+
+      setLocatingBoost(true);
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setLocatingBoost(false);
+          setLocationError("");
+          setViewerLatitude(latitude);
+          setViewerLongitude(longitude);
+          if (applyToBoost) {
+            setBoostLatitude(latitude);
+            setBoostLongitude(longitude);
+          }
+          if (onComplete) onComplete(true);
+        },
+        (error) => {
+          setLocatingBoost(false);
+          setLocationError(
+            error?.message || "Unable to fetch your current location."
+          );
+          if (onComplete) onComplete(false);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 30000,
+        }
+      );
+    },
+    []
+  );
+
   const resetBoostForm = useCallback(() => {
     setBoostCategory(user?.category || "Regular");
     setBoostArea(normalizeCountyName(user?.county) || "");
     setBoostHours(MIN_BOOST_HOURS);
-  }, [user?.category, user?.county]);
+    setBoostRadiusKm(DEFAULT_BOOST_RADIUS_KM);
+    setLocationError("");
+  }, [
+    user?.category,
+    user?.county,
+    user?.latitude,
+    user?.longitude,
+  ]);
 
   const openBoostDialog = useCallback(
     (shouldReset = true) => {
@@ -126,6 +222,22 @@ export default function Dashboard({ user, setUser }) {
     },
     [resetBoostForm]
   );
+
+  useEffect(() => {
+    if (!locationRequestedRef.current) {
+      locationRequestedRef.current = true;
+      requestCurrentLocation({ applyToBoost: false });
+    }
+  }, [requestCurrentLocation]);
+
+  useEffect(() => {
+    const latFromProfile = parseNumericValue(user?.latitude);
+    const lngFromProfile = parseNumericValue(user?.longitude);
+    if (latFromProfile !== null && lngFromProfile !== null) {
+      setViewerLatitude(latFromProfile);
+      setViewerLongitude(lngFromProfile);
+    }
+  }, [user?.latitude, user?.longitude]);
 
   const handleCloseBoostDialog = useCallback(() => {
     programmaticBoostCloseRef.current = false;
@@ -332,6 +444,26 @@ export default function Dashboard({ user, setUser }) {
       return;
     }
 
+    if (boostLatitude === null || boostLongitude === null) {
+      Swal.fire({
+        icon: "warning",
+        title: "Set Target Location",
+        text: "Allow location access or choose a location on the map before boosting.",
+        confirmButtonColor: "#D4AF37",
+      });
+      return;
+    }
+
+    if (!Number.isFinite(sanitizedBoostRadiusKm)) {
+      Swal.fire({
+        icon: "warning",
+        title: "Invalid Radius",
+        text: "Provide a radius between 1 km and 200 km for your boost.",
+        confirmButtonColor: "#D4AF37",
+      });
+      return;
+    }
+
     const hours = Math.min(
       MAX_BOOST_HOURS,
       Math.max(
@@ -389,13 +521,15 @@ export default function Dashboard({ user, setUser }) {
         icon: "question",
         title: "Confirm Profile Boost",
         html: `
-          <p>Targeting <strong>${boostCategory}</strong> audience in <strong>${targetCounty}</strong>.</p>
-          <p>Duration: <strong>${hours} hour${hours > 1 ? "s" : ""}</strong></p>
-          <p>Cost: <strong>${totalTokens} tokens</strong> (${formatKshFromTokens(totalTokens)})</p>
-          <p style="font-size: 0.85rem; color: #666; margin-top: 8px;">Each hour costs ${BOOST_PRICE_TOKENS} tokens (${formatKshFromTokens(
-            BOOST_PRICE_TOKENS
-          )}).</p>
+          <div style="font-size: 0.9rem; line-height: 1.35; text-align: left;">
+            <p style="margin: 0 0 6px 0;"><strong>Targeting:</strong> ${boostCategory} audience in <strong>${targetCounty}</strong>.</p>
+            <p style="margin: 0 0 6px 0;"><strong>Duration:</strong> ${hours} hour${hours > 1 ? "s" : ""}</p>
+            <p style="margin: 0 0 6px 0;"><strong>Radius:</strong> ${sanitizedBoostRadiusKm.toFixed(1)} km</p>
+            <p style="margin: 0 0 10px 0;"><strong>Cost:</strong> ${totalTokens} tokens (${formatKshFromTokens(totalTokens)})</p>
+            <p style="font-size: 0.82rem; color: #555; margin: 0;">Each hour costs ${BOOST_PRICE_TOKENS} tokens (${formatKshFromTokens(BOOST_PRICE_TOKENS)}).</p>
+          </div>
         `,
+        width: 420,
         showCancelButton: true,
         confirmButtonText: "Boost Now",
         cancelButtonText: "Cancel",
@@ -421,6 +555,9 @@ export default function Dashboard({ user, setUser }) {
           body: JSON.stringify({
             targetCategory: boostCategory,
             targetArea: targetCounty,
+            targetLatitude: boostLatitude,
+            targetLongitude: boostLongitude,
+            targetRadiusKm: sanitizedBoostRadiusKm,
           }),
         });
 
@@ -589,22 +726,42 @@ export default function Dashboard({ user, setUser }) {
   };
 
   const fetchTargetedBoosts = useCallback(async () => {
-    if (!user?.category || !user?.county) {
+    if (!user?.category) {
       setTargetedBoosts([]);
+      setTargetedBoostsError(
+        "Set your category to see boosts targeting you."
+      );
       return;
     }
 
     const token = localStorage.getItem("token");
     if (!token) {
       setTargetedBoosts([]);
+      setTargetedBoostsError("Login to view boosts targeting you.");
+      return;
+    }
+
+    const latForQuery =
+      viewerLatitude ?? parseNumericValue(user?.latitude) ?? null;
+    const lngForQuery =
+      viewerLongitude ?? parseNumericValue(user?.longitude) ?? null;
+
+    if (latForQuery === null || lngForQuery === null) {
+      setTargetedBoosts([]);
+      setTargetedBoostsError(
+        "Enable location services to see boosts targeting your current area."
+      );
       return;
     }
 
     setLoadingTargetedBoosts(true);
+    setTargetedBoostsError(null);
     try {
       const params = new URLSearchParams();
-      params.set("area", user.county);
       params.set("category", user.category);
+      params.set("lat", latForQuery);
+      params.set("lng", lngForQuery);
+
       const response = await fetch(
         `/api/public/boosts/targeted?${params.toString()}`,
         {
@@ -614,24 +771,38 @@ export default function Dashboard({ user, setUser }) {
         }
       );
       const data = await response.json();
-      if (data.success) {
+      if (response.ok && data.success) {
         setTargetedBoosts(data.data?.matches || []);
+        setTargetedBoostsError(null);
       } else {
         setTargetedBoosts([]);
+        setTargetedBoostsError(
+          data.message || "Unable to load boosts targeting you right now."
+        );
       }
     } catch (err) {
       console.error("Error fetching targeted boosts:", err);
       setTargetedBoosts([]);
+      setTargetedBoostsError(
+        "We couldn't refresh boosts for your location. Please try again."
+      );
     } finally {
       setLoadingTargetedBoosts(false);
     }
-  }, [user?.category, user?.county]);
+  }, [user?.category, user?.latitude, user?.longitude, viewerLatitude, viewerLongitude]);
 
   useEffect(() => {
     fetchTargetedBoosts();
   }, [fetchTargetedBoosts]);
 
-  const handleRefreshTargetedBoosts = () => fetchTargetedBoosts();
+  const handleRefreshTargetedBoosts = () => {
+    requestCurrentLocation({
+      applyToBoost: false,
+      onComplete: () => {
+        fetchTargetedBoosts();
+      },
+    });
+  };
 
   return (
     <Box>
@@ -651,7 +822,11 @@ export default function Dashboard({ user, setUser }) {
             variant="h4"
             sx={{
               fontWeight: 700,
-              mb: 1,
+              mb: { xs: 1, sm: 0.5 },
+              fontSize: { xs: "1.6rem", sm: "2rem", md: "2.2rem", lg: "2.4rem" },
+              whiteSpace: { xs: "normal", md: "nowrap" },
+              overflow: "hidden",
+              textOverflow: "ellipsis",
               background: "linear-gradient(45deg, #D4AF37, #B8941F)",
               backgroundClip: "text",
               WebkitBackgroundClip: "text",
@@ -660,113 +835,125 @@ export default function Dashboard({ user, setUser }) {
           >
             Welcome back, {user?.name || "User"}!
           </Typography>
-          <Typography variant="body1" sx={{ color: "rgba(26, 26, 26, 0.7)" }}>
+          <Typography
+            variant="body1"
+            sx={{
+              color: "rgba(26, 26, 26, 0.7)",
+              fontSize: { xs: "0.9rem", sm: "0.95rem", md: "1rem" },
+              whiteSpace: { xs: "normal", lg: "nowrap" },
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
             Discover, connect, and explore the TuVibe community
           </Typography>
         </Box>
-        <Button
+        <Box
           sx={{
-            position: "relative",
-            borderRadius: "999px",
-            padding: { xs: "10px 28px", sm: "12px 36px" },
-            background:
-              "linear-gradient(135deg, rgba(255, 220, 128, 1), rgba(212, 175, 55, 1))",
-            color: "#1a1a1a",
-            fontWeight: 700,
-            textTransform: "none",
-            letterSpacing: "0.5px",
-            display: "inline-flex",
+            display: "flex",
             alignItems: "center",
             gap: 1,
-            transition: "all 0.3s ease",
-            boxShadow: `
-              0 18px 28px rgba(212, 175, 55, 0.45),
-              0 12px 20px rgba(0, 0, 0, 0.12)
-              `,
-            border: "1px solid rgba(212, 175, 55, 0.4)",
-            "&::before": {
-              content: '""',
-              position: "absolute",
-              inset: { xs: "-6px", sm: "-8px", md: "-10px" },
-              borderRadius: "999px",
-              border: "1px solid rgba(212, 175, 55, 0.35)",
-              boxShadow: `
-                0 0 16px rgba(212, 175, 55, 0.4),
-                0 0 40px rgba(255, 215, 0, 0.35)
-              `,
-              opacity: 0,
-              transition: "opacity 0.4s ease",
-            },
-            "&:hover": {
-              background:
-                "linear-gradient(135deg, rgba(255, 230, 80, 1), rgba(212, 175, 55, 1))",
-              boxShadow: `
-                0 18px 32px rgba(212, 175, 55, 0.45),
-                0 0 18px rgba(255, 215, 0, 0.75)
-              `,
-              transform: "translateY(-2px)",
-              "&::before": {
-                opacity: 0.8,
-              },
-            },
-            "&:active": {
-              transform: "translateY(0)",
-              boxShadow: `
-                0 10px 20px rgba(212, 175, 55, 0.35),
-                0 0 12px rgba(255, 215, 0, 0.6)
-              `,
-            },
-            "&::after": {
-              content: '""',
-              position: "absolute",
-              inset: { xs: "-12px", sm: "-10px", md: "-12px" },
-              borderRadius: "999px",
-              border: "2px solid rgba(255, 215, 0, 0.6)",
-              boxShadow: "0 0 18px rgba(255, 215, 0, 0.55)",
-              opacity: 0.5,
-              animation: `${goldShine} 3.2s ease-in-out infinite`,
-              pointerEvents: "none",
-              zIndex: -1,
-            },
+            width: "100%",
+            justifyContent: { xs: "space-between", sm: "flex-end" },
           }}
-          onClick={() => openBoostDialog(true)}
-          disabled={boosting}
         >
-          Boost Profile
-        </Button>
-        <Tooltip
-          title={
-            loadingTargetedBoosts
-              ? "Checking for matching boosts..."
-              : targetedCount > 0
-                ? `${targetedCount} boost match${targetedCount > 1 ? "es" : ""}`
-                : "No targeted boosts yet"
-          }
-          arrow
-        >
-          <span>
-            <IconButton
-              onClick={handleOpenTargetedDialog}
-              disabled={loadingTargetedBoosts || targetedCount === 0}
-              sx={{
-                ml: 1,
-                backgroundColor: "rgba(212, 175, 55, 0.12)",
-                border: "1px solid rgba(212, 175, 55, 0.3)",
-                "&:hover": {
-                  backgroundColor: "rgba(212, 175, 55, 0.22)",
+          <Button
+            sx={{
+              position: "relative",
+              borderRadius: "999px",
+              padding: { xs: "10px 20px", sm: "12px 36px" },
+              background:
+                "linear-gradient(135deg, rgba(255, 220, 128, 1), rgba(212, 175, 55, 1))",
+              color: "#1a1a1a",
+              fontWeight: 700,
+              textTransform: "none",
+              letterSpacing: "0.5px",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 1,
+              transition: "all 0.3s ease",
+              boxShadow: `
+                0 18px 28px rgba(212, 175, 55, 0.45),
+                0 12px 20px rgba(0, 0, 0, 0.12)
+                `,
+              border: "1px solid rgba(212, 175, 55, 0.4)",
+              minWidth: { xs: "auto", sm: "unset" },
+              flexShrink: 0,
+              "&::before": {
+                content: '""',
+                position: "absolute",
+                inset: { xs: "-6px", sm: "-8px", md: "-10px" },
+                borderRadius: "999px",
+                border: "1px solid rgba(212, 175, 55, 0.35)",
+                boxShadow: `
+                  0 0 16px rgba(212, 175, 55, 0.4),
+                  0 0 40px rgba(255, 215, 0, 0.35)
+                `,
+                opacity: 0,
+                transition: "opacity 0.4s ease",
+              },
+              "&:hover": {
+                background:
+                  "linear-gradient(135deg, rgba(255, 230, 80, 1), rgba(212, 175, 55, 1))",
+                boxShadow: `
+                  0 18px 32px rgba(212, 175, 55, 0.45),
+                  0 0 18px rgba(255, 215, 0, 0.75)
+                `,
+                transform: "translateY(-2px)",
+                "&::before": {
+                  opacity: 0.8,
                 },
-              }}
-            >
-              <Badge
-                badgeContent={targetedCount}
-                color="error"
-                overlap="circular"
+              },
+              "&:active": {
+                transform: "translateY(0)",
+                boxShadow: `
+                  0 10px 20px rgba(212, 175, 55, 0.35),
+                  0 0 12px rgba(255, 215, 0, 0.6)
+                `,
+              },
+              "&::after": {
+                content: '""',
+                position: "absolute",
+                inset: { xs: "-12px", sm: "-10px", md: "-12px" },
+                borderRadius: "999px",
+                border: "2px solid rgba(255, 215, 0, 0.6)",
+                boxShadow: "0 0 18px rgba(255, 215, 0, 0.55)",
+                opacity: 0.5,
+                animation: `${goldShine} 3.2s ease-in-out infinite`,
+                pointerEvents: "none",
+                zIndex: -1,
+              },
+            }}
+            onClick={() => openBoostDialog(true)}
+            disabled={boosting}
+          >
+            Boost Profile
+          </Button>
+          <Tooltip title={targetedTooltip} arrow>
+            <span>
+              <IconButton
+                onClick={handleOpenTargetedDialog}
+                disabled={loadingTargetedBoosts || targetedCount === 0}
+                sx={{
+                  backgroundColor: "rgba(212, 175, 55, 0.12)",
+                  border: "1px solid rgba(212, 175, 55, 0.3)",
+                  "&:hover": {
+                    backgroundColor: "rgba(212, 175, 55, 0.22)",
+                  },
+                  flexShrink: 0,
+                }}
               >
-                <NotificationsActive sx={{ color: "#D4AF37" }} />
-              </Badge>
-            </IconButton>
-          </span>
-        </Tooltip>
+                <Badge
+                  badgeContent={targetedCount}
+                  color="error"
+                  overlap="circular"
+                >
+                  <NotificationsActive sx={{ color: "#D4AF37" }} />
+                </Badge>
+              </IconButton>
+            </span>
+          </Tooltip>
+        </Box>
         {boostTimeRemaining ? (
           <Typography
             variant="caption"
@@ -1531,148 +1718,233 @@ export default function Dashboard({ user, setUser }) {
           <TrendingUp />
           {boostTimeRemaining ? "Extend Profile Boost" : "Boost Your Profile"}
         </DialogTitle>
-        <DialogContent sx={{ pt: 3 }}>
-          <Alert
-            severity="info"
+        <DialogContent
+          sx={{
+            pt: 3,
+            pb: 0,
+            display: "flex",
+            flexDirection: "column",
+            maxHeight: { xs: "calc(100vh - 160px)", sm: "calc(100vh - 200px)" },
+          }}
+        >
+          <Box
             sx={{
-              mb: 3,
-              borderRadius: "12px",
-              bgcolor: "rgba(212, 175, 55, 0.1)",
-              border: "1px solid rgba(212, 175, 55, 0.3)",
+              flex: 1,
+              overflowY: "auto",
+              pr: 0.5,
+              pb: 3,
             }}
           >
-            <Typography
-              variant="subtitle2"
-              sx={{ fontWeight: 700, mb: 1, color: "#1a1a1a" }}
-            >
-              Why Boost Your Profile?
-            </Typography>
-            <Box
-              component="ul"
-              sx={{ m: 0, pl: 2.5, "& li": { mb: 1, fontSize: "0.875rem" } }}
-            >
-              <li>
-                <strong>Higher Visibility:</strong> Boosted profiles appear
-                first in Explore and featured sections.
-              </li>
-              <li>
-                <strong>Targeted Audience:</strong> Pick who should see you and
-                where they are logging in from.
-              </li>
-              <li>
-                <strong>Affordable:</strong> Each hour costs{" "}
-                {BOOST_PRICE_TOKENS} tokens (
-                {formatKshFromTokens(BOOST_PRICE_TOKENS)}) —{" "}
-                {describeExchangeRate()}.
-              </li>
-            </Box>
-          </Alert>
-
-          <Stack spacing={2.5}>
-            <FormControl fullWidth>
-              <InputLabel id="boost-category-label">Target category</InputLabel>
-              <Select
-                labelId="boost-category-label"
-                value={boostCategory}
-                label="Target category"
-                onChange={(event) => setBoostCategory(event.target.value)}
-                disabled={boosting}
-              >
-                {BOOST_CATEGORIES.map((categoryOption) => (
-                  <MenuItem key={categoryOption} value={categoryOption}>
-                    {categoryOption}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <Autocomplete
-              options={KENYA_COUNTIES}
-              value={boostArea || null}
-              onChange={(_event, newValue) => setBoostArea(newValue || "")}
-              autoHighlight
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Target county"
-                  helperText="People logging in from this county will see your boost first."
-                />
-              )}
-              disabled={boosting}
-              fullWidth
-            />
-
-            <TextField
-              label="Hours to boost"
-              type="number"
-              value={boostHours}
-              onChange={(event) => setBoostHours(event.target.value)}
-              inputProps={{
-                min: MIN_BOOST_HOURS,
-                max: MAX_BOOST_HOURS,
-              }}
-              helperText={`Choose between ${MIN_BOOST_HOURS} and ${MAX_BOOST_HOURS} hours per boost.`}
-              fullWidth
-              disabled={boosting}
-            />
-
             <Alert
-              severity="success"
+              severity="info"
               sx={{
+                mb: 3,
                 borderRadius: "12px",
-                bgcolor: "rgba(76, 175, 80, 0.08)",
-                border: "1px solid rgba(76, 175, 80, 0.2)",
-                color: "rgba(26, 26, 26, 0.8)",
+                bgcolor: "rgba(212, 175, 55, 0.1)",
+                border: "1px solid rgba(212, 175, 55, 0.3)",
               }}
             >
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                Cost preview
+              <Typography
+                variant="subtitle2"
+                sx={{ fontWeight: 700, mb: 1, color: "#1a1a1a" }}
+              >
+                Why Boost Your Profile?
               </Typography>
-              <Typography variant="body2">
-                {totalBoostTokens.toLocaleString()} tokens (
-                {formatKshFromTokens(totalBoostTokens)}) for{" "}
-                {sanitizedBoostHours} hour
-                {sanitizedBoostHours > 1 ? "s" : ""}.
-              </Typography>
+              <Box
+                component="ul"
+                sx={{ m: 0, pl: 2.5, "& li": { mb: 1, fontSize: "0.875rem" } }}
+              >
+                <li>
+                  <strong>Higher Visibility:</strong> Boosted profiles appear
+                  first in Explore and featured sections.
+                </li>
+                <li>
+                  <strong>Targeted Audience:</strong> Pick who should see you
+                  and where they are logging in from.
+                </li>
+                <li>
+                  <strong>Affordable:</strong> Each hour costs {BOOST_PRICE_TOKENS} tokens (
+                  {formatKshFromTokens(BOOST_PRICE_TOKENS)}) — {describeExchangeRate()}.
+                </li>
+              </Box>
             </Alert>
 
-            {boostTimeRemaining && (
+            <Stack spacing={2.5}>
+              <FormControl fullWidth>
+                <InputLabel id="boost-category-label">Target category</InputLabel>
+                <Select
+                  labelId="boost-category-label"
+                  value={boostCategory}
+                  label="Target category"
+                  onChange={(event) => setBoostCategory(event.target.value)}
+                  disabled={boosting}
+                >
+                  {BOOST_CATEGORIES.map((categoryOption) => (
+                    <MenuItem key={categoryOption} value={categoryOption}>
+                      {categoryOption}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <TextField
+                label="Hours to boost"
+                type="number"
+                value={boostHours}
+                onChange={(event) => setBoostHours(event.target.value)}
+                inputProps={{
+                  min: MIN_BOOST_HOURS,
+                  max: MAX_BOOST_HOURS,
+                }}
+                helperText={`Choose between ${MIN_BOOST_HOURS} and ${MAX_BOOST_HOURS} hours per boost.`}
+                fullWidth
+                disabled={boosting}
+              />
+
+              <TextField
+                label="Target radius (km)"
+                type="number"
+                value={boostRadiusKm}
+                onChange={(event) => setBoostRadiusKm(event.target.value)}
+                inputProps={{
+                  min: MIN_BOOST_RADIUS_KM,
+                  max: MAX_BOOST_RADIUS_KM,
+                  step: 0.5,
+                }}
+                helperText={`Boost reaches users within ${sanitizedBoostRadiusKm.toFixed(1)} km of your target point.`}
+                fullWidth
+                disabled={boosting}
+              />
+
+              <GeoTargetPicker
+                latitude={boostLatitude}
+                longitude={boostLongitude}
+                radiusKm={sanitizedBoostRadiusKm}
+                onLocationChange={(lat, lon) => {
+                  setBoostLatitude(lat);
+                  setBoostLongitude(lon);
+                  setLocationError("");
+                }}
+                onRequestCurrentLocation={() =>
+                  requestCurrentLocation({
+                    applyToBoost: true,
+                    onComplete: (success) => {
+                      if (!success) {
+                        setBoostLatitude(null);
+                        setBoostLongitude(null);
+                      }
+                    },
+                  })
+                }
+                locating={boosting ? false : locatingBoost}
+                locationError={locationError}
+                onCountySuggested={(county) => {
+                  if (county) {
+                    setBoostArea(county);
+                  }
+                }}
+              />
+
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  flexWrap: "wrap",
+                }}
+              >
+                <Typography
+                  variant="body2"
+                  sx={{ fontWeight: 600, color: "rgba(26, 26, 26, 0.75)" }}
+                >
+                  Selected county:
+                </Typography>
+                <Chip
+                  label={boostArea || "None"}
+                  size="small"
+                  sx={{
+                    bgcolor: boostArea
+                      ? "rgba(212, 175, 55, 0.15)"
+                      : "rgba(0, 0, 0, 0.05)",
+                    color: "rgba(26, 26, 26, 0.8)",
+                    fontWeight: 600,
+                  }}
+                />
+                {!boostArea && (
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "rgba(26, 26, 26, 0.55)" }}
+                  >
+                    Use the map search above to choose a county.
+                  </Typography>
+                )}
+              </Box>
+
               <Alert
-                severity="warning"
+                severity="success"
                 sx={{
                   borderRadius: "12px",
-                  bgcolor: "rgba(255, 152, 0, 0.12)",
+                  bgcolor: "rgba(76, 175, 80, 0.08)",
+                  border: "1px solid rgba(76, 175, 80, 0.2)",
+                  color: "rgba(26, 26, 26, 0.8)",
                 }}
               >
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  Active boost remaining: {boostTimeRemaining.hours}h{" "}
-                  {boostTimeRemaining.minutes}m
+                  Cost preview
                 </Typography>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: "rgba(26, 26, 26, 0.7)",
-                    display: "block",
-                    mt: 0.5,
-                  }}
-                >
-                  Extending now will add time to your existing boost window.
+                <Typography variant="body2">
+                  {totalBoostTokens.toLocaleString()} tokens ({
+                    formatKshFromTokens(totalBoostTokens)
+                  }) for {sanitizedBoostHours} hour
+                  {sanitizedBoostHours > 1 ? "s" : ""} covering roughly {" "}
+                  {sanitizedBoostRadiusKm.toFixed(1)} km.
                 </Typography>
               </Alert>
-            )}
 
-            <Alert
-              severity="warning"
-              sx={{ borderRadius: "12px", bgcolor: "rgba(255, 193, 7, 0.12)" }}
-            >
-              <Typography variant="body2">
-                <strong>Current Balance:</strong>{" "}
-                {user?.token_balance || "0.00"} tokens
-              </Typography>
-            </Alert>
-          </Stack>
+              {boostTimeRemaining && (
+                <Alert
+                  severity="warning"
+                  sx={{
+                    borderRadius: "12px",
+                    bgcolor: "rgba(255, 152, 0, 0.12)",
+                  }}
+                >
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    Active boost remaining: {boostTimeRemaining.hours}h {" "}
+                    {boostTimeRemaining.minutes}m
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "rgba(26, 26, 26, 0.7)",
+                      display: "block",
+                      mt: 0.5,
+                    }}
+                  >
+                    Extending now will add time to your existing boost window.
+                  </Typography>
+                </Alert>
+              )}
+
+              <Alert
+                severity="warning"
+                sx={{ borderRadius: "12px", bgcolor: "rgba(255, 193, 7, 0.12)" }}
+              >
+                <Typography variant="body2">
+                  <strong>Current Balance:</strong> {user?.token_balance || "0.00"} tokens
+                </Typography>
+              </Alert>
+            </Stack>
+          </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 3, pt: 2 }}>
+        <DialogActions
+          sx={{
+            p: 3,
+            pt: 2,
+            borderTop: "1px solid rgba(0,0,0,0.08)",
+            backgroundColor: "rgba(255, 255, 255, 0.9)",
+          }}
+        >
           <Button
             onClick={handleCloseBoostDialog}
             disabled={boosting}
@@ -1735,6 +2007,17 @@ export default function Dashboard({ user, setUser }) {
             <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
               <CircularProgress sx={{ color: "#D4AF37" }} />
             </Box>
+          ) : targetedBoostsError ? (
+            <Alert
+              severity="warning"
+              sx={{
+                borderRadius: "12px",
+                bgcolor: "rgba(255, 193, 7, 0.12)",
+                color: "rgba(26, 26, 26, 0.8)",
+              }}
+            >
+              {targetedBoostsError}
+            </Alert>
           ) : targetedCount === 0 ? (
             <Box sx={{ textAlign: "center", py: 4 }}>
               <Typography
@@ -1748,7 +2031,7 @@ export default function Dashboard({ user, setUser }) {
                 sx={{ color: "rgba(26, 26, 26, 0.6)", mt: 1 }}
               >
                 Once someone targets {user?.category || "your category"} in{" "}
-                {user?.county || "your area"}, they’ll pop up here.
+                {user?.county || "your area"}, they'll pop up here.
               </Typography>
             </Box>
           ) : (
@@ -1815,6 +2098,23 @@ export default function Dashboard({ user, setUser }) {
                                   sx={{ fontSize: 12, color: "#D4AF37" }}
                                 />
                                 {areaLabel}
+                              </Typography>
+                            )}
+                            {typeof boost.distance_km === "number" && (
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 0.5,
+                                  color: "rgba(26, 26, 26, 0.65)",
+                                  ml: areaLabel ? 1 : 0,
+                                }}
+                              >
+                                <MyLocation
+                                  sx={{ fontSize: 12, color: "#D4AF37" }}
+                                />
+                                {boost.distance_km.toFixed(1)} km away
                               </Typography>
                             )}
                             {expiresAt && (
