@@ -27,6 +27,7 @@ import {
   Avatar,
   ListItemText,
   Divider,
+  Autocomplete,
 } from "@mui/material";
 import { keyframes } from "@mui/system";
 import {
@@ -54,6 +55,7 @@ import {
   formatKshFromTokens,
   describeExchangeRate,
 } from "../utils/pricing";
+import { KENYA_COUNTIES, normalizeCountyName } from "../data/kenyaCounties";
 
 const goldShine = keyframes`
   0% {
@@ -86,8 +88,12 @@ export default function Dashboard({ user, setUser }) {
   const [boostDialogOpen, setBoostDialogOpen] = useState(false);
   const [boosting, setBoosting] = useState(false);
   const [boostTimeRemaining, setBoostTimeRemaining] = useState(null);
-  const [boostCategory, setBoostCategory] = useState(user?.category || "Regular");
-  const [boostArea, setBoostArea] = useState(user?.county || "");
+  const [boostCategory, setBoostCategory] = useState(
+    user?.category || "Regular"
+  );
+  const [boostArea, setBoostArea] = useState(
+    normalizeCountyName(user?.county) || ""
+  );
   const [boostHours, setBoostHours] = useState(MIN_BOOST_HOURS);
   const sanitizedBoostHours = Math.min(
     MAX_BOOST_HOURS,
@@ -101,6 +107,31 @@ export default function Dashboard({ user, setUser }) {
 
   const handleOpenTargetedDialog = () => setTargetedDialogOpen(true);
   const handleCloseTargetedDialog = () => setTargetedDialogOpen(false);
+
+  const programmaticBoostCloseRef = React.useRef(false);
+
+  const resetBoostForm = useCallback(() => {
+    setBoostCategory(user?.category || "Regular");
+    setBoostArea(normalizeCountyName(user?.county) || "");
+    setBoostHours(MIN_BOOST_HOURS);
+  }, [user?.category, user?.county]);
+
+  const openBoostDialog = useCallback(
+    (shouldReset = true) => {
+      if (shouldReset) {
+        resetBoostForm();
+      }
+      programmaticBoostCloseRef.current = false;
+      setBoostDialogOpen(true);
+    },
+    [resetBoostForm]
+  );
+
+  const handleCloseBoostDialog = useCallback(() => {
+    programmaticBoostCloseRef.current = false;
+    setBoostDialogOpen(false);
+    resetBoostForm();
+  }, [resetBoostForm]);
 
   const favoritesSectionRef = React.useRef(null);
 
@@ -230,13 +261,8 @@ export default function Dashboard({ user, setUser }) {
   }, [user?.active_boost_until, user?.is_featured_until]);
 
   useEffect(() => {
-    if (user?.category) {
-      setBoostCategory(user.category);
-    }
-    if (user?.county) {
-      setBoostArea(user.county);
-    }
-  }, [user?.category, user?.county]);
+    resetBoostForm();
+  }, [resetBoostForm]);
 
   const fetchFeaturedItems = async () => {
     try {
@@ -295,12 +321,12 @@ export default function Dashboard({ user, setUser }) {
       return;
     }
 
-    const trimmedArea = (boostArea || "").trim();
-    if (!trimmedArea) {
+    const targetCounty = normalizeCountyName(boostArea);
+    if (!targetCounty) {
       Swal.fire({
         icon: "warning",
-        title: "Target Area Required",
-        text: "Enter the area you want to target so nearby users see your boost.",
+        title: "Select a County",
+        text: "Choose one of the 47 Kenyan counties to target before boosting.",
         confirmButtonColor: "#D4AF37",
       });
       return;
@@ -308,20 +334,23 @@ export default function Dashboard({ user, setUser }) {
 
     const hours = Math.min(
       MAX_BOOST_HOURS,
-      Math.max(MIN_BOOST_HOURS, Math.floor(Number(boostHours) || MIN_BOOST_HOURS))
+      Math.max(
+        MIN_BOOST_HOURS,
+        Math.floor(Number(boostHours) || MIN_BOOST_HOURS)
+      )
     );
     const totalTokens = hours * BOOST_PRICE_TOKENS;
 
-      const token = localStorage.getItem("token");
-      if (!token) {
-        Swal.fire({
-          icon: "error",
-          title: "Authentication Required",
-          text: "Please login to boost your profile.",
-          confirmButtonColor: "#D4AF37",
-        });
-        return;
-      }
+    const token = localStorage.getItem("token");
+    if (!token) {
+      Swal.fire({
+        icon: "error",
+        title: "Authentication Required",
+        text: "Please login to boost your profile.",
+        confirmButtonColor: "#D4AF37",
+      });
+      return;
+    }
 
     try {
       const balanceRes = await fetch("/api/tokens/balance", {
@@ -353,16 +382,19 @@ export default function Dashboard({ user, setUser }) {
         return;
       }
 
+      programmaticBoostCloseRef.current = true;
+      setBoostDialogOpen(false);
+
       const confirmation = await Swal.fire({
         icon: "question",
         title: "Confirm Profile Boost",
         html: `
-          <p>Targeting <strong>${boostCategory}</strong> audience in <strong>${trimmedArea}</strong>.</p>
+          <p>Targeting <strong>${boostCategory}</strong> audience in <strong>${targetCounty}</strong>.</p>
           <p>Duration: <strong>${hours} hour${hours > 1 ? "s" : ""}</strong></p>
           <p>Cost: <strong>${totalTokens} tokens</strong> (${formatKshFromTokens(totalTokens)})</p>
           <p style="font-size: 0.85rem; color: #666; margin-top: 8px;">Each hour costs ${BOOST_PRICE_TOKENS} tokens (${formatKshFromTokens(
-          BOOST_PRICE_TOKENS
-        )}).</p>
+            BOOST_PRICE_TOKENS
+          )}).</p>
         `,
         showCancelButton: true,
         confirmButtonText: "Boost Now",
@@ -371,35 +403,39 @@ export default function Dashboard({ user, setUser }) {
         cancelButtonColor: "#9E9E9E",
       });
 
-      if (!confirmation.isConfirmed) return;
+      if (!confirmation.isConfirmed) {
+        openBoostDialog(false);
+        return;
+      }
 
       setBoosting(true);
 
       let lastBoost = null;
       for (let i = 0; i < hours; i += 1) {
-      const response = await fetch("/api/tokens/boost", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        const response = await fetch("/api/tokens/boost", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({
             targetCategory: boostCategory,
-            targetArea: trimmedArea,
+            targetArea: targetCounty,
           }),
-      });
-
-      const data = await response.json();
-
-      if (response.status === 402) {
-        Swal.fire({
-          icon: "warning",
-          title: "Insufficient Tokens",
-            text: data.message || "You do not have enough tokens for this boost.",
-          confirmButtonColor: "#D4AF37",
         });
-        return;
-      }
+
+        const data = await response.json();
+
+        if (response.status === 402) {
+          Swal.fire({
+            icon: "warning",
+            title: "Insufficient Tokens",
+            text:
+              data.message || "You do not have enough tokens for this boost.",
+            confirmButtonColor: "#D4AF37",
+          });
+          return;
+        }
 
         if (!data.success) {
           throw new Error(data.message || "Failed to boost profile");
@@ -413,8 +449,8 @@ export default function Dashboard({ user, setUser }) {
       }
 
       const meResponse = await fetch("/api/public/me", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const meData = await meResponse.json();
       if (meData.success && typeof setUser === "function") {
         setUser(meData.data);
@@ -423,7 +459,8 @@ export default function Dashboard({ user, setUser }) {
           prev
             ? {
                 ...prev,
-                active_boost_until: lastBoost.boost?.ends_at || prev.active_boost_until,
+                active_boost_until:
+                  lastBoost.boost?.ends_at || prev.active_boost_until,
               }
             : prev
         );
@@ -447,26 +484,31 @@ export default function Dashboard({ user, setUser }) {
         }
       } else {
         setBoostTimeRemaining(null);
-        }
+      }
 
-        Swal.fire({
-          icon: "success",
-          title: "Profile Boosted!",
+      Swal.fire({
+        icon: "success",
+        title: "Profile Boosted!",
         html: `
           <p>Your profile will be boosted for <strong>${hours} hour${hours > 1 ? "s" : ""}</strong>.</p>
-          <p style="font-size: 0.9rem; color: rgba(26, 26, 26, 0.7);">Boost expires: ${lastBoost.boost?.ends_at ? new Date(
-            lastBoost.boost.ends_at
-          ).toLocaleString() : "Soon"}</p>
+          <p style="font-size: 0.9rem; color: rgba(26, 26, 26, 0.7);">Boost expires: ${
+            lastBoost.boost?.ends_at
+              ? new Date(lastBoost.boost.ends_at).toLocaleString()
+              : "Soon"
+          }</p>
         `,
-          confirmButtonColor: "#D4AF37",
-        });
+        confirmButtonColor: "#D4AF37",
+      });
 
-        setBoostDialogOpen(false);
-        fetchFeaturedUsers();
-        fetchFeaturedItems();
+      programmaticBoostCloseRef.current = false;
+      setBoostDialogOpen(false);
+      resetBoostForm();
+      fetchFeaturedUsers();
+      fetchFeaturedItems();
       fetchTargetedBoosts();
     } catch (err) {
       console.error("Boost profile error:", err);
+      openBoostDialog(false);
       Swal.fire({
         icon: "error",
         title: "Boost Failed",
@@ -686,9 +728,9 @@ export default function Dashboard({ user, setUser }) {
               pointerEvents: "none",
               zIndex: -1,
             },
-        }}
-        onClick={() => setBoostDialogOpen(true)}
-        disabled={boosting}
+          }}
+          onClick={() => openBoostDialog(true)}
+          disabled={boosting}
         >
           Boost Profile
         </Button>
@@ -697,8 +739,8 @@ export default function Dashboard({ user, setUser }) {
             loadingTargetedBoosts
               ? "Checking for matching boosts..."
               : targetedCount > 0
-              ? `${targetedCount} boost match${targetedCount > 1 ? "es" : ""}`
-              : "No targeted boosts yet"
+                ? `${targetedCount} boost match${targetedCount > 1 ? "es" : ""}`
+                : "No targeted boosts yet"
           }
           arrow
         >
@@ -737,8 +779,8 @@ export default function Dashboard({ user, setUser }) {
             }}
           >
             <AccessTime sx={{ fontSize: 16, color: "#D4AF37" }} />
-            Active boost: {boostTimeRemaining.hours}h {boostTimeRemaining.minutes}
-            m remaining
+            Active boost: {boostTimeRemaining.hours}h{" "}
+            {boostTimeRemaining.minutes}m remaining
           </Typography>
         ) : null}
       </Box>
@@ -1455,7 +1497,16 @@ export default function Dashboard({ user, setUser }) {
 
       <Dialog
         open={boostDialogOpen}
-        onClose={() => !boosting && setBoostDialogOpen(false)}
+        onClose={(_, _reason) => {
+          if (!boosting) {
+            if (programmaticBoostCloseRef.current) {
+              programmaticBoostCloseRef.current = false;
+              setBoostDialogOpen(false);
+              return;
+            }
+            handleCloseBoostDialog();
+          }
+        }}
         maxWidth="sm"
         fullWidth
         PaperProps={{
@@ -1501,16 +1552,18 @@ export default function Dashboard({ user, setUser }) {
               sx={{ m: 0, pl: 2.5, "& li": { mb: 1, fontSize: "0.875rem" } }}
             >
               <li>
-                <strong>Higher Visibility:</strong> Boosted profiles appear first
-                in Explore and featured sections.
+                <strong>Higher Visibility:</strong> Boosted profiles appear
+                first in Explore and featured sections.
               </li>
               <li>
                 <strong>Targeted Audience:</strong> Pick who should see you and
                 where they are logging in from.
               </li>
               <li>
-                <strong>Affordable:</strong> Each hour costs {BOOST_PRICE_TOKENS}
-                {" "}tokens ({formatKshFromTokens(BOOST_PRICE_TOKENS)}) — {describeExchangeRate()}.
+                <strong>Affordable:</strong> Each hour costs{" "}
+                {BOOST_PRICE_TOKENS} tokens (
+                {formatKshFromTokens(BOOST_PRICE_TOKENS)}) —{" "}
+                {describeExchangeRate()}.
               </li>
             </Box>
           </Alert>
@@ -1533,13 +1586,20 @@ export default function Dashboard({ user, setUser }) {
               </Select>
             </FormControl>
 
-            <TextField
-              label="Target area"
-              value={boostArea}
-              onChange={(event) => setBoostArea(event.target.value)}
-              helperText="People logging in from this area will see your boost first."
-              fullWidth
+            <Autocomplete
+              options={KENYA_COUNTIES}
+              value={boostArea || null}
+              onChange={(_event, newValue) => setBoostArea(newValue || "")}
+              autoHighlight
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Target county"
+                  helperText="People logging in from this county will see your boost first."
+                />
+              )}
               disabled={boosting}
+              fullWidth
             />
 
             <TextField
@@ -1558,20 +1618,20 @@ export default function Dashboard({ user, setUser }) {
 
             <Alert
               severity="success"
-                sx={{
+              sx={{
                 borderRadius: "12px",
                 bgcolor: "rgba(76, 175, 80, 0.08)",
                 border: "1px solid rgba(76, 175, 80, 0.2)",
                 color: "rgba(26, 26, 26, 0.8)",
-                }}
-              >
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              }}
+            >
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
                 Cost preview
               </Typography>
               <Typography variant="body2">
-                {totalBoostTokens.toLocaleString()} tokens
-                {" "}
-                ({formatKshFromTokens(totalBoostTokens)}) for {sanitizedBoostHours} hour
+                {totalBoostTokens.toLocaleString()} tokens (
+                {formatKshFromTokens(totalBoostTokens)}) for{" "}
+                {sanitizedBoostHours} hour
                 {sanitizedBoostHours > 1 ? "s" : ""}.
               </Typography>
             </Alert>
@@ -1579,20 +1639,26 @@ export default function Dashboard({ user, setUser }) {
             {boostTimeRemaining && (
               <Alert
                 severity="warning"
-                sx={{ borderRadius: "12px", bgcolor: "rgba(255, 152, 0, 0.12)" }}
+                sx={{
+                  borderRadius: "12px",
+                  bgcolor: "rgba(255, 152, 0, 0.12)",
+                }}
               >
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  Active boost remaining: {boostTimeRemaining.hours}h
-                  {" "}
+                  Active boost remaining: {boostTimeRemaining.hours}h{" "}
                   {boostTimeRemaining.minutes}m
                 </Typography>
                 <Typography
                   variant="caption"
-                  sx={{ color: "rgba(26, 26, 26, 0.7)", display: "block", mt: 0.5 }}
+                  sx={{
+                    color: "rgba(26, 26, 26, 0.7)",
+                    display: "block",
+                    mt: 0.5,
+                  }}
                 >
                   Extending now will add time to your existing boost window.
                 </Typography>
-          </Alert>
+              </Alert>
             )}
 
             <Alert
@@ -1600,20 +1666,20 @@ export default function Dashboard({ user, setUser }) {
               sx={{ borderRadius: "12px", bgcolor: "rgba(255, 193, 7, 0.12)" }}
             >
               <Typography variant="body2">
-                <strong>Current Balance:</strong> {user?.token_balance || "0.00"}
-                {" "}tokens
-            </Typography>
+                <strong>Current Balance:</strong>{" "}
+                {user?.token_balance || "0.00"} tokens
+              </Typography>
             </Alert>
           </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 3, pt: 2 }}>
           <Button
-            onClick={() => setBoostDialogOpen(false)}
+            onClick={handleCloseBoostDialog}
             disabled={boosting}
-                sx={{
+            sx={{
               color: "rgba(26, 26, 26, 0.7)",
               fontWeight: 600,
-                }}
+            }}
           >
             Cancel
           </Button>
@@ -1621,10 +1687,10 @@ export default function Dashboard({ user, setUser }) {
             onClick={handleConfirmBoost}
             variant="contained"
             disabled={boosting}
-                  sx={{
+            sx={{
               background: "linear-gradient(135deg, #D4AF37, #B8941F)",
-                    color: "#1a1a1a",
-                    fontWeight: 700,
+              color: "#1a1a1a",
+              fontWeight: 700,
               textTransform: "none",
               borderRadius: "12px",
               px: 3,
@@ -1633,7 +1699,7 @@ export default function Dashboard({ user, setUser }) {
                 background: "linear-gradient(135deg, #B8941F, #D4AF37)",
               },
             }}
-                    >
+          >
             {boosting
               ? "Boosting..."
               : `Boost for ${sanitizedBoostHours} hour${
@@ -1652,11 +1718,11 @@ export default function Dashboard({ user, setUser }) {
           sx: {
             borderRadius: "18px",
             border: "1px solid rgba(212, 175, 55, 0.25)",
-                  },
-                }}
+          },
+        }}
       >
         <DialogTitle
-                  sx={{
+          sx={{
             background: "linear-gradient(135deg, #D4AF37, #B8941F)",
             color: "#1a1a1a",
             fontWeight: 700,
@@ -1671,21 +1737,20 @@ export default function Dashboard({ user, setUser }) {
             </Box>
           ) : targetedCount === 0 ? (
             <Box sx={{ textAlign: "center", py: 4 }}>
-                    <Typography
+              <Typography
                 variant="body1"
                 sx={{ color: "rgba(26, 26, 26, 0.7)", fontWeight: 600 }}
-                    >
+              >
                 No matching boosts right now.
-                    </Typography>
-                    <Typography
-                      variant="body2"
+              </Typography>
+              <Typography
+                variant="body2"
                 sx={{ color: "rgba(26, 26, 26, 0.6)", mt: 1 }}
-                    >
-                Once someone targets {user?.category || "your category"} in
-                {" "}
+              >
+                Once someone targets {user?.category || "your category"} in{" "}
                 {user?.county || "your area"}, they’ll pop up here.
-                    </Typography>
-                  </Box>
+              </Typography>
+            </Box>
           ) : (
             <List disablePadding>
               {targetedBoosts.map((boost, index) => {
@@ -1703,7 +1768,7 @@ export default function Dashboard({ user, setUser }) {
                         <Avatar
                           src={profileImage || undefined}
                           alt={owner?.name || "Boosted user"}
-                sx={{
+                          sx={{
                             bgcolor: profileImage ? "transparent" : "#D4AF37",
                             color: profileImage ? "inherit" : "#1a1a1a",
                           }}
@@ -1722,20 +1787,22 @@ export default function Dashboard({ user, setUser }) {
                             {owner?.category && (
                               <Typography
                                 variant="caption"
-                  sx={{
+                                sx={{
                                   display: "inline-flex",
-                    alignItems: "center",
+                                  alignItems: "center",
                                   gap: 0.5,
                                   color: "rgba(26, 26, 26, 0.65)",
                                   mr: 1,
-                  }}
-                >
-                                <StarIcon sx={{ fontSize: 12, color: "#D4AF37" }} />
+                                }}
+                              >
+                                <StarIcon
+                                  sx={{ fontSize: 12, color: "#D4AF37" }}
+                                />
                                 {owner.category}
-                    </Typography>
+                              </Typography>
                             )}
                             {areaLabel && (
-                    <Typography
+                              <Typography
                                 variant="caption"
                                 sx={{
                                   display: "inline-flex",
@@ -1743,28 +1810,32 @@ export default function Dashboard({ user, setUser }) {
                                   gap: 0.5,
                                   color: "rgba(26, 26, 26, 0.65)",
                                 }}
-                    >
-                                <LocationOn sx={{ fontSize: 12, color: "#D4AF37" }} />
+                              >
+                                <LocationOn
+                                  sx={{ fontSize: 12, color: "#D4AF37" }}
+                                />
                                 {areaLabel}
-                    </Typography>
+                              </Typography>
                             )}
                             {expiresAt && (
-                  <Typography
+                              <Typography
                                 variant="caption"
                                 sx={{
                                   display: "block",
                                   mt: 0.75,
                                   color: "rgba(26, 26, 26, 0.6)",
                                 }}
-                  >
+                              >
                                 Boost ends: {expiresAt}
-                  </Typography>
+                              </Typography>
                             )}
-                </Box>
+                          </Box>
                         }
                       />
                     </ListItem>
-                    {index < targetedBoosts.length - 1 && <Divider component="li" />}
+                    {index < targetedBoosts.length - 1 && (
+                      <Divider component="li" />
+                    )}
                   </React.Fragment>
                 );
               })}
