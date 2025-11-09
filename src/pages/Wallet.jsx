@@ -63,6 +63,13 @@ export default function Wallet({ user, setUser }) {
     label: `${tokens.toLocaleString()} Tokens`,
     price: formatKsh(convertTokensToKsh(tokens)),
   }));
+  const parsedCustomAmount = Number(customAmount);
+  const formattedCustomValue =
+    customAmount &&
+    Number.isFinite(parsedCustomAmount) &&
+    parsedCustomAmount > 0
+      ? formatKsh(convertTokensToKsh(parsedCustomAmount))
+      : null;
 
   useEffect(() => {
     fetchWallet();
@@ -662,7 +669,9 @@ const handlePaystackCancel = () => {
             error={Boolean(customAmountError)}
             helperText={
               customAmountError ||
-              `1 purchase: ${describeExchangeRate()} (enter tokens)`
+              `1 purchase: ${describeExchangeRate()} (enter tokens)${
+                formattedCustomValue ? ` • Worth ${formattedCustomValue}` : ""
+              }`
             }
             sx={{
               "& .MuiOutlinedInput-root": {
@@ -693,6 +702,31 @@ const handlePaystackCancel = () => {
             Buy Tokens
           </Button>
         </Stack>
+        {formattedCustomValue && (
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: { xs: "flex-start", sm: "flex-start" },
+              mb: { xs: 1.5, sm: 2 },
+            }}
+          >
+            <Chip
+              icon={<Payment />}
+              label={`Worth ${formattedCustomValue}`}
+              sx={{
+                borderRadius: "999px",
+                fontWeight: 600,
+                px: 2,
+                py: 0.5,
+                bgcolor: "rgba(212, 175, 55, 0.15)",
+                color: "#B8941F",
+                "& .MuiChip-icon": {
+                  color: "#D4AF37",
+                },
+              }}
+            />
+          </Box>
+        )}
         <Box
           sx={{
             display: "grid",

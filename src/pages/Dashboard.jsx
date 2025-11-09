@@ -500,7 +500,12 @@ export default function Dashboard({ user, setUser }) {
       }
 
       if (currentBalance < totalTokens) {
-        Swal.fire({
+        programmaticBoostCloseRef.current = true;
+        setBoostDialogOpen(false);
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const result = await Swal.fire({
           icon: "warning",
           title: "Insufficient Tokens",
           html: `<p>You need ${totalTokens} tokens (${formatKshFromTokens(totalTokens)}) to boost for ${hours} hour${
@@ -510,11 +515,13 @@ export default function Dashboard({ user, setUser }) {
           cancelButtonText: "Cancel",
           showCancelButton: true,
           confirmButtonColor: "#D4AF37",
-        }).then((result) => {
-          if (result.isConfirmed) {
-            navigate("/wallet");
-          }
         });
+
+        programmaticBoostCloseRef.current = false;
+
+        if (result.isConfirmed) {
+          navigate("/wallet");
+        }
         return;
       }
 
