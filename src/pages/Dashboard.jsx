@@ -954,22 +954,6 @@ export default function Dashboard({ user, setUser }) {
             </span>
           </Tooltip>
         </Box>
-        {boostTimeRemaining ? (
-          <Typography
-            variant="caption"
-            sx={{
-              color: "rgba(26, 26, 26, 0.7)",
-              fontWeight: 600,
-              display: "flex",
-              alignItems: "center",
-              gap: 0.5,
-            }}
-          >
-            <AccessTime sx={{ fontSize: 16, color: "#D4AF37" }} />
-            Active boost: {boostTimeRemaining.hours}h{" "}
-            {boostTimeRemaining.minutes}m remaining
-          </Typography>
-        ) : null}
       </Box>
 
       {/* Quick Access Cards */}
@@ -1067,7 +1051,11 @@ export default function Dashboard({ user, setUser }) {
               variant="h6"
               sx={{
                 fontWeight: 700,
-                fontSize: { xs: "0.85rem", sm: "0.98rem", md: "1.1rem" },
+                fontSize: {
+                  xs: "0.55rem",
+                  sm: "0.6rem",
+                  md: "0.55rem",
+                },
                 textAlign: "center",
               }}
             >
@@ -1159,7 +1147,11 @@ export default function Dashboard({ user, setUser }) {
               variant="h6"
               sx={{
                 fontWeight: 700,
-                fontSize: { xs: "0.85rem", sm: "0.98rem", md: "1.1rem" },
+                fontSize: {
+                  xs: "0.55rem",
+                  sm: "0.6rem",
+                  md: "0.55rem",
+                },
                 textAlign: "center",
               }}
             >
@@ -1725,6 +1717,59 @@ export default function Dashboard({ user, setUser }) {
             display: "flex",
             flexDirection: "column",
             maxHeight: { xs: "calc(100vh - 160px)", sm: "calc(100vh - 200px)" },
+            "& .MuiTypography-root": {
+              fontSize: {
+                xs: "0.75rem",
+                sm: "0.8rem",
+                md: "0.9rem",
+              },
+            },
+            "& .MuiButtonBase-root": {
+              "& .MuiTypography-root": {
+                fontSize: {
+                  xs: "0.75rem",
+                  sm: "0.8rem",
+                  md: "0.9rem",
+                },
+              },
+            },
+            "& .MuiChip-root": {
+              fontSize: {
+                xs: "0.7rem",
+                sm: "0.78rem",
+                md: "0.88rem",
+              },
+            },
+            "& .MuiFormHelperText-root": {
+              fontSize: {
+                xs: "0.7rem",
+                sm: "0.78rem",
+                md: "0.88rem",
+              },
+            },
+            "& .MuiTextField-root": {
+              "& input, & textarea": {
+                fontSize: {
+                  xs: "0.75rem",
+                  sm: "0.8rem",
+                  md: "0.9rem",
+                },
+              },
+              "& label": {
+                fontSize: {
+                  xs: "0.75rem",
+                  sm: "0.8rem",
+                  md: "0.9rem",
+                },
+              },
+            },
+            "& .MuiSelect-select": {
+              fontSize: {
+                xs: "0.75rem",
+                sm: "0.8rem",
+                md: "0.9rem",
+              },
+            },
           }}
         >
           <Box

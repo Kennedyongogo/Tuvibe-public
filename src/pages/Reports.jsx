@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Box,
   Typography,
@@ -19,7 +19,9 @@ import {
   DialogContent,
   DialogActions,
   Alert,
+  Avatar,
 } from "@mui/material";
+import Autocomplete from "@mui/material/Autocomplete";
 import {
   Report,
   Add,
@@ -48,21 +50,147 @@ export default function Reports({ user }) {
     reported_user_id: null,
     priority: "medium",
   });
+  const [selectedReportedUser, setSelectedReportedUser] = useState(null);
+  const [userSearchTerm, setUserSearchTerm] = useState("");
+  const [userSearchOptions, setUserSearchOptions] = useState([]);
+  const [loadingUserOptions, setLoadingUserOptions] = useState(false);
+  const userSearchAbortController = useRef(null);
 
-  const categories = [
-    { value: "inappropriate_content", label: "Inappropriate Content" },
-    { value: "harassment", label: "Harassment" },
-    { value: "scam", label: "Scam/Fraud" },
-    { value: "fake_profile", label: "Fake Profile" },
-    { value: "spam", label: "Spam" },
-    { value: "payment_issue", label: "Payment Issue" },
-    { value: "technical_issue", label: "Technical Issue" },
-    { value: "other", label: "Other" },
-  ];
+  const categories = React.useMemo(
+    () => [
+      { value: "inappropriate_content", label: "Inappropriate Content", taggable: true },
+      { value: "harassment", label: "Harassment", taggable: true },
+      { value: "scam", label: "Scam/Fraud", taggable: true },
+      { value: "fake_profile", label: "Fake Profile", taggable: true },
+      { value: "spam", label: "Spam", taggable: true },
+      { value: "payment_issue", label: "Payment Issue", taggable: false },
+      { value: "technical_issue", label: "Technical Issue", taggable: false },
+      { value: "other", label: "Other", taggable: true },
+    ],
+    []
+  );
+  const taggableCategories = React.useMemo(
+    () =>
+      new Set([
+        "inappropriate_content",
+        "harassment",
+        "scam",
+        "fake_profile",
+        "spam",
+        "other",
+      ]),
+    []
+  );
+  const canSelectReportedUser =
+    Boolean(formData.category) && taggableCategories.has(formData.category);
+
+  const buildImageUrl = (imageUrl) => {
+    if (!imageUrl) return null;
+    if (imageUrl.startsWith("http")) return imageUrl;
+    if (imageUrl.startsWith("/")) return imageUrl;
+    return `/uploads/${imageUrl.replace(/^uploads\//, "")}`;
+  };
 
   useEffect(() => {
     fetchReports();
   }, []);
+
+  useEffect(() => {
+    if (!canSelectReportedUser) {
+      setUserSearchOptions([]);
+      if (userSearchAbortController.current) {
+        userSearchAbortController.current.abort();
+        userSearchAbortController.current = null;
+      }
+      return;
+    }
+
+    const trimmed = userSearchTerm.trim();
+    if (trimmed.length < 2) {
+      setUserSearchOptions([]);
+      if (userSearchAbortController.current) {
+        userSearchAbortController.current.abort();
+        userSearchAbortController.current = null;
+      }
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    if (userSearchAbortController.current) {
+      userSearchAbortController.current.abort();
+    }
+    const controller = new AbortController();
+    userSearchAbortController.current = controller;
+
+    const loadUsers = async () => {
+      setLoadingUserOptions(true);
+      try {
+        const params = new URLSearchParams({
+          q: trimmed,
+          pageSize: "10",
+        });
+        const response = await fetch(`/api/public?${params.toString()}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          signal: controller.signal,
+        });
+        const data = await response.json();
+        if (response.ok && data.success && Array.isArray(data.data)) {
+          const filtered = data.data.filter((candidate) => candidate.id !== user?.id);
+          if (
+            selectedReportedUser &&
+            !filtered.some((candidate) => candidate.id === selectedReportedUser.id)
+          ) {
+            filtered.unshift(selectedReportedUser);
+          }
+          setUserSearchOptions(filtered);
+        } else {
+          setUserSearchOptions([]);
+        }
+      } catch (error) {
+        if (error.name !== "AbortError") {
+          console.error("Error searching profiles for report tagging:", error);
+          setUserSearchOptions([]);
+        }
+      } finally {
+        setLoadingUserOptions(false);
+        if (userSearchAbortController.current === controller) {
+          userSearchAbortController.current = null;
+        }
+      }
+    };
+
+    const timeoutId = setTimeout(loadUsers, 300);
+
+    return () => {
+      clearTimeout(timeoutId);
+      if (userSearchAbortController.current === controller) {
+        controller.abort();
+        userSearchAbortController.current = null;
+      }
+    };
+  }, [userSearchTerm, canSelectReportedUser, user?.id, selectedReportedUser]);
+
+  useEffect(() => {
+    if (!createDialogOpen) {
+      setSelectedReportedUser(null);
+      setUserSearchTerm("");
+      setUserSearchOptions([]);
+    }
+  }, [createDialogOpen]);
+
+  useEffect(() => {
+    if (!canSelectReportedUser && formData.reported_user_id) {
+      setFormData((prev) => ({
+        ...prev,
+        reported_user_id: null,
+      }));
+      setSelectedReportedUser(null);
+    }
+  }, [canSelectReportedUser, formData.reported_user_id]);
 
   const fetchReports = async () => {
     try {
@@ -132,6 +260,9 @@ export default function Reports({ user }) {
           reported_user_id: null,
           priority: "medium",
         });
+        setSelectedReportedUser(null);
+        setUserSearchTerm("");
+        setUserSearchOptions([]);
         fetchReports();
       } else {
         throw new Error(data.message || "Failed to submit report");
@@ -216,6 +347,11 @@ export default function Reports({ user }) {
             display: "flex",
             alignItems: "center",
             gap: 1,
+            fontSize: {
+              xs: "1.25rem",
+              sm: "1.5rem",
+              lg: "1.1rem",
+            },
           }}
         >
           <Report sx={{ color: "#D4AF37" }} />
@@ -230,8 +366,10 @@ export default function Reports({ user }) {
             color: "#fff",
             "&:hover": { bgcolor: "#B8941F" },
             textTransform: "none",
-            px: 3,
-            py: 1,
+            px: { xs: 1.5, sm: 2.5 },
+            py: { xs: 0.5, sm: 0.8 },
+            fontSize: { xs: "0.65rem", sm: "0.85rem" },
+            gap: { xs: 0.5, sm: 1 },
           }}
         >
           New Report
@@ -344,6 +482,29 @@ export default function Reports({ user }) {
                           },
                         }}
                       />
+                      {report.reportedUser && (
+                        <Chip
+                          avatar={
+                            <Avatar
+                              src={buildImageUrl(report.reportedUser.photo)}
+                              alt={report.reportedUser.name || "Tagged user"}
+                            >
+                              {report.reportedUser?.name
+                                ? report.reportedUser.name.charAt(0)
+                                : "?"}
+                            </Avatar>
+                          }
+                          label={`Tagged: ${report.reportedUser.name || "Profile"}`}
+                          size="small"
+                          sx={{
+                            bgcolor: "rgba(255, 107, 107, 0.12)",
+                            color: "#b71c1c",
+                            fontWeight: 600,
+                            fontSize: "0.75rem",
+                            height: "28px",
+                          }}
+                        />
+                      )}
                     </Stack>
                   </Box>
                 </Box>
@@ -478,7 +639,34 @@ export default function Reports({ user }) {
           <Report />
           Submit a Report
         </DialogTitle>
-        <DialogContent sx={{ pt: 3 }}>
+        <DialogContent
+          sx={{
+            pt: 3,
+            "& .MuiTypography-root": {
+              fontSize: { xs: "0.65rem", sm: "0.75rem", md: "0.85rem", lg: "0.9rem" },
+            },
+            "& .MuiTextField-root": {
+              "& input, & textarea": {
+                fontSize: { xs: "0.65rem", sm: "0.75rem", md: "0.85rem", lg: "0.9rem" },
+              },
+              "& label": {
+                fontSize: { xs: "0.65rem", sm: "0.75rem", md: "0.85rem", lg: "0.9rem" },
+              },
+            },
+            "& .MuiSelect-select": {
+              fontSize: { xs: "0.65rem", sm: "0.75rem", md: "0.85rem", lg: "0.9rem" },
+            },
+            "& .MuiFormHelperText-root": {
+              fontSize: { xs: "0.6rem", sm: "0.7rem", md: "0.8rem", lg: "0.85rem" },
+            },
+            "& .MuiChip-root": {
+              fontSize: { xs: "0.6rem", sm: "0.7rem", md: "0.8rem", lg: "0.85rem" },
+            },
+            "& .MuiButtonBase-root": {
+              fontSize: { xs: "0.65rem", sm: "0.75rem", md: "0.85rem", lg: "0.9rem" },
+            },
+          }}
+        >
           <Stack spacing={3}>
             <FormControl fullWidth required>
               <InputLabel>Category</InputLabel>
@@ -520,6 +708,127 @@ export default function Reports({ user }) {
               }
               placeholder="Provide detailed information about the issue..."
             />
+
+            <Box>
+              <Typography
+                variant="subtitle2"
+                sx={{
+                  fontWeight: 700,
+                  color: "#1a1a1a",
+                  mb: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.75,
+                }}
+              >
+                <Person sx={{ fontSize: 20, color: "#D4AF37" }} />
+                Tag a Profile (optional)
+              </Typography>
+              <Autocomplete
+                disabled={!canSelectReportedUser}
+                loading={loadingUserOptions}
+                options={userSearchOptions}
+                value={selectedReportedUser}
+                onChange={(_event, newValue) => {
+                  setSelectedReportedUser(newValue);
+                  setFormData((prev) => ({
+                    ...prev,
+                    reported_user_id: newValue ? newValue.id : null,
+                  }));
+                }}
+                onInputChange={(_event, newValue, reason) => {
+                  if (reason === "reset" && newValue === "") {
+                    setUserSearchTerm("");
+                    return;
+                  }
+                  if (reason === "input" || reason === "clear") {
+                    setUserSearchTerm(newValue || "");
+                  }
+                }}
+                getOptionLabel={(option) =>
+                  option?.name || option?.email || "Unnamed user"
+                }
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                renderOption={(props, option) => (
+                  <Box
+                    component="li"
+                    {...props}
+                    key={option.id}
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      py: 0.5,
+                    }}
+                  >
+                    <Avatar
+                      src={buildImageUrl(option.photo)}
+                      alt={option.name || "User"}
+                      sx={{ width: 32, height: 32 }}
+                    >
+                      {option.name ? option.name.charAt(0) : "?"}
+                    </Avatar>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography
+                        variant="body2"
+                        sx={{ fontWeight: 600, color: "#1a1a1a" }}
+                        noWrap
+                      >
+                        {option.name || "Unnamed user"}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        sx={{ color: "rgba(26, 26, 26, 0.65)" }}
+                        noWrap
+                      >
+                        {option.county ? `${option.county} • ` : ""}
+                        {option.category || "Member"}
+                      </Typography>
+                    </Box>
+                  </Box>
+                )}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label={
+                      canSelectReportedUser
+                        ? "Search by name or county"
+                        : "Tagging disabled for this category"
+                    }
+                    placeholder={
+                      canSelectReportedUser
+                        ? "Start typing to find a profile"
+                        : "Choose a supported category to tag a user"
+                    }
+                    InputProps={{
+                      ...params.InputProps,
+                      endAdornment: (
+                        <>
+                          {loadingUserOptions ? (
+                            <CircularProgress color="inherit" size={16} />
+                          ) : null}
+                          {params.InputProps.endAdornment}
+                        </>
+                      ),
+                    }}
+                  />
+                )}
+                noOptionsText={
+                  canSelectReportedUser
+                    ? userSearchTerm.trim().length < 2
+                      ? "Type at least 2 characters"
+                      : "No matching profiles found"
+                    : "Only harassment, scam, fake profile, spam, inappropriate content or other allow tagging"
+                }
+              />
+              <Typography
+                variant="caption"
+                sx={{ display: "block", mt: 0.75, color: "rgba(26, 26, 26, 0.6)" }}
+              >
+                Tagging helps our moderators find the exact profile you are reporting.
+                Categories like payment or technical issues remain general.
+              </Typography>
+            </Box>
 
             <FormControl fullWidth>
               <InputLabel>Priority</InputLabel>
@@ -590,7 +899,21 @@ export default function Reports({ user }) {
           <Report sx={{ fontSize: { xs: 24, sm: 28 } }} />
           Report Details
         </DialogTitle>
-        <DialogContent sx={{ pt: 3, px: { xs: 2.5, sm: 3 } }}>
+        <DialogContent
+          sx={{
+            pt: 3,
+            px: { xs: 2.5, sm: 3 },
+            "& .MuiTypography-root": {
+              fontSize: { xs: "0.65rem", sm: "0.75rem", md: "0.85rem", lg: "0.9rem" },
+            },
+            "& .MuiChip-root": {
+              fontSize: { xs: "0.6rem", sm: "0.7rem", md: "0.8rem", lg: "0.85rem" },
+            },
+            "& .MuiButtonBase-root": {
+              fontSize: { xs: "0.65rem", sm: "0.75rem", md: "0.85rem", lg: "0.9rem" },
+            },
+          }}
+        >
           {selectedReport && (
             <Stack spacing={3}>
               {/* Subject Section */}
@@ -721,6 +1044,64 @@ export default function Reports({ user }) {
                   />
                 </Card>
               </Box>
+
+              {selectedReport.reportedUser && (
+                <Card
+                  sx={{
+                    p: 2,
+                    borderRadius: "12px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1.5,
+                    background:
+                      "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.1) 100%)",
+                    border: "1px solid rgba(212, 175, 55, 0.2)",
+                  }}
+                >
+                  <Avatar
+                    src={buildImageUrl(selectedReport.reportedUser.photo)}
+                    alt={selectedReport.reportedUser.name || "Tagged user"}
+                    sx={{ width: 48, height: 48, bgcolor: "rgba(212, 175, 55, 0.2)" }}
+                  >
+                    {selectedReport.reportedUser.name
+                      ? selectedReport.reportedUser.name.charAt(0)
+                      : "?"}
+                  </Avatar>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: "rgba(26, 26, 26, 0.6)",
+                        fontWeight: 600,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px",
+                        fontSize: "0.75rem",
+                        mb: 0.5,
+                        display: "block",
+                      }}
+                    >
+                      Tagged Profile
+                    </Typography>
+                    <Typography
+                      variant="subtitle1"
+                      sx={{ fontWeight: 700, color: "#1a1a1a" }}
+                    >
+                      {selectedReport.reportedUser.name || "Profile"}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{ color: "rgba(26, 26, 26, 0.7)" }}
+                    >
+                      {[
+                        selectedReport.reportedUser.category,
+                        selectedReport.reportedUser.county,
+                      ]
+                        .filter(Boolean)
+                        .join(" • ")}
+                    </Typography>
+                  </Box>
+                </Card>
+              )}
 
               {/* Description Section */}
               <Card

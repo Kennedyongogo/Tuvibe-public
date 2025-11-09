@@ -18,6 +18,11 @@ import {
   Avatar,
   Card,
   CardContent,
+  DialogContentText,
+  Divider,
+  Slide,
+  CircularProgress,
+  Stack,
 } from "@mui/material";
 import {
   Login,
@@ -32,15 +37,23 @@ import {
   Favorite,
   Sms,
   WhatsApp as WhatsAppIcon,
+  Security,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
+
+const SlideUpTransition = React.forwardRef(function SlideUpTransition(props, ref) {
+  return <Slide direction="up" ref={ref} {...props} />;
+});
 
 export default function HeroSection() {
   const navigate = useNavigate();
   const [isVisible, setIsVisible] = useState(false);
   const [registerDialogOpen, setRegisterDialogOpen] = useState(false);
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [photoFile, setPhotoFile] = useState(null);
@@ -578,6 +591,63 @@ export default function HeroSection() {
         });
       }
     }, 100);
+  };
+
+  const closeResetDialog = () => {
+    setResetDialogOpen(false);
+    setResetEmail("");
+    setResetLoading(false);
+  };
+
+  const handleResetSubmit = async (event) => {
+    event.preventDefault();
+
+    const emailValue = resetEmail.trim();
+    if (!emailValue) {
+      Swal.fire({
+        icon: "warning",
+        title: "Email Required",
+        text: "Please enter the email you registered with.",
+        confirmButtonColor: "#D4AF37",
+      });
+      return;
+    }
+
+    setResetLoading(true);
+
+    try {
+      const response = await fetch("/api/auth/forgot", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ Email: emailValue }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data?.error || data?.message || "Failed to send reset email.");
+      }
+
+      closeResetDialog();
+
+      Swal.fire({
+        icon: "success",
+        title: "Email Sent",
+        text: "We've sent a new password to your email. Please check your inbox.",
+        confirmButtonColor: "#D4AF37",
+      });
+    } catch (error) {
+      Swal.fire({
+        icon: "error",
+        title: "Reset Failed",
+        text: error.message || "We couldn't process your request. Please try again later.",
+        confirmButtonColor: "#D4AF37",
+      });
+    } finally {
+      setResetLoading(false);
+    }
   };
 
   return (
@@ -2160,12 +2230,7 @@ export default function HeroSection() {
                       type="button"
                       onClick={(e) => {
                         e.preventDefault();
-                        Swal.fire({
-                          icon: "info",
-                          title: "Forgot Password",
-                          text: "Password reset feature coming soon!",
-                          confirmButtonColor: "#D4AF37",
-                        });
+                        setResetDialogOpen(true);
                       }}
                       sx={{
                         fontSize: { xs: "0.8125rem", sm: "0.875rem" },
@@ -2412,6 +2477,146 @@ export default function HeroSection() {
           }
         `}
       </style>
+
+      <Dialog
+        open={resetDialogOpen}
+        onClose={closeResetDialog}
+        fullWidth
+        maxWidth="sm"
+        TransitionComponent={SlideUpTransition}
+        transitionDuration={400}
+        PaperProps={{
+          sx: {
+            borderRadius: 4,
+            background: "rgba(255, 255, 255, 0.98)",
+            backdropFilter: "blur(20px)",
+            border: "1px solid rgba(212, 175, 55, 0.2)",
+            boxShadow: "0 20px 40px rgba(212, 175, 55, 0.15)",
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            background: "linear-gradient(135deg, #d4af37 0%, #f4d03f 100%)",
+            color: "#1a1a1a",
+            fontWeight: 700,
+            fontSize: { xs: "1.1rem", sm: "1.3rem" },
+            letterSpacing: "0.5px",
+            textAlign: "center",
+            py: { xs: 2.5, sm: 3 },
+          }}
+        >
+          <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center">
+            <Security sx={{ fontSize: { xs: 24, sm: 28 } }} />
+            <Box component="span">Reset Password</Box>
+          </Stack>
+        </DialogTitle>
+        <Divider />
+        <DialogContent sx={{ pt: { xs: 3, sm: 4 }, pb: { xs: 2, sm: 3 }, px: { xs: 3, sm: 4 } }}>
+          <DialogContentText
+            sx={{
+              mb: { xs: 2.5, sm: 3 },
+              fontSize: { xs: "0.95rem", sm: "1rem" },
+              color: "rgba(0,0,0,0.7)",
+              textAlign: "center",
+              lineHeight: 1.6,
+            }}
+          >
+            Enter the email you used to sign up. We'll send you a fresh password so you can get back in.
+          </DialogContentText>
+          <Box
+            component="form"
+            onSubmit={handleResetSubmit}
+            sx={{ display: "flex", flexDirection: "column", gap: 3 }}
+          >
+            <TextField
+              value={resetEmail}
+              onChange={(event) => setResetEmail(event.target.value)}
+              type="email"
+              label="Email Address"
+              fullWidth
+              placeholder="you@example.com"
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Email sx={{ color: "rgba(0,0,0,0.6)" }} />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: 3,
+                  "&:hover .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "rgba(212, 175, 55, 0.5)",
+                  },
+                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "#D4AF37",
+                    borderWidth: 2,
+                  },
+                },
+                "& .MuiInputLabel-root": {
+                  fontSize: { xs: "0.95rem", sm: "1rem" },
+                  "&.Mui-focused": {
+                    color: "#D4AF37",
+                  },
+                },
+                "& .MuiInputBase-input": {
+                  py: { xs: 1.5, sm: 1.75 },
+                  fontSize: { xs: "0.95rem", sm: "1rem" },
+                },
+              }}
+            />
+            <DialogActions sx={{ mt: 1, gap: 2, px: 0, flexDirection: { xs: "column", sm: "row" } }}>
+              <Button
+                onClick={closeResetDialog}
+                variant="outlined"
+                fullWidth
+                sx={{
+                  borderColor: "rgba(0,0,0,0.3)",
+                  color: "rgba(0,0,0,0.7)",
+                  borderRadius: 3,
+                  px: { xs: 2.5, sm: 3 },
+                  py: 1,
+                  fontWeight: 600,
+                  "&:hover": {
+                    borderColor: "rgba(0,0,0,0.5)",
+                    backgroundColor: "rgba(0,0,0,0.05)",
+                  },
+                }}
+                disabled={resetLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="contained"
+                fullWidth
+                startIcon={
+                  resetLoading ? <CircularProgress size={18} color="inherit" /> : <Security />
+                }
+                sx={{
+                  background: "linear-gradient(135deg, #d4af37 0%, #f4d03f 100%)",
+                  borderRadius: 3,
+                  px: { xs: 2.5, sm: 3 },
+                  py: 1,
+                  fontWeight: 600,
+                  textTransform: "none",
+                  color: "#1a1a1a",
+                  boxShadow: "0 4px 12px rgba(212, 175, 55, 0.3)",
+                  "&:hover": {
+                    background: "linear-gradient(135deg, #b8941f 0%, #d4af37 100%)",
+                    boxShadow: "0 6px 16px rgba(212, 175, 55, 0.4)",
+                    transform: "translateY(-1px)",
+                  },
+                }}
+                disabled={resetLoading}
+              >
+                {resetLoading ? "Sending..." : "Send Reset Password"}
+              </Button>
+            </DialogActions>
+          </Box>
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 }
