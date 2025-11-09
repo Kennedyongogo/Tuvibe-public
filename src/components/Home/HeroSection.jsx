@@ -616,7 +616,7 @@ export default function HeroSection() {
     setResetLoading(true);
 
     try {
-      const response = await fetch("/api/auth/forgot", {
+      const response = await fetch("/api/public/forgot-password", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
