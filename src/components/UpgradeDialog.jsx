@@ -13,6 +13,8 @@ import {
   Stack,
   CircularProgress,
   Alert,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import { Star, Info } from "@mui/icons-material";
 import Swal from "sweetalert2";
@@ -28,6 +30,13 @@ export default function UpgradeDialog({ open, onClose }) {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [upgrading, setUpgrading] = useState(false);
   const [tokenBalance, setTokenBalance] = useState(0);
+  const theme = useTheme();
+  const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
+  const smallFonts = {
+    h6: { fontSize: "0.9375rem" },
+    body2: { fontSize: "0.65625rem" },
+    button: { fontSize: "0.75rem" },
+  };
 
   // Fetch and update token balance
   useEffect(() => {
@@ -253,7 +262,10 @@ export default function UpgradeDialog({ open, onClose }) {
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <Star sx={{ color: "#D4AF37" }} />
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            <Typography
+              variant="h6"
+              sx={{ fontWeight: 600, ...(isSmallScreen ? smallFonts.h6 : {}) }}
+            >
               Upgrade to Premium
             </Typography>
           </Box>
@@ -266,7 +278,14 @@ export default function UpgradeDialog({ open, onClose }) {
               border: "1px solid rgba(212, 175, 55, 0.3)",
             }}
           >
-            <Typography variant="body2" sx={{ color: "text.secondary", mb: 0.5 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                mb: 0.5,
+                ...(isSmallScreen ? smallFonts.body2 : {}),
+              }}
+            >
               Current Balance
             </Typography>
             <Typography
@@ -274,6 +293,7 @@ export default function UpgradeDialog({ open, onClose }) {
               sx={{
                 fontWeight: 700,
                 color: "#D4AF37",
+                ...(isSmallScreen ? smallFonts.h6 : {}),
               }}
             >
               {Number(tokenBalance).toFixed(2)} tokens
@@ -294,16 +314,33 @@ export default function UpgradeDialog({ open, onClose }) {
             },
           }}
         >
-          <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              fontWeight: 600,
+              mb: 0.5,
+              ...(isSmallScreen ? smallFonts.body2 : {}),
+            }}
+          >
             Premium Lounge Access Required
           </Typography>
-          <Typography variant="body2">
+          <Typography
+            variant="body2"
+            sx={{ ...(isSmallScreen ? smallFonts.body2 : {}) }}
+          >
             Only premium users can access Premium Lounge. Upgrade to a premium
             category to unlock premium features and connect with verified
             premium users.
           </Typography>
         </Alert>
-        <Typography variant="body2" sx={{ mb: 3, color: "text.secondary" }}>
+        <Typography
+          variant="body2"
+          sx={{
+            mb: 3,
+            color: "text.secondary",
+            ...(isSmallScreen ? smallFonts.body2 : {}),
+          }}
+        >
           Choose a premium category to upgrade. You will be automatically
           verified upon upgrade. Exchange rate: {describeExchangeRate()}.
         </Typography>
@@ -346,11 +383,19 @@ export default function UpgradeDialog({ open, onClose }) {
                     <Box>
                       <Typography
                         variant="h6"
-                        sx={{ fontWeight: 600, mb: 0.5 }}
+                        sx={{
+                          fontWeight: 600,
+                          mb: 0.5,
+                          ...(isSmallScreen ? smallFonts.h6 : {}),
+                        }}
                       >
                         {cat.category}
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ ...(isSmallScreen ? smallFonts.body2 : {}) }}
+                      >
                         {cat.description}
                       </Typography>
                     </Box>
@@ -361,6 +406,7 @@ export default function UpgradeDialog({ open, onClose }) {
                         backgroundColor: "#D4AF37",
                         color: "white",
                         fontWeight: 600,
+                        ...(isSmallScreen ? smallFonts.body2 : {}),
                       }}
                     />
                   </Box>
@@ -379,10 +425,17 @@ export default function UpgradeDialog({ open, onClose }) {
               borderRadius: 2,
             }}
           >
-            <Typography variant="body2" sx={{ mb: 1 }}>
+            <Typography
+              variant="body2"
+              sx={{ mb: 1, ...(isSmallScreen ? smallFonts.body2 : {}) }}
+            >
               <strong>Selected:</strong> {selectedCategory}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ ...(isSmallScreen ? smallFonts.body2 : {}) }}
+            >
               Cost: {upgradeCategories.find(
                 (cat) => cat.category === selectedCategory
               )?.costTokens || 0} tokens (
@@ -397,7 +450,11 @@ export default function UpgradeDialog({ open, onClose }) {
         )}
       </DialogContent>
       <DialogActions sx={{ p: 2, pt: 1 }}>
-        <Button onClick={onClose} color="inherit">
+        <Button
+          onClick={onClose}
+          color="inherit"
+          sx={{ ...(isSmallScreen ? smallFonts.button : {}) }}
+        >
           Cancel
         </Button>
         <Button
@@ -407,6 +464,7 @@ export default function UpgradeDialog({ open, onClose }) {
           sx={{
             backgroundColor: "#D4AF37",
             "&:hover": { backgroundColor: "#B8941F" },
+            ...(isSmallScreen ? smallFonts.button : {}),
           }}
         >
           {upgrading ? (
