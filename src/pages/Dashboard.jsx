@@ -27,6 +27,8 @@ import {
   Avatar,
   ListItemText,
   Divider,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import { keyframes } from "@mui/system";
 import Autocomplete, {
@@ -99,6 +101,8 @@ const parseNumericValue = (value) => {
 
 export default function Dashboard({ user, setUser }) {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const [featuredItems, setFeaturedItems] = useState([]);
   const [loadingFeatured, setLoadingFeatured] = useState(false);
   const [featuredUsers, setFeaturedUsers] = useState([]);
@@ -1704,7 +1708,12 @@ export default function Dashboard({ user, setUser }) {
             display: "flex",
             alignItems: "center",
             gap: 1,
-            py: 2,
+            py: isSmallScreen ? 1.5 : 2,
+            fontSize: {
+              xs: "0.95rem",
+              sm: "1.05rem",
+              md: "1.15rem",
+            },
           }}
         >
           <TrendingUp />
@@ -1719,54 +1728,64 @@ export default function Dashboard({ user, setUser }) {
             maxHeight: { xs: "calc(100vh - 160px)", sm: "calc(100vh - 200px)" },
             "& .MuiTypography-root": {
               fontSize: {
-                xs: "0.75rem",
-                sm: "0.8rem",
+                xs: "0.68rem",
+                sm: "0.78rem",
                 md: "0.9rem",
+              },
+              lineHeight: {
+                xs: 1.35,
+                sm: 1.45,
+                md: 1.6,
               },
             },
             "& .MuiButtonBase-root": {
+              fontSize: {
+                xs: "0.75rem",
+                sm: "0.85rem",
+                md: "0.95rem",
+              },
               "& .MuiTypography-root": {
                 fontSize: {
-                  xs: "0.75rem",
-                  sm: "0.8rem",
+                  xs: "0.68rem",
+                  sm: "0.78rem",
                   md: "0.9rem",
                 },
               },
             },
             "& .MuiChip-root": {
               fontSize: {
-                xs: "0.7rem",
-                sm: "0.78rem",
-                md: "0.88rem",
+                xs: "0.64rem",
+                sm: "0.74rem",
+                md: "0.86rem",
               },
             },
             "& .MuiFormHelperText-root": {
               fontSize: {
-                xs: "0.7rem",
-                sm: "0.78rem",
-                md: "0.88rem",
+                xs: "0.64rem",
+                sm: "0.74rem",
+                md: "0.86rem",
               },
             },
             "& .MuiTextField-root": {
               "& input, & textarea": {
                 fontSize: {
-                  xs: "0.75rem",
-                  sm: "0.8rem",
+                  xs: "0.68rem",
+                  sm: "0.78rem",
                   md: "0.9rem",
                 },
               },
               "& label": {
                 fontSize: {
-                  xs: "0.75rem",
-                  sm: "0.8rem",
+                  xs: "0.68rem",
+                  sm: "0.78rem",
                   md: "0.9rem",
                 },
               },
             },
             "& .MuiSelect-select": {
               fontSize: {
-                xs: "0.75rem",
-                sm: "0.8rem",
+                xs: "0.68rem",
+                sm: "0.78rem",
                 md: "0.9rem",
               },
             },
@@ -1791,13 +1810,41 @@ export default function Dashboard({ user, setUser }) {
             >
               <Typography
                 variant="subtitle2"
-                sx={{ fontWeight: 700, mb: 1, color: "#1a1a1a" }}
+                sx={{
+                  fontWeight: 700,
+                  mb: 1,
+                  color: "#1a1a1a",
+                  fontSize: { xs: "0.75rem", sm: "0.85rem", md: "0.95rem" },
+                }}
               >
                 Why Boost Your Profile?
               </Typography>
               <Box
                 component="ul"
-                sx={{ m: 0, pl: 2.5, "& li": { mb: 1, fontSize: "0.875rem" } }}
+                sx={{
+                  m: 0,
+                  pl: 2.5,
+                  "& li": {
+                    mb: 1,
+                    fontSize: {
+                      xs: "0.7rem",
+                      sm: "0.8rem",
+                      md: "0.9rem",
+                    },
+                    lineHeight: {
+                      xs: 1.35,
+                      sm: 1.45,
+                      md: 1.6,
+                    },
+                    "& strong": {
+                      fontSize: {
+                        xs: "0.72rem",
+                        sm: "0.82rem",
+                        md: "0.92rem",
+                      },
+                    },
+                  },
+                }}
               >
                 <li>
                   <strong>Higher Visibility:</strong> Boosted profiles appear
@@ -1996,6 +2043,11 @@ export default function Dashboard({ user, setUser }) {
             sx={{
               color: "rgba(26, 26, 26, 0.7)",
               fontWeight: 600,
+              fontSize: {
+                xs: "0.75rem",
+                sm: "0.85rem",
+                md: "0.95rem",
+              },
             }}
           >
             Cancel
@@ -2012,6 +2064,11 @@ export default function Dashboard({ user, setUser }) {
               borderRadius: "12px",
               px: 3,
               py: 1,
+              fontSize: {
+                xs: "0.78rem",
+                sm: "0.88rem",
+                md: "1rem",
+              },
               "&:hover": {
                 background: "linear-gradient(135deg, #B8941F, #D4AF37)",
               },
