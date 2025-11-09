@@ -78,6 +78,7 @@ export default function HeroSection() {
   }, []);
 
   const handleLogin = () => {
+    setResetDialogOpen(false);
     setLoginDialogOpen(true);
   };
 
@@ -627,7 +628,9 @@ export default function HeroSection() {
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(data?.error || data?.message || "Failed to send reset email.");
+        throw new Error(
+          data?.error || data?.message || "Failed to send reset email."
+        );
       }
 
       closeResetDialog();
@@ -637,6 +640,8 @@ export default function HeroSection() {
         title: "Email Sent",
         text: "We've sent a new password to your email. Please check your inbox.",
         confirmButtonColor: "#D4AF37",
+      }).then(() => {
+        setLoginDialogOpen(true);
       });
     } catch (error) {
       Swal.fire({
@@ -2230,6 +2235,7 @@ export default function HeroSection() {
                       type="button"
                       onClick={(e) => {
                         e.preventDefault();
+                        handleLoginClose();
                         setResetDialogOpen(true);
                       }}
                       sx={{

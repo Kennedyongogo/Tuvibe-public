@@ -28,9 +28,11 @@ import {
   Star,
   ArrowDropDown,
   Report,
+  Lock,
 } from "@mui/icons-material";
 import { useNavigate, useLocation } from "react-router-dom";
 import Swal from "sweetalert2";
+import PublicResetPasswordDialog from "./Account/PublicResetPasswordDialog";
 
 const drawerWidth = 260;
 
@@ -39,6 +41,7 @@ export default function Navbar({ user, setUser }) {
   const location = useLocation();
   const [anchorEl, setAnchorEl] = useState(null);
   const [bottomNavValue, setBottomNavValue] = useState(0);
+  const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
   const prevPathnameRef = useRef(location.pathname);
   const anchorElRef = useRef(null);
 
@@ -410,6 +413,15 @@ export default function Navbar({ user, setUser }) {
               <Report sx={{ mr: 2, color: "#D4AF37" }} />
               Reports
             </MenuItem>
+            <MenuItem
+              onClick={() => {
+                handleProfileMenuClose();
+                setTimeout(() => setResetPasswordOpen(true), 100);
+              }}
+            >
+              <Lock sx={{ mr: 2, color: "#D4AF37" }} />
+              Reset Password
+            </MenuItem>
             <Divider />
             <MenuItem
               onClick={(e) => {
@@ -421,6 +433,11 @@ export default function Navbar({ user, setUser }) {
               Logout
             </MenuItem>
           </Menu>
+          <PublicResetPasswordDialog
+            open={resetPasswordOpen}
+            onClose={() => setResetPasswordOpen(false)}
+            user={user}
+          />
         </Toolbar>
       </AppBar>
 
