@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Box,
   Typography,
   Card,
   CardContent,
+  CardActions,
   Button,
   Chip,
   CircularProgress,
@@ -78,6 +79,24 @@ const goldShine = keyframes`
   }
 `;
 
+const getRemainingTimeForDate = (dateValue) => {
+  if (!dateValue) return null;
+  try {
+    const now = new Date();
+    const until = new Date(dateValue);
+    const diff = until.getTime() - now.getTime();
+    if (Number.isNaN(diff) || diff <= 0) {
+      return null;
+    }
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    return { hours, minutes, diff };
+  } catch (error) {
+    console.error("Failed to calculate remaining time:", error);
+    return null;
+  }
+};
+
 const BOOST_CATEGORIES = ["Regular", "Sugar Mummy", "Sponsor", "Ben 10"];
 const MIN_BOOST_HOURS = 1;
 const MAX_BOOST_HOURS = 6;
@@ -129,6 +148,63 @@ export default function Dashboard({ user, setUser }) {
   const [loadingTargetedBoosts, setLoadingTargetedBoosts] = useState(false);
   const [targetedDialogOpen, setTargetedDialogOpen] = useState(false);
   const targetedCount = targetedBoosts.length;
+  const [activeBoosts, setActiveBoosts] = useState([]);
+  const [selectedBoostId, setSelectedBoostId] = useState(null);
+  const [loadingBoostStatus, setLoadingBoostStatus] = useState(false);
+  const [boostStatusError, setBoostStatusError] = useState("");
+  const [boostTargetEdited, setBoostTargetEdited] = useState(false);
+  const normalizedTargetCounty = useMemo(
+    () => normalizeCountyName(boostArea),
+    [boostArea]
+  );
+  const selectedBoost = useMemo(() => {
+    if (!Array.isArray(activeBoosts) || activeBoosts.length === 0) return null;
+
+    if (selectedBoostId) {
+      const byId = activeBoosts.find((boost) => boost.id === selectedBoostId);
+      if (byId) return byId;
+    }
+
+    const normalizedCategory = boostCategory || user?.category || "Regular";
+
+    const categoryMatches = activeBoosts.filter((boost) => {
+      const boostCategoryValue =
+        boost?.target_category || user?.category || "Regular";
+      return boostCategoryValue === normalizedCategory;
+    });
+
+    const pool = categoryMatches.length > 0 ? categoryMatches : activeBoosts;
+
+    if (normalizedTargetCounty) {
+      const byCounty = pool.find((boost) => {
+        const boostCounty = normalizeCountyName(boost?.target_area);
+        return boostCounty && boostCounty === normalizedTargetCounty;
+      });
+      if (byCounty) return byCounty;
+    }
+
+    return pool[0] || null;
+  }, [
+    activeBoosts,
+    normalizedTargetCounty,
+    boostCategory,
+    user?.category,
+    selectedBoostId,
+  ]);
+  const selectedBoostRemaining = useMemo(() => {
+    if (!selectedBoost) return null;
+    const remaining = getRemainingTimeForDate(selectedBoost.ends_at);
+    if (!remaining) return null;
+    return `${remaining.hours}h ${remaining.minutes}m`;
+  }, [selectedBoost]);
+  const selectedBoostExpiresAt = useMemo(() => {
+    if (!selectedBoost?.ends_at) return null;
+    try {
+      return new Date(selectedBoost.ends_at).toLocaleString();
+    } catch {
+      return null;
+    }
+  }, [selectedBoost]);
   const [boostLatitude, setBoostLatitude] = useState(null);
   const [boostLongitude, setBoostLongitude] = useState(null);
   const [viewerLatitude, setViewerLatitude] = useState(
@@ -161,6 +237,41 @@ export default function Dashboard({ user, setUser }) {
   const handleCloseTargetedDialog = () => setTargetedDialogOpen(false);
 
   const programmaticBoostCloseRef = React.useRef(false);
+
+  const applyBoostContext = useCallback(
+    (boost) => {
+      if (!boost) return;
+      setSelectedBoostId(boost.id);
+      setBoostCategory(
+        boost.target_category || user?.category || "Regular"
+      );
+      const normalizedArea =
+        normalizeCountyName(boost.target_area) ||
+        boost.target_area ||
+        "";
+      setBoostArea(normalizedArea);
+      const latValue = parseNumericValue(boost.target_lat);
+      const lngValue = parseNumericValue(boost.target_lng);
+      if (latValue !== null && lngValue !== null) {
+        setBoostLatitude(latValue);
+        setBoostLongitude(lngValue);
+      }
+      const radiusValue = parseNumericValue(boost.radius_km);
+      if (Number.isFinite(radiusValue)) {
+        setBoostRadiusKm(radiusValue);
+      }
+    },
+    [user?.category]
+  );
+
+  const handleSelectActiveBoost = useCallback(
+    (boost) => {
+      if (!boost) return;
+      applyBoostContext(boost);
+      setBoostTargetEdited(false);
+    },
+    [applyBoostContext]
+  );
 
   const requestCurrentLocation = useCallback(
     ({ applyToBoost = false, onComplete } = {}) => {
@@ -208,6 +319,9 @@ export default function Dashboard({ user, setUser }) {
     setBoostArea(normalizeCountyName(user?.county) || "");
     setBoostHours(MIN_BOOST_HOURS);
     setBoostRadiusKm(DEFAULT_BOOST_RADIUS_KM);
+     setBoostLatitude(parseNumericValue(user?.latitude) ?? null);
+     setBoostLongitude(parseNumericValue(user?.longitude) ?? null);
+     setBoostTargetEdited(false);
     setLocationError("");
   }, [
     user?.category,
@@ -227,12 +341,148 @@ export default function Dashboard({ user, setUser }) {
     [resetBoostForm]
   );
 
+  const showBoostDialogAlert = useCallback(
+    async (options) => {
+      const wasOpen = boostDialogOpen;
+      if (wasOpen) {
+        programmaticBoostCloseRef.current = true;
+        setBoostDialogOpen(false);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        programmaticBoostCloseRef.current = false;
+      }
+
+      await Swal.fire({
+        confirmButtonColor: "#D4AF37",
+        ...options,
+      });
+
+      if (wasOpen) {
+        openBoostDialog(false);
+      }
+    },
+    [boostDialogOpen, openBoostDialog]
+  );
+
+  const fetchActiveBoosts = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setActiveBoosts([]);
+      setBoostStatusError("");
+      return;
+    }
+
+    setLoadingBoostStatus(true);
+    try {
+      const response = await fetch("/api/public/boosts/status", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
+      console.log("[Boost] status payload", data);
+
+      if (response.ok && data.success) {
+        const boostsSource = Array.isArray(data.data?.boosts)
+          ? data.data.boosts
+          : data.data?.boost
+          ? [data.data.boost]
+          : [];
+        const boosts = boostsSource.filter(Boolean);
+        setActiveBoosts(boosts);
+        setSelectedBoostId((prev) => {
+          if (boosts.length === 0) {
+            return null;
+          }
+          if (prev && boosts.some((boost) => boost.id === prev)) {
+            return prev;
+          }
+          return boosts[0].id;
+        });
+        console.log("[Boost] Active boosts fetched", boosts);
+        setBoostStatusError("");
+      } else {
+        setActiveBoosts([]);
+        setBoostStatusError(
+          data.message || "Unable to load your current boosts."
+        );
+      }
+    } catch (error) {
+      console.error("Fetch boost status error:", error);
+      setActiveBoosts([]);
+      setBoostStatusError("Unable to load your current boosts.");
+    } finally {
+      setLoadingBoostStatus(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!locationRequestedRef.current) {
       locationRequestedRef.current = true;
       requestCurrentLocation({ applyToBoost: false });
     }
   }, [requestCurrentLocation]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const styleId = "boost-extend-compact-styles";
+    if (document.getElementById(styleId)) return;
+    const style = document.createElement("style");
+    style.id = styleId;
+    style.textContent = `
+      .boost-extend-compact {
+        padding: 18px 20px !important;
+        border-radius: 16px !important;
+      }
+      .boost-extend-compact-title {
+        font-size: 1.1rem !important;
+        margin-bottom: 6px !important;
+      }
+      .boost-extend-compact-body {
+        font-size: 0.82rem !important;
+      }
+      .boost-extend-compact-body .swal2-input {
+        height: 36px !important;
+        font-size: 0.82rem !important;
+      }
+      .boost-extend-compact-summary {
+        font-size: 0.78rem;
+        color: rgba(26,26,26,0.65);
+      }
+      .boost-extend-compact-confirm,
+      .boost-extend-compact-cancel {
+        font-size: 0.8rem !important;
+        padding: 8px 18px !important;
+        border-radius: 10px !important;
+      }
+    `;
+    document.head.appendChild(style);
+  }, []);
+
+  useEffect(() => {
+    if (boostDialogOpen) {
+      fetchActiveBoosts();
+    }
+  }, [boostDialogOpen, fetchActiveBoosts]);
+
+  useEffect(() => {
+    if (boostDialogOpen) {
+      console.log("[Boost] Selected boost", selectedBoost);
+    }
+  }, [boostDialogOpen, selectedBoost]);
+
+  useEffect(() => {
+    if (!boostDialogOpen) return;
+    if (!selectedBoost) return;
+
+    if (!boostTargetEdited) {
+      applyBoostContext(selectedBoost);
+    }
+  }, [
+    boostDialogOpen,
+    selectedBoost,
+    boostTargetEdited,
+    applyBoostContext,
+  ]);
 
   useEffect(() => {
     const latFromProfile = parseNumericValue(user?.latitude);
@@ -347,17 +597,25 @@ export default function Dashboard({ user, setUser }) {
   }, [featuredItems]);
 
   useEffect(() => {
-    const boostUntilValue =
-      user?.active_boost_until || user?.is_featured_until || null;
-
-    if (!boostUntilValue) {
-      setBoostTimeRemaining(null);
-      return;
-    }
+    const resolveEndsAt = () => {
+      if (Array.isArray(activeBoosts) && activeBoosts.length > 0) {
+        const sorted = [...activeBoosts].sort(
+          (a, b) => new Date(a.ends_at) - new Date(b.ends_at)
+        );
+        return sorted[0]?.ends_at || null;
+      }
+      return user?.active_boost_until || user?.is_featured_until || null;
+    };
 
     const calculateTimeRemaining = () => {
+      const endsAtValue = resolveEndsAt();
+      if (!endsAtValue) {
+        setBoostTimeRemaining(null);
+        return;
+      }
+
       const now = new Date();
-      const until = new Date(boostUntilValue);
+      const until = new Date(endsAtValue);
       const diff = until.getTime() - now.getTime();
 
       if (Number.isNaN(diff) || diff <= 0) {
@@ -374,7 +632,7 @@ export default function Dashboard({ user, setUser }) {
     const interval = setInterval(calculateTimeRemaining, 60000);
 
     return () => clearInterval(interval);
-  }, [user?.active_boost_until, user?.is_featured_until]);
+  }, [activeBoosts, user?.active_boost_until, user?.is_featured_until]);
 
   useEffect(() => {
     resetBoostForm();
@@ -426,64 +684,52 @@ export default function Dashboard({ user, setUser }) {
     }
   };
 
-  const handleConfirmBoost = async () => {
+  const handleBoostProfile = async () => {
     if (!boostCategory) {
-      Swal.fire({
+      await showBoostDialogAlert({
         icon: "warning",
         title: "Select Category",
         text: "Choose the audience category you want to reach before boosting.",
-        confirmButtonColor: "#D4AF37",
       });
       return;
     }
 
-    const targetCounty = normalizeCountyName(boostArea);
-    if (!targetCounty) {
-      Swal.fire({
+    if (!normalizedTargetCounty) {
+      await showBoostDialogAlert({
         icon: "warning",
         title: "Select a County",
         text: "Choose one of the 47 Kenyan counties to target before boosting.",
-        confirmButtonColor: "#D4AF37",
       });
       return;
     }
 
     if (boostLatitude === null || boostLongitude === null) {
-      Swal.fire({
+      await showBoostDialogAlert({
         icon: "warning",
         title: "Set Target Location",
         text: "Allow location access or choose a location on the map before boosting.",
-        confirmButtonColor: "#D4AF37",
       });
       return;
     }
 
     if (!Number.isFinite(sanitizedBoostRadiusKm)) {
-      Swal.fire({
+      await showBoostDialogAlert({
         icon: "warning",
         title: "Invalid Radius",
         text: "Provide a radius between 1 km and 200 km for your boost.",
-        confirmButtonColor: "#D4AF37",
       });
       return;
     }
 
-    const hours = Math.min(
-      MAX_BOOST_HOURS,
-      Math.max(
-        MIN_BOOST_HOURS,
-        Math.floor(Number(boostHours) || MIN_BOOST_HOURS)
-      )
-    );
+    const hours = sanitizedBoostHours;
     const totalTokens = hours * BOOST_PRICE_TOKENS;
 
     const token = localStorage.getItem("token");
     if (!token) {
-      Swal.fire({
+      await showBoostDialogAlert({
         icon: "error",
         title: "Authentication Required",
         text: "Please login to boost your profile.",
-        confirmButtonColor: "#D4AF37",
       });
       return;
     }
@@ -530,14 +776,14 @@ export default function Dashboard({ user, setUser }) {
 
       const confirmation = await Swal.fire({
         icon: "question",
-        title: "Confirm Profile Boost",
+        title: "Confirm New Boost",
         html: `
           <div style="font-size: 0.9rem; line-height: 1.35; text-align: left;">
-            <p style="margin: 0 0 6px 0;"><strong>Targeting:</strong> ${boostCategory} audience in <strong>${targetCounty}</strong>.</p>
+            <p style="margin: 0 0 6px 0;"><strong>Targeting:</strong> ${boostCategory} audience in <strong>${normalizedTargetCounty}</strong>.</p>
             <p style="margin: 0 0 6px 0;"><strong>Duration:</strong> ${hours} hour${hours > 1 ? "s" : ""}</p>
             <p style="margin: 0 0 6px 0;"><strong>Radius:</strong> ${sanitizedBoostRadiusKm.toFixed(1)} km</p>
             <p style="margin: 0 0 10px 0;"><strong>Cost:</strong> ${totalTokens} tokens (${formatKshFromTokens(totalTokens)})</p>
-            <p style="font-size: 0.82rem; color: #555; margin: 0;">Each hour costs ${BOOST_PRICE_TOKENS} tokens (${formatKshFromTokens(BOOST_PRICE_TOKENS)}).</p>
+            <p style="font-size: 0.82rem; color: #555; margin: 0;">Use Extend Boost if you want to add time to an existing boost in the same area.</p>
           </div>
         `,
         width: 420,
@@ -549,52 +795,56 @@ export default function Dashboard({ user, setUser }) {
       });
 
       if (!confirmation.isConfirmed) {
+        programmaticBoostCloseRef.current = false;
         openBoostDialog(false);
         return;
       }
 
       setBoosting(true);
 
-      let lastBoost = null;
-      for (let i = 0; i < hours; i += 1) {
-        const response = await fetch("/api/tokens/boost", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            targetCategory: boostCategory,
-            targetArea: targetCounty,
-            targetLatitude: boostLatitude,
-            targetLongitude: boostLongitude,
-            targetRadiusKm: sanitizedBoostRadiusKm,
-          }),
+      console.log("[Boost] Creating new boost", {
+        category: boostCategory,
+        county: normalizedTargetCounty,
+        radiusKm: sanitizedBoostRadiusKm,
+        hours,
+      });
+
+      const response = await fetch("/api/tokens/boost", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          targetCategory: boostCategory,
+          targetArea: normalizedTargetCounty,
+          targetLatitude: boostLatitude,
+          targetLongitude: boostLongitude,
+          targetRadiusKm: sanitizedBoostRadiusKm,
+          durationHours: hours,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.status === 402) {
+        Swal.fire({
+          icon: "warning",
+          title: "Insufficient Tokens",
+          text:
+            data.message || "You do not have enough tokens for this boost.",
+          confirmButtonColor: "#D4AF37",
         });
-
-        const data = await response.json();
-
-        if (response.status === 402) {
-          Swal.fire({
-            icon: "warning",
-            title: "Insufficient Tokens",
-            text:
-              data.message || "You do not have enough tokens for this boost.",
-            confirmButtonColor: "#D4AF37",
-          });
-          return;
-        }
-
-        if (!data.success) {
-          throw new Error(data.message || "Failed to boost profile");
-        }
-
-        lastBoost = data.data;
+        programmaticBoostCloseRef.current = false;
+        openBoostDialog(false);
+        return;
       }
 
-      if (!lastBoost) {
-        throw new Error("Boost failed. Please try again.");
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Failed to boost profile");
       }
+
+      const createdBoost = data.data?.boost || null;
 
       const meResponse = await fetch("/api/public/me", {
         headers: { Authorization: `Bearer ${token}` },
@@ -608,59 +858,447 @@ export default function Dashboard({ user, setUser }) {
             ? {
                 ...prev,
                 active_boost_until:
-                  lastBoost.boost?.ends_at || prev.active_boost_until,
+                  createdBoost?.ends_at || prev.active_boost_until,
               }
             : prev
         );
       }
 
-      if (lastBoost.boost?.ends_at) {
-        const until = new Date(lastBoost.boost.ends_at);
-        const now = new Date();
-        const diff = until.getTime() - now.getTime();
-        if (!Number.isNaN(diff) && diff > 0) {
-          const hoursRemaining = Math.floor(diff / (1000 * 60 * 60));
-          const minutesRemaining = Math.floor(
-            (diff % (1000 * 60 * 60)) / (1000 * 60)
-          );
-          setBoostTimeRemaining({
-            hours: hoursRemaining,
-            minutes: minutesRemaining,
-          });
-        } else {
-          setBoostTimeRemaining(null);
-        }
+      const remainingInfo = getRemainingTimeForDate(createdBoost?.ends_at);
+      if (remainingInfo) {
+        setBoostTimeRemaining({
+          hours: remainingInfo.hours,
+          minutes: remainingInfo.minutes,
+        });
       } else {
         setBoostTimeRemaining(null);
       }
+
+      await fetchActiveBoosts();
+      fetchFeaturedUsers();
+      fetchFeaturedItems();
+      fetchTargetedBoosts();
 
       Swal.fire({
         icon: "success",
         title: "Profile Boosted!",
         html: `
           <p>Your profile will be boosted for <strong>${hours} hour${hours > 1 ? "s" : ""}</strong>.</p>
-          <p style="font-size: 0.9rem; color: rgba(26, 26, 26, 0.7);">Boost expires: ${
-            lastBoost.boost?.ends_at
-              ? new Date(lastBoost.boost.ends_at).toLocaleString()
-              : "Soon"
-          }</p>
+          <p style="font-size: 0.9rem; color: rgba(26, 26, 26, 0.7);">
+            Boost expires: ${
+              createdBoost?.ends_at
+                ? new Date(createdBoost.ends_at).toLocaleString()
+                : "Soon"
+            }
+          </p>
         `,
         confirmButtonColor: "#D4AF37",
       });
 
-      programmaticBoostCloseRef.current = false;
-      setBoostDialogOpen(false);
       resetBoostForm();
-      fetchFeaturedUsers();
-      fetchFeaturedItems();
-      fetchTargetedBoosts();
+      programmaticBoostCloseRef.current = false;
     } catch (err) {
-      console.error("Boost profile error:", err);
+      console.error("[Boost] create error:", err);
+      programmaticBoostCloseRef.current = false;
       openBoostDialog(false);
       Swal.fire({
         icon: "error",
         title: "Boost Failed",
         text: err.message || "Failed to boost profile. Please try again later.",
+        confirmButtonColor: "#D4AF37",
+      });
+    } finally {
+      setBoosting(false);
+    }
+  };
+
+  const handleExtendBoost = async (boostOverride = null) => {
+    const boostToUse = boostOverride || selectedBoost;
+    if (!boostToUse) {
+      Swal.fire({
+        icon: "info",
+        title: "No Boost To Extend",
+        text: "Create a boost in this area first, then you can extend it.",
+        confirmButtonColor: "#D4AF37",
+      });
+      return;
+    }
+
+    if (boostOverride) {
+      applyBoostContext(boostToUse);
+      setBoostTargetEdited(false);
+    }
+
+    let dialogWasOpen = false;
+    if (boostDialogOpen) {
+      dialogWasOpen = true;
+      programmaticBoostCloseRef.current = true;
+      setBoostDialogOpen(false);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      programmaticBoostCloseRef.current = false;
+    }
+
+    const currentRadius =
+      parseNumericValue(boostToUse.radius_km) ?? sanitizedBoostRadiusKm;
+    const defaultHours = sanitizedBoostHours;
+    const defaultRadius = Number.isFinite(currentRadius)
+      ? Number(currentRadius)
+      : sanitizedBoostRadiusKm;
+    const currentEndsDate = boostToUse.ends_at
+      ? new Date(boostToUse.ends_at)
+      : null;
+    const currentEndsLabel = currentEndsDate
+      ? currentEndsDate.toLocaleString()
+      : "Soon";
+    const currentRemaining = getRemainingTimeForDate(boostToUse.ends_at);
+    const currentRemainingLabel = currentRemaining
+      ? `${currentRemaining.hours}h ${currentRemaining.minutes}m`
+      : null;
+
+    const adjustResult = await Swal.fire({
+      icon: undefined,
+      title: "Adjust Extension",
+      html: `
+        <div style="text-align: left; display: flex; flex-direction: column; gap: 10px; font-size: 0.82rem;">
+          <div class="boost-extend-compact-summary"><strong>Current time left:</strong> ${
+            currentRemainingLabel || "Calculating…"
+          }</div>
+          <div class="boost-extend-compact-summary"><strong>Current end time:</strong> ${currentEndsLabel}</div>
+          <div class="boost-extend-compact-summary"><strong>Current radius:</strong> ${Number.isFinite(currentRadius) ? Number(currentRadius).toFixed(1) + " km" : "N/A"}</div>
+          <div>
+            <label for="extend-hours-input" style="font-weight: 600; font-size: 0.85rem;">Hours to add</label>
+            <input id="extend-hours-input" type="number" class="swal2-input" style="margin-top: 4px; height: 36px; font-size: 0.82rem;" min="${MIN_BOOST_HOURS}" max="${MAX_BOOST_HOURS}" step="1" value="${defaultHours}" />
+            <small style="display:block; margin-top:4px; color: rgba(26,26,26,0.6); font-size: 0.72rem;">
+              Choose between ${MIN_BOOST_HOURS} and ${MAX_BOOST_HOURS} hours to add.
+            </small>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <div>
+              <label style="font-weight: 600; font-size: 0.85rem;">Current radius (km)</label>
+              <input type="number" class="swal2-input" style="margin-top: 4px; height: 36px; font-size: 0.82rem;" value="${Number.isFinite(currentRadius) ? Number(currentRadius).toFixed(
+        1
+      ) : ""}" disabled />
+            </div>
+            <div>
+              <label for="extend-radius-input" style="font-weight: 600; font-size: 0.85rem;">New radius (km)</label>
+              <input id="extend-radius-input" type="number" class="swal2-input" style="margin-top: 4px; height: 36px; font-size: 0.82rem;" min="${MIN_BOOST_RADIUS_KM}" max="${MAX_BOOST_RADIUS_KM}" step="0.5" value="${defaultRadius.toFixed(
+        1
+      )}" />
+            </div>
+          </div>
+          <small style="display:block; margin-top:4px; color: rgba(26,26,26,0.6); font-size: 0.72rem;">
+            Allowed range: ${MIN_BOOST_RADIUS_KM} – ${MAX_BOOST_RADIUS_KM} km.
+          </small>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: "Review Extension",
+      cancelButtonText: "Cancel",
+      focusConfirm: false,
+      width: 380,
+      customClass: {
+        popup: "boost-extend-compact",
+        title: "boost-extend-compact-title",
+        htmlContainer: "boost-extend-compact-body",
+        confirmButton: "boost-extend-compact-confirm",
+        cancelButton: "boost-extend-compact-cancel",
+      },
+      didOpen: () => {
+        const hoursInput = document.getElementById("extend-hours-input");
+        const radiusInput = document.getElementById("extend-radius-input");
+        if (hoursInput) {
+          hoursInput.value = defaultHours.toString();
+        }
+        if (radiusInput) {
+          radiusInput.value = defaultRadius.toFixed(1);
+        }
+      },
+      preConfirm: () => {
+        const hoursValue = Number(
+          document.getElementById("extend-hours-input")?.value
+        );
+        const radiusValue = Number(
+          document.getElementById("extend-radius-input")?.value
+        );
+
+        if (
+          !Number.isFinite(hoursValue) ||
+          hoursValue < MIN_BOOST_HOURS ||
+          hoursValue > MAX_BOOST_HOURS
+        ) {
+          Swal.showValidationMessage(
+            `Hours must be between ${MIN_BOOST_HOURS} and ${MAX_BOOST_HOURS}.`
+          );
+          return false;
+        }
+
+        if (
+          !Number.isFinite(radiusValue) ||
+          radiusValue < MIN_BOOST_RADIUS_KM ||
+          radiusValue > MAX_BOOST_RADIUS_KM
+        ) {
+          Swal.showValidationMessage(
+            `Radius must be between ${MIN_BOOST_RADIUS_KM} and ${MAX_BOOST_RADIUS_KM} km.`
+          );
+          return false;
+        }
+
+        return {
+          hours: Math.floor(hoursValue),
+          radius: Number(radiusValue.toFixed(1)),
+        };
+      },
+    });
+
+    if (!adjustResult.isConfirmed || !adjustResult.value) {
+      if (dialogWasOpen) {
+        openBoostDialog(false);
+      }
+      return;
+    }
+
+    const adjustedHours = Math.min(
+      MAX_BOOST_HOURS,
+      Math.max(MIN_BOOST_HOURS, adjustResult.value.hours)
+    );
+    const adjustedRadius = Math.min(
+      MAX_BOOST_RADIUS_KM,
+      Math.max(MIN_BOOST_RADIUS_KM, adjustResult.value.radius)
+    );
+
+    setBoostHours(String(adjustedHours));
+    setBoostRadiusKm(adjustedRadius);
+    setBoostTargetEdited(true);
+
+    const hours = adjustedHours;
+    const totalTokens = hours * BOOST_PRICE_TOKENS;
+    const extensionRadiusKm = adjustedRadius;
+    const previousRadiusLabel = Number.isFinite(currentRadius)
+      ? `${Number(currentRadius).toFixed(1)} km`
+      : "N/A";
+    const newRadiusLabel = `${extensionRadiusKm.toFixed(1)} km`;
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      Swal.fire({
+        icon: "error",
+        title: "Authentication Required",
+        text: "Please login to manage your boosts.",
+        confirmButtonColor: "#D4AF37",
+      });
+      return;
+    }
+
+    try {
+      const balanceRes = await fetch("/api/tokens/balance", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const balanceData = await balanceRes.json();
+      const currentBalance = Number(balanceData.data?.balance || 0);
+
+      if (!balanceData.success) {
+        throw new Error(balanceData.message || "Failed to fetch balance");
+      }
+
+      if (currentBalance < totalTokens) {
+        programmaticBoostCloseRef.current = true;
+        setBoostDialogOpen(false);
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const result = await Swal.fire({
+          icon: "warning",
+          title: "Insufficient Tokens",
+          html: `<p>You need ${totalTokens} tokens (${formatKshFromTokens(totalTokens)}) to extend by ${hours} hour${
+            hours > 1 ? "s" : ""
+          }.</p><p>Your balance: ${currentBalance.toFixed(2)} tokens</p>`,
+          confirmButtonText: "Buy Tokens",
+          cancelButtonText: "Cancel",
+          showCancelButton: true,
+          confirmButtonColor: "#D4AF37",
+        });
+
+        programmaticBoostCloseRef.current = false;
+
+        if (result.isConfirmed) {
+          navigate("/wallet");
+        }
+        return;
+      }
+
+      programmaticBoostCloseRef.current = true;
+      setBoostDialogOpen(false);
+
+      const now = new Date();
+      const baselineForPreview =
+        currentEndsDate && currentEndsDate > now ? currentEndsDate : now;
+      const previewEndsAt = new Date(
+        baselineForPreview.getTime() + hours * 60 * 60 * 1000
+      );
+      const previewEndsText = previewEndsAt.toLocaleString();
+      const previewRemaining = getRemainingTimeForDate(previewEndsAt);
+      const previewRemainingLabel = previewRemaining
+        ? `${previewRemaining.hours}h ${previewRemaining.minutes}m`
+        : null;
+      const currentEndsText = currentEndsLabel;
+      const confirmation = await Swal.fire({
+        icon: undefined,
+        title: "Extend Existing Boost",
+        html: `
+          <div style="font-size: 0.9rem; line-height: 1.35; text-align: left;">
+            <p style="margin: 0 0 6px 0;"><strong>Area:</strong> ${
+              boostToUse.target_area || "Custom location"
+            }</p>
+            <p style="margin: 0 0 6px 0;"><strong>Current radius:</strong> ${
+              boostToUse.radius_km
+                ? Number.parseFloat(boostToUse.radius_km).toFixed(1)
+                : "N/A"
+            } km → <strong>${newRadiusLabel}</strong></p>
+            <p style="margin: 0 0 6px 0;"><strong>Current end time:</strong> ${currentEndsText}</p>
+            <p style="margin: 0 0 6px 0;"><strong>New end time:</strong> ${previewEndsText}${
+        previewRemainingLabel ? ` (${previewRemainingLabel} from now)` : ""
+      }</p>
+            <p style="margin: 0 0 10px 0;"><strong>Extension:</strong> Add ${hours} hour${
+          hours > 1 ? "s" : ""
+        } to this boost for ${totalTokens} tokens (${formatKshFromTokens(
+          totalTokens
+        )}).</p>
+            <p style="font-size: 0.82rem; color: #555; margin: 0;">Extending keeps the same target area and audience.</p>
+          </div>
+        `,
+        width: 420,
+        showCancelButton: true,
+        confirmButtonText: "Extend Boost",
+        cancelButtonText: "Cancel",
+        confirmButtonColor: "#D4AF37",
+        cancelButtonColor: "#9E9E9E",
+      });
+
+      if (!confirmation.isConfirmed) {
+        programmaticBoostCloseRef.current = false;
+        openBoostDialog(false);
+        return;
+      }
+
+      setBoosting(true);
+
+      console.log("[Boost] Extending existing boost", {
+        boostId: boostToUse.id,
+        hours,
+        radiusKm: extensionRadiusKm,
+      });
+
+      const response = await fetch(
+        `/api/tokens/boost/${boostToUse.id}/extend`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            additionalHours: hours,
+            targetRadiusKm: extensionRadiusKm,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.status === 402) {
+        Swal.fire({
+          icon: "warning",
+          title: "Insufficient Tokens",
+          text:
+            data.message ||
+            "You do not have enough tokens to extend this boost.",
+          confirmButtonColor: "#D4AF37",
+        });
+        programmaticBoostCloseRef.current = false;
+        openBoostDialog(false);
+        return;
+      }
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Failed to extend boost");
+      }
+
+      const updatedBoost = data.data?.boost || null;
+
+      const meResponse = await fetch("/api/public/me", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const meData = await meResponse.json();
+      if (meData.success && typeof setUser === "function") {
+        setUser(meData.data);
+      } else if (typeof setUser === "function") {
+        setUser((prev) =>
+          prev
+            ? {
+                ...prev,
+                active_boost_until:
+                  updatedBoost?.ends_at || prev.active_boost_until,
+              }
+            : prev
+        );
+      }
+
+      const remainingInfo = getRemainingTimeForDate(updatedBoost?.ends_at);
+      if (remainingInfo) {
+        setBoostTimeRemaining({
+          hours: remainingInfo.hours,
+          minutes: remainingInfo.minutes,
+        });
+      } else {
+        setBoostTimeRemaining(null);
+      }
+
+      await fetchActiveBoosts();
+      fetchFeaturedUsers();
+      fetchFeaturedItems();
+      fetchTargetedBoosts();
+
+      Swal.fire({
+        icon: "success",
+        title: "Boost Extended",
+        html: `
+          <p>You added <strong>${hours} hour${
+            hours > 1 ? "s" : ""
+          }</strong> to your boost.</p>
+          <p style="font-size: 0.9rem; color: rgba(26, 26, 26, 0.7); margin-bottom: 4px;">
+            Previous expiry: ${currentEndsText}
+          </p>
+          <p style="font-size: 0.9rem; color: rgba(26, 26, 26, 0.7); margin-bottom: 4px;">
+            New expiry: ${
+              updatedBoost?.ends_at
+                ? new Date(updatedBoost.ends_at).toLocaleString()
+                : previewEndsText
+            }
+          </p>
+          ${
+            previewRemainingLabel
+              ? `<p style="font-size: 0.82rem; color: rgba(26,26,26,0.6); margin-bottom: 6px;">Time remaining now: ${previewRemainingLabel}.</p>`
+              : ""
+          }
+          <p style="font-size: 0.82rem; color: rgba(26,26,26,0.6);">
+            Radius: <strong>${previousRadiusLabel}</strong> → <strong>${newRadiusLabel}</strong>.
+          </p>
+        `,
+        confirmButtonColor: "#D4AF37",
+      });
+
+      resetBoostForm();
+      programmaticBoostCloseRef.current = false;
+    } catch (err) {
+      console.error("[Boost] extend error:", err);
+      programmaticBoostCloseRef.current = false;
+      openBoostDialog(false);
+      Swal.fire({
+        icon: "error",
+        title: "Extension Failed",
+        text:
+          err.message ||
+          "Failed to extend your boost. Please try again later.",
         confirmButtonColor: "#D4AF37",
       });
     } finally {
@@ -1063,9 +1701,10 @@ export default function Dashboard({ user, setUser }) {
               sx={{
                 fontWeight: 700,
                 fontSize: {
-                  xs: "0.55rem",
-                  sm: "0.6rem",
-                  md: "0.55rem",
+                  xs: "0.75rem",
+                  sm: "0.9rem",
+                  md: "1.05rem",
+                  lg: "1.2rem",
                 },
                 textAlign: "center",
               }}
@@ -1159,9 +1798,10 @@ export default function Dashboard({ user, setUser }) {
               sx={{
                 fontWeight: 700,
                 fontSize: {
-                  xs: "0.55rem",
-                  sm: "0.6rem",
-                  md: "0.55rem",
+                  xs: "0.75rem",
+                  sm: "0.9rem",
+                  md: "1.05rem",
+                  lg: "1.2rem",
                 },
                 textAlign: "center",
               }}
@@ -1724,7 +2364,7 @@ export default function Dashboard({ user, setUser }) {
           }}
         >
           <TrendingUp />
-          {boostTimeRemaining ? "Extend Profile Boost" : "Boost Your Profile"}
+          {selectedBoost ? "Extend Profile Boost" : "Boost Your Profile"}
         </DialogTitle>
         <DialogContent
           sx={{
@@ -1806,69 +2446,269 @@ export default function Dashboard({ user, setUser }) {
               pb: 3,
             }}
           >
-            <Alert
-              severity="info"
-              sx={{
-                mb: 3,
-                borderRadius: "12px",
-                bgcolor: "rgba(212, 175, 55, 0.1)",
-                border: "1px solid rgba(212, 175, 55, 0.3)",
-              }}
-            >
-              <Typography
-                variant="subtitle2"
+            {activeBoosts.length === 0 && (
+              <Alert
+                severity="info"
                 sx={{
-                  fontWeight: 700,
-                  mb: 1,
-                  color: "#1a1a1a",
-                  fontSize: { xs: "0.75rem", sm: "0.85rem", md: "0.95rem" },
+                  mb: 3,
+                  borderRadius: "12px",
+                  bgcolor: "rgba(212, 175, 55, 0.1)",
+                  border: "1px solid rgba(212, 175, 55, 0.3)",
                 }}
               >
-                Why Boost Your Profile?
-              </Typography>
-              <Box
-                component="ul"
-                sx={{
-                  m: 0,
-                  pl: 2.5,
-                  "& li": {
+                <Typography
+                  variant="subtitle2"
+                  sx={{
+                    fontWeight: 700,
                     mb: 1,
-                    fontSize: {
-                      xs: "0.7rem",
-                      sm: "0.8rem",
-                      md: "0.9rem",
-                    },
-                    lineHeight: {
-                      xs: 1.35,
-                      sm: 1.45,
-                      md: 1.6,
-                    },
-                    "& strong": {
+                    color: "#1a1a1a",
+                    fontSize: { xs: "0.75rem", sm: "0.85rem", md: "0.95rem" },
+                  }}
+                >
+                  Why Boost Your Profile?
+                </Typography>
+                <Box
+                  component="ul"
+                  sx={{
+                    m: 0,
+                    pl: 2.5,
+                    "& li": {
+                      mb: 1,
                       fontSize: {
-                        xs: "0.72rem",
-                        sm: "0.82rem",
-                        md: "0.92rem",
+                        xs: "0.7rem",
+                        sm: "0.8rem",
+                        md: "0.9rem",
+                      },
+                      lineHeight: {
+                        xs: 1.35,
+                        sm: 1.45,
+                        md: 1.6,
+                      },
+                      "& strong": {
+                        fontSize: {
+                          xs: "0.72rem",
+                          sm: "0.82rem",
+                          md: "0.92rem",
+                        },
                       },
                     },
-                  },
+                  }}
+                >
+                  <li>
+                    <strong>Higher Visibility:</strong> Boosted profiles appear
+                    first in Explore and featured sections.
+                  </li>
+                  <li>
+                    <strong>Targeted Audience:</strong> Pick who should see you
+                    and where they are logging in from.
+                  </li>
+                  <li>
+                    <strong>Affordable:</strong> Each hour costs {BOOST_PRICE_TOKENS} tokens (
+                    {formatKshFromTokens(BOOST_PRICE_TOKENS)}) — {describeExchangeRate()}.
+                  </li>
+                </Box>
+              </Alert>
+            )}
+
+            {activeBoosts.length > 0 && (
+              <Box
+                sx={{
+                  borderRadius: "12px",
+                  border: "1px solid rgba(26, 26, 26, 0.08)",
+                  bgcolor: "rgba(26, 26, 26, 0.01)",
+                  p: 2,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 1.5,
+                  mb: 2,
                 }}
               >
-                <li>
-                  <strong>Higher Visibility:</strong> Boosted profiles appear
-                  first in Explore and featured sections.
-                </li>
-                <li>
-                  <strong>Targeted Audience:</strong> Pick who should see you
-                  and where they are logging in from.
-                </li>
-                <li>
-                  <strong>Affordable:</strong> Each hour costs {BOOST_PRICE_TOKENS} tokens (
-                  {formatKshFromTokens(BOOST_PRICE_TOKENS)}) — {describeExchangeRate()}.
-                </li>
+                <Typography
+                  variant="subtitle2"
+                  sx={{
+                    fontWeight: 700,
+                    color: "rgba(26, 26, 26, 0.85)",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  Your Active Boosts
+                  <Typography
+                    component="span"
+                    variant="caption"
+                    sx={{ color: "rgba(26, 26, 26, 0.55)" }}
+                  >
+                    Extend individually to keep them running.
+                  </Typography>
+                </Typography>
+                <Stack spacing={1.5}>
+                  {activeBoosts.map((boost) => {
+                    const isSelected =
+                      selectedBoost && selectedBoost.id === boost.id;
+                    const radiusValue = parseNumericValue(boost.radius_km);
+                    const radiusLabel = Number.isFinite(radiusValue)
+                      ? `${Number(radiusValue).toFixed(1)} km`
+                      : "N/A";
+                    const remaining = getRemainingTimeForDate(boost.ends_at);
+                    const endsAt = boost.ends_at
+                      ? new Date(boost.ends_at).toLocaleString()
+                      : null;
+                    const targetArea =
+                      boost.target_area || "Custom location";
+
+                    return (
+                      <Card
+                        key={boost.id}
+                        variant="outlined"
+                        onClick={() => handleSelectActiveBoost(boost)}
+                        sx={{
+                          borderColor: isSelected
+                            ? "rgba(33, 150, 243, 0.6)"
+                            : "rgba(26, 26, 26, 0.08)",
+                          borderWidth: isSelected ? 2 : 1,
+                          cursor: "pointer",
+                          transition: "border-color 0.2s ease, box-shadow 0.2s ease",
+                          "&:hover": {
+                            borderColor: "rgba(33, 150, 243, 0.6)",
+                            boxShadow: "0 6px 20px rgba(33, 150, 243, 0.12)",
+                          },
+                        }}
+                      >
+                        <CardContent sx={{ pb: 1.5 }}>
+                          <Stack
+                            direction="row"
+                            spacing={1}
+                            alignItems="center"
+                            justifyContent="space-between"
+                          >
+                            <Typography
+                              variant="subtitle2"
+                              sx={{
+                                fontWeight: 700,
+                                color: "rgba(26, 26, 26, 0.85)",
+                                maxWidth: "65%",
+                              }}
+                            >
+                              {targetArea}
+                            </Typography>
+                            <Chip
+                              label={boost.target_category || "Regular"}
+                              size="small"
+                              sx={{
+                                backgroundColor: "rgba(33, 150, 243, 0.12)",
+                                color: "rgba(33, 150, 243, 0.85)",
+                                fontWeight: 600,
+                              }}
+                            />
+                          </Stack>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              mt: 1,
+                              color: "rgba(26, 26, 26, 0.75)",
+                            }}
+                          >
+                            Radius: {radiusLabel}
+                          </Typography>
+                          {remaining && (
+                            <Typography
+                              variant="body2"
+                              sx={{ color: "rgba(26, 26, 26, 0.7)" }}
+                            >
+                              Time left: {remaining.hours}h {remaining.minutes}m
+                            </Typography>
+                          )}
+                          {endsAt && (
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                color: "rgba(26, 26, 26, 0.55)",
+                                display: "block",
+                                mt: 0.5,
+                              }}
+                            >
+                              Ends at: {endsAt}
+                            </Typography>
+                          )}
+                        </CardContent>
+                        <CardActions
+                          sx={{
+                            justifyContent: "flex-end",
+                            pt: 0,
+                            pb: 1.5,
+                            px: 2,
+                            gap: 1,
+                          }}
+                        >
+                          <Button
+                            size="small"
+                            variant="contained"
+                            disabled={boosting}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleExtendBoost(boost);
+                            }}
+                            sx={{
+                              background: "linear-gradient(135deg, #2196F3, #64B5F6)",
+                              color: "#0D1C2C",
+                              fontWeight: 600,
+                              "&:hover": {
+                                background: "linear-gradient(135deg, #1976D2, #42A5F5)",
+                              },
+                            }}
+                          >
+                            Extend
+                          </Button>
+                        </CardActions>
+                      </Card>
+                    );
+                  })}
+                </Stack>
               </Box>
-            </Alert>
+            )}
 
             <Stack spacing={2.5}>
+              {!loadingBoostStatus && boostStatusError && (
+                <Alert
+                  severity="warning"
+                  sx={{
+                    borderRadius: "12px",
+                    bgcolor: "rgba(255, 193, 7, 0.12)",
+                    color: "rgba(26, 26, 26, 0.8)",
+                  }}
+                >
+                  {boostStatusError}
+                </Alert>
+              )}
+
+              {activeBoosts.length === 0 && selectedBoost && (
+                <Alert
+                  severity="info"
+                  sx={{
+                    borderRadius: "12px",
+                    bgcolor: "rgba(33, 150, 243, 0.12)",
+                    border: "1px solid rgba(33, 150, 243, 0.25)",
+                    color: "rgba(26, 26, 26, 0.85)",
+                  }}
+                >
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    You already have a boost targeting{" "}
+                    <strong>{selectedBoost.target_area || "this area"}</strong>{" "}
+                    for {boostCategory}.
+                  </Typography>
+                  <Typography variant="caption" sx={{ display: "block", mt: 0.5 }}>
+                    {selectedBoostRemaining
+                      ? `Time remaining: ${selectedBoostRemaining}.`
+                      : "This boost is active for a little longer."}{" "}
+                    {selectedBoostExpiresAt
+                      ? `Ends at ${selectedBoostExpiresAt}.`
+                      : ""}
+                    Extend to add hours or widen the radius without creating a new boost.
+                  </Typography>
+                </Alert>
+              )}
+
               <FormControl fullWidth>
                 <InputLabel id="boost-category-label">Target category</InputLabel>
                 <Select
@@ -1904,7 +2744,10 @@ export default function Dashboard({ user, setUser }) {
                 label="Target radius (km)"
                 type="number"
                 value={boostRadiusKm}
-                onChange={(event) => setBoostRadiusKm(event.target.value)}
+                onChange={(event) => {
+                  setBoostTargetEdited(true);
+                  setBoostRadiusKm(event.target.value);
+                }}
                 inputProps={{
                   min: MIN_BOOST_RADIUS_KM,
                   max: MAX_BOOST_RADIUS_KM,
@@ -1922,12 +2765,16 @@ export default function Dashboard({ user, setUser }) {
                 onLocationChange={(lat, lon) => {
                   setBoostLatitude(lat);
                   setBoostLongitude(lon);
+                  setBoostTargetEdited(true);
                   setLocationError("");
                 }}
                 onRequestCurrentLocation={() =>
                   requestCurrentLocation({
                     applyToBoost: true,
                     onComplete: (success) => {
+                      if (success) {
+                        setBoostTargetEdited(true);
+                      }
                       if (!success) {
                         setBoostLatitude(null);
                         setBoostLongitude(null);
@@ -1940,6 +2787,7 @@ export default function Dashboard({ user, setUser }) {
                 onCountySuggested={(county) => {
                   if (county) {
                     setBoostArea(county);
+                    setBoostTargetEdited(true);
                   }
                 }}
               />
@@ -2000,7 +2848,7 @@ export default function Dashboard({ user, setUser }) {
                 </Typography>
               </Alert>
 
-              {boostTimeRemaining && (
+              {boostTimeRemaining && !selectedBoost && (
                 <Alert
                   severity="warning"
                   sx={{
@@ -2042,6 +2890,9 @@ export default function Dashboard({ user, setUser }) {
             pt: 2,
             borderTop: "1px solid rgba(0,0,0,0.08)",
             backgroundColor: "rgba(255, 255, 255, 0.9)",
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 1,
           }}
         >
           <Button
@@ -2059,8 +2910,40 @@ export default function Dashboard({ user, setUser }) {
           >
             Cancel
           </Button>
+          {activeBoosts.length === 0 && selectedBoost && (
+            <Button
+              onClick={handleExtendBoost}
+              variant="contained"
+              disabled={boosting || loadingBoostStatus}
+              sx={{
+                background: "linear-gradient(135deg, #2196F3, #64B5F6)",
+                color: "#0D1C2C",
+                fontWeight: 700,
+                textTransform: "none",
+                borderRadius: "12px",
+                px: 3,
+                py: 1,
+                fontSize: {
+                  xs: "0.74rem",
+                  sm: "0.84rem",
+                  md: "0.94rem",
+                },
+                "&:hover": {
+                  background: "linear-gradient(135deg, #1976D2, #42A5F5)",
+                },
+                "&:disabled": {
+                  background: "rgba(33, 150, 243, 0.35)",
+                  color: "rgba(13, 28, 44, 0.6)",
+                },
+              }}
+            >
+              {boosting
+                ? "Saving..."
+                : `Extend (+${sanitizedBoostHours}h / ${totalBoostTokens.toLocaleString()} tokens)`}
+            </Button>
+          )}
           <Button
-            onClick={handleConfirmBoost}
+            onClick={handleBoostProfile}
             variant="contained"
             disabled={boosting}
             sx={{
@@ -2083,9 +2966,7 @@ export default function Dashboard({ user, setUser }) {
           >
             {boosting
               ? "Boosting..."
-              : `Boost for ${sanitizedBoostHours} hour${
-                  sanitizedBoostHours > 1 ? "s" : ""
-                } (${totalBoostTokens.toLocaleString()} tokens)`}
+              : `Boost New Area (${sanitizedBoostHours}h / ${totalBoostTokens.toLocaleString()} tokens)`}
           </Button>
         </DialogActions>
       </Dialog>

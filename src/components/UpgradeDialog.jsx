@@ -172,12 +172,18 @@ export default function UpgradeDialog({ open, onClose }) {
 
       const data = await response.json();
       if (data.success) {
+        const expiresAt =
+          data.data?.premiumExpiresAt ||
+          new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
         Swal.fire({
           icon: "success",
           title: "Upgrade Successful!",
           html: `
             <p>You have been upgraded to <strong>${selectedCategory}</strong>.</p>
             <p style="font-size: 0.9rem; color: rgba(26, 26, 26, 0.7);">Weekly cost: ${costTokens} tokens (${formatKshValue(costKsh)})</p>
+            <p style="font-size: 0.88rem; color: rgba(26, 26, 26, 0.75); margin-top: 6px;">
+              Premium access runs until <strong>${new Date(expiresAt).toLocaleString()}</strong>. Renew after 7 days to stay premium.
+            </p>
           `,
           confirmButtonColor: "#D4AF37",
           allowOutsideClick: false,
@@ -203,6 +209,8 @@ export default function UpgradeDialog({ open, onClose }) {
             const updatedUser = {
               ...data.data.user,
               token_balance: data.data.remainingBalance || data.data.user.token_balance,
+              premium_expires_at:
+                data.data.premiumExpiresAt || data.data.user.premium_expires_at,
             };
             localStorage.setItem("user", JSON.stringify(updatedUser));
           } else {
@@ -212,6 +220,9 @@ export default function UpgradeDialog({ open, onClose }) {
               const user = JSON.parse(userStr);
               user.category = selectedCategory;
               user.isVerified = true;
+              user.premium_expires_at = new Date(
+                Date.now() + 7 * 24 * 60 * 60 * 1000
+              ).toISOString();
               if (data.data && data.data.remainingBalance !== undefined) {
                 user.token_balance = data.data.remainingBalance;
               }
@@ -342,7 +353,8 @@ export default function UpgradeDialog({ open, onClose }) {
           }}
         >
           Choose a premium category to upgrade. You will be automatically
-          verified upon upgrade. Exchange rate: {describeExchangeRate()}.
+          verified upon upgrade. Premium access lasts <strong>7 days</strong> (KES 100/week) and
+          renews when you upgrade again. Exchange rate: {describeExchangeRate()}.
         </Typography>
 
         {upgradeCategories.length === 0 ? (
