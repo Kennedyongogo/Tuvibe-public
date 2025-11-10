@@ -35,7 +35,15 @@ import {
   Category as CategoryIcon,
 } from "@mui/icons-material";
 import Swal from "sweetalert2";
-import { getDisplayInitial, getDisplayName } from "../utils/userDisplay";
+import { getDisplayInitial } from "../utils/userDisplay";
+
+const INITIAL_REPORT_FORM = {
+  category: "",
+  subject: "",
+  description: "",
+  reported_user_id: null,
+  priority: "medium",
+};
 
 export default function Reports({ user }) {
   const [reports, setReports] = useState([]);
@@ -44,13 +52,7 @@ export default function Reports({ user }) {
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
-    category: "",
-    subject: "",
-    description: "",
-    reported_user_id: null,
-    priority: "medium",
-  });
+  const [formData, setFormData] = useState({ ...INITIAL_REPORT_FORM });
   const [selectedReportedUser, setSelectedReportedUser] = useState(null);
   const [userSearchTerm, setUserSearchTerm] = useState("");
   const [userSearchOptions, setUserSearchOptions] = useState([]);
@@ -188,6 +190,7 @@ export default function Reports({ user }) {
       setSelectedReportedUser(null);
       setUserSearchTerm("");
       setUserSearchOptions([]);
+      setFormData({ ...INITIAL_REPORT_FORM });
     }
   }, [createDialogOpen]);
 
@@ -496,19 +499,22 @@ export default function Reports({ user }) {
                           avatar={
                             <Avatar
                               src={buildImageUrl(report.reportedUser.photo)}
-                              alt={getDisplayName(report.reportedUser, {
-                                fallback: "Tagged user",
-                              })}
+                              alt={
+                                report.reportedUser?.username ||
+                                report.reportedUser?.name ||
+                                "Tagged user"
+                              }
                             >
                               {getDisplayInitial(report.reportedUser, {
                                 fallback: "T",
                               })}
                             </Avatar>
                           }
-                          label={`Tagged: ${getDisplayName(
-                            report.reportedUser,
-                            { fallback: "Profile" }
-                          )}`}
+                          label={`Tagged: ${
+                            report.reportedUser?.username ||
+                            report.reportedUser?.name ||
+                            "Profile"
+                          }`}
                           size="small"
                           sx={{
                             bgcolor: "rgba(255, 107, 107, 0.12)",
@@ -794,11 +800,7 @@ export default function Reports({ user }) {
                     setUserSearchTerm(newValue || "");
                   }
                 }}
-                getOptionLabel={(option) =>
-                  getDisplayName(option, {
-                    fallback: option?.email || "Unnamed user",
-                  })
-                }
+                getOptionLabel={(option) => option?.username || ""}
                 isOptionEqualToValue={(option, value) => option.id === value.id}
                 renderOption={(props, option) => (
                   <Box
@@ -814,7 +816,7 @@ export default function Reports({ user }) {
                   >
                     <Avatar
                       src={buildImageUrl(option.photo)}
-                      alt={getDisplayName(option, { fallback: "User" })}
+                      alt={option?.username || option?.name || "User"}
                       sx={{ width: 32, height: 32 }}
                     >
                       {getDisplayInitial(option, { fallback: "U" })}
@@ -825,7 +827,7 @@ export default function Reports({ user }) {
                         sx={{ fontWeight: 600, color: "#1a1a1a" }}
                         noWrap
                       >
-                        {getDisplayName(option, { fallback: "Unnamed user" })}
+                        {option?.username || option?.name || "Unnamed user"}
                       </Typography>
                       <Typography
                         variant="caption"
@@ -843,12 +845,12 @@ export default function Reports({ user }) {
                     {...params}
                     label={
                       canSelectReportedUser
-                        ? "Search by name or county"
+                        ? "Search by username"
                         : "Tagging disabled for this category"
                     }
                     placeholder={
                       canSelectReportedUser
-                        ? "Start typing to find a profile"
+                        ? "Type a username to find a profile"
                         : "Choose a supported category to tag a user"
                     }
                     InputProps={{
@@ -867,8 +869,8 @@ export default function Reports({ user }) {
                 noOptionsText={
                   canSelectReportedUser
                     ? userSearchTerm.trim().length < 2
-                      ? "Type at least 2 characters"
-                      : "No matching profiles found"
+                      ? "Type at least 2 characters of a username"
+                      : "No matching usernames found"
                     : "Only harassment, scam, fake profile, spam, inappropriate content or other allow tagging"
                 }
               />
@@ -1131,9 +1133,11 @@ export default function Reports({ user }) {
                 >
                   <Avatar
                     src={buildImageUrl(selectedReport.reportedUser.photo)}
-                    alt={getDisplayName(selectedReport.reportedUser, {
-                      fallback: "Tagged user",
-                    })}
+                    alt={
+                      selectedReport.reportedUser?.username ||
+                      selectedReport.reportedUser?.name ||
+                      "Tagged user"
+                    }
                     sx={{
                       width: 48,
                       height: 48,
@@ -1163,9 +1167,9 @@ export default function Reports({ user }) {
                       variant="subtitle1"
                       sx={{ fontWeight: 700, color: "#1a1a1a" }}
                     >
-                      {getDisplayName(selectedReport.reportedUser, {
-                        fallback: "Profile",
-                      })}
+                      {selectedReport.reportedUser?.username ||
+                        selectedReport.reportedUser?.name ||
+                        "Profile"}
                     </Typography>
                     <Typography
                       variant="body2"

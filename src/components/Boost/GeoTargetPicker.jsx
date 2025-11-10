@@ -42,7 +42,7 @@ const DEFAULT_ZOOM = 7;
 const TARGET_ZOOM = 12;
 const SEARCH_DEBOUNCE_MS = 350;
 const NOMINATIM_ENDPOINT =
-  "https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=8&countrycodes=ke&polygon_geojson=0&q=";
+  "https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=15&polygon_geojson=0&q=";
 
 const markerStyle = new Style({
   image: new CircleStyle({
@@ -439,13 +439,17 @@ export default function GeoTargetPicker({
       onLocationChange(Number(lat.toFixed(6)), Number(lon.toFixed(6)));
     }
 
-    const suggestedCounty =
+    const locationLabel =
+      (typeof option?.display_name === "string" && option.display_name.trim()) ||
+      (typeof option?.name === "string" && option.name.trim()) ||
+      "";
+    const normalizedCounty =
       findBestCountyMatch(address) ||
       normalizeCountyFromString(option?.display_name) ||
-      normalizeCountyFromString(option?.name);
-    if (onCountySuggested) {
-      onCountySuggested(suggestedCounty || "");
-    }
+      normalizeCountyFromString(option?.name) ||
+      "";
+    const suggestion = locationLabel || normalizedCounty || "";
+    onCountySuggested?.(suggestion);
   };
 
   const handleUseCurrentLocation = () => {
@@ -488,14 +492,18 @@ export default function GeoTargetPicker({
             : option?.display_name || option?.name || ""
         }
         loading={searchLoading}
-        onInputChange={(_event, value) => setSearchInput(value)}
+        onInputChange={(_event, value) => {
+          setSearchInput(value);
+          const trimmed = typeof value === "string" ? value.trim() : "";
+          onCountySuggested?.(trimmed);
+        }}
         onChange={handleSearchSelect}
         filterOptions={(options) => options}
         renderInput={(params) => (
           <TextField
             {...params}
-            label="Search Kenyan county, town, or landmark"
-            placeholder="Search by county or place"
+            label="Search any city, town, or landmark"
+            placeholder="Type any location worldwide"
             InputProps={{
               ...params.InputProps,
               startAdornment: (
