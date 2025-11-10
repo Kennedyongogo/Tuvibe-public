@@ -25,6 +25,7 @@ import {
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
+import { getDisplayInitial, getDisplayName } from "../../utils/userDisplay";
 
 export default function UserLists({
   user,
@@ -262,7 +263,7 @@ export default function UserLists({
                 key={`${userData.id}-img-${index}`}
                 component="img"
                 src={image}
-                alt={userData.name}
+                alt={getDisplayName(userData, { fallback: "Member" })}
                 sx={{
                   position: "absolute",
                   top: 0,
@@ -312,7 +313,7 @@ export default function UserLists({
                   fontSize: "0.9rem",
                 }}
               >
-                {userData.name}
+                {getDisplayName(userData, { fallback: "Member" })}
               </Typography>
               {userData.isVerified && (
                 <Verified sx={{ fontSize: 16, color: "#D4AF37" }} />

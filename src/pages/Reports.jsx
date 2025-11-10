@@ -35,6 +35,7 @@ import {
   Category as CategoryIcon,
 } from "@mui/icons-material";
 import Swal from "sweetalert2";
+import { getDisplayInitial, getDisplayName } from "../utils/userDisplay";
 
 export default function Reports({ user }) {
   const [reports, setReports] = useState([]);
@@ -58,7 +59,11 @@ export default function Reports({ user }) {
 
   const categories = React.useMemo(
     () => [
-      { value: "inappropriate_content", label: "Inappropriate Content", taggable: true },
+      {
+        value: "inappropriate_content",
+        label: "Inappropriate Content",
+        taggable: true,
+      },
       { value: "harassment", label: "Harassment", taggable: true },
       { value: "scam", label: "Scam/Fraud", taggable: true },
       { value: "fake_profile", label: "Fake Profile", taggable: true },
@@ -139,10 +144,14 @@ export default function Reports({ user }) {
         });
         const data = await response.json();
         if (response.ok && data.success && Array.isArray(data.data)) {
-          const filtered = data.data.filter((candidate) => candidate.id !== user?.id);
+          const filtered = data.data.filter(
+            (candidate) => candidate.id !== user?.id
+          );
           if (
             selectedReportedUser &&
-            !filtered.some((candidate) => candidate.id === selectedReportedUser.id)
+            !filtered.some(
+              (candidate) => candidate.id === selectedReportedUser.id
+            )
           ) {
             filtered.unshift(selectedReportedUser);
           }
@@ -487,14 +496,19 @@ export default function Reports({ user }) {
                           avatar={
                             <Avatar
                               src={buildImageUrl(report.reportedUser.photo)}
-                              alt={report.reportedUser.name || "Tagged user"}
+                              alt={getDisplayName(report.reportedUser, {
+                                fallback: "Tagged user",
+                              })}
                             >
-                              {report.reportedUser?.name
-                                ? report.reportedUser.name.charAt(0)
-                                : "?"}
+                              {getDisplayInitial(report.reportedUser, {
+                                fallback: "T",
+                              })}
                             </Avatar>
                           }
-                          label={`Tagged: ${report.reportedUser.name || "Profile"}`}
+                          label={`Tagged: ${getDisplayName(
+                            report.reportedUser,
+                            { fallback: "Profile" }
+                          )}`}
                           size="small"
                           sx={{
                             bgcolor: "rgba(255, 107, 107, 0.12)",
@@ -643,27 +657,62 @@ export default function Reports({ user }) {
           sx={{
             pt: 3,
             "& .MuiTypography-root": {
-              fontSize: { xs: "0.65rem", sm: "0.75rem", md: "0.85rem", lg: "0.9rem" },
+              fontSize: {
+                xs: "0.65rem",
+                sm: "0.75rem",
+                md: "0.85rem",
+                lg: "0.9rem",
+              },
             },
             "& .MuiTextField-root": {
               "& input, & textarea": {
-                fontSize: { xs: "0.65rem", sm: "0.75rem", md: "0.85rem", lg: "0.9rem" },
+                fontSize: {
+                  xs: "0.65rem",
+                  sm: "0.75rem",
+                  md: "0.85rem",
+                  lg: "0.9rem",
+                },
               },
               "& label": {
-                fontSize: { xs: "0.65rem", sm: "0.75rem", md: "0.85rem", lg: "0.9rem" },
+                fontSize: {
+                  xs: "0.65rem",
+                  sm: "0.75rem",
+                  md: "0.85rem",
+                  lg: "0.9rem",
+                },
               },
             },
             "& .MuiSelect-select": {
-              fontSize: { xs: "0.65rem", sm: "0.75rem", md: "0.85rem", lg: "0.9rem" },
+              fontSize: {
+                xs: "0.65rem",
+                sm: "0.75rem",
+                md: "0.85rem",
+                lg: "0.9rem",
+              },
             },
             "& .MuiFormHelperText-root": {
-              fontSize: { xs: "0.6rem", sm: "0.7rem", md: "0.8rem", lg: "0.85rem" },
+              fontSize: {
+                xs: "0.6rem",
+                sm: "0.7rem",
+                md: "0.8rem",
+                lg: "0.85rem",
+              },
             },
             "& .MuiChip-root": {
-              fontSize: { xs: "0.6rem", sm: "0.7rem", md: "0.8rem", lg: "0.85rem" },
+              fontSize: {
+                xs: "0.6rem",
+                sm: "0.7rem",
+                md: "0.8rem",
+                lg: "0.85rem",
+              },
             },
             "& .MuiButtonBase-root": {
-              fontSize: { xs: "0.65rem", sm: "0.75rem", md: "0.85rem", lg: "0.9rem" },
+              fontSize: {
+                xs: "0.65rem",
+                sm: "0.75rem",
+                md: "0.85rem",
+                lg: "0.9rem",
+              },
             },
           }}
         >
@@ -746,7 +795,9 @@ export default function Reports({ user }) {
                   }
                 }}
                 getOptionLabel={(option) =>
-                  option?.name || option?.email || "Unnamed user"
+                  getDisplayName(option, {
+                    fallback: option?.email || "Unnamed user",
+                  })
                 }
                 isOptionEqualToValue={(option, value) => option.id === value.id}
                 renderOption={(props, option) => (
@@ -763,10 +814,10 @@ export default function Reports({ user }) {
                   >
                     <Avatar
                       src={buildImageUrl(option.photo)}
-                      alt={option.name || "User"}
+                      alt={getDisplayName(option, { fallback: "User" })}
                       sx={{ width: 32, height: 32 }}
                     >
-                      {option.name ? option.name.charAt(0) : "?"}
+                      {getDisplayInitial(option, { fallback: "U" })}
                     </Avatar>
                     <Box sx={{ minWidth: 0 }}>
                       <Typography
@@ -774,7 +825,7 @@ export default function Reports({ user }) {
                         sx={{ fontWeight: 600, color: "#1a1a1a" }}
                         noWrap
                       >
-                        {option.name || "Unnamed user"}
+                        {getDisplayName(option, { fallback: "Unnamed user" })}
                       </Typography>
                       <Typography
                         variant="caption"
@@ -823,10 +874,15 @@ export default function Reports({ user }) {
               />
               <Typography
                 variant="caption"
-                sx={{ display: "block", mt: 0.75, color: "rgba(26, 26, 26, 0.6)" }}
+                sx={{
+                  display: "block",
+                  mt: 0.75,
+                  color: "rgba(26, 26, 26, 0.6)",
+                }}
               >
-                Tagging helps our moderators find the exact profile you are reporting.
-                Categories like payment or technical issues remain general.
+                Tagging helps our moderators find the exact profile you are
+                reporting. Categories like payment or technical issues remain
+                general.
               </Typography>
             </Box>
 
@@ -904,13 +960,28 @@ export default function Reports({ user }) {
             pt: 3,
             px: { xs: 2.5, sm: 3 },
             "& .MuiTypography-root": {
-              fontSize: { xs: "0.65rem", sm: "0.75rem", md: "0.85rem", lg: "0.9rem" },
+              fontSize: {
+                xs: "0.65rem",
+                sm: "0.75rem",
+                md: "0.85rem",
+                lg: "0.9rem",
+              },
             },
             "& .MuiChip-root": {
-              fontSize: { xs: "0.6rem", sm: "0.7rem", md: "0.8rem", lg: "0.85rem" },
+              fontSize: {
+                xs: "0.6rem",
+                sm: "0.7rem",
+                md: "0.8rem",
+                lg: "0.85rem",
+              },
             },
             "& .MuiButtonBase-root": {
-              fontSize: { xs: "0.65rem", sm: "0.75rem", md: "0.85rem", lg: "0.9rem" },
+              fontSize: {
+                xs: "0.65rem",
+                sm: "0.75rem",
+                md: "0.85rem",
+                lg: "0.9rem",
+              },
             },
           }}
         >
@@ -1060,12 +1131,18 @@ export default function Reports({ user }) {
                 >
                   <Avatar
                     src={buildImageUrl(selectedReport.reportedUser.photo)}
-                    alt={selectedReport.reportedUser.name || "Tagged user"}
-                    sx={{ width: 48, height: 48, bgcolor: "rgba(212, 175, 55, 0.2)" }}
+                    alt={getDisplayName(selectedReport.reportedUser, {
+                      fallback: "Tagged user",
+                    })}
+                    sx={{
+                      width: 48,
+                      height: 48,
+                      bgcolor: "rgba(212, 175, 55, 0.2)",
+                    }}
                   >
-                    {selectedReport.reportedUser.name
-                      ? selectedReport.reportedUser.name.charAt(0)
-                      : "?"}
+                    {getDisplayInitial(selectedReport.reportedUser, {
+                      fallback: "T",
+                    })}
                   </Avatar>
                   <Box sx={{ flex: 1 }}>
                     <Typography
@@ -1086,7 +1163,9 @@ export default function Reports({ user }) {
                       variant="subtitle1"
                       sx={{ fontWeight: 700, color: "#1a1a1a" }}
                     >
-                      {selectedReport.reportedUser.name || "Profile"}
+                      {getDisplayName(selectedReport.reportedUser, {
+                        fallback: "Profile",
+                      })}
                     </Typography>
                     <Typography
                       variant="body2"

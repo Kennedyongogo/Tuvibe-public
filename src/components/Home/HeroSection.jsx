@@ -23,6 +23,8 @@ import {
   Slide,
   CircularProgress,
   Stack,
+  Checkbox,
+  FormControlLabel,
 } from "@mui/material";
 import {
   Login,
@@ -41,10 +43,17 @@ import {
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
+import {
+  evaluateBirthYearInput,
+  MIN_PUBLIC_USER_AGE,
+} from "../../utils/ageValidation";
+import { evaluatePhoneInput } from "../../utils/phoneValidation";
 
-const SlideUpTransition = React.forwardRef(function SlideUpTransition(props, ref) {
-  return <Slide direction="up" ref={ref} {...props} />;
-});
+const SlideUpTransition = React.forwardRef(
+  function SlideUpTransition(props, ref) {
+    return <Slide direction="up" ref={ref} {...props} />;
+  }
+);
 
 export default function HeroSection() {
   const navigate = useNavigate();
@@ -61,6 +70,7 @@ export default function HeroSection() {
   const [registerStep, setRegisterStep] = useState(1);
   const [formData, setFormData] = useState({
     name: "",
+    username: "",
     phone: "",
     email: "",
     password: "",
@@ -68,10 +78,14 @@ export default function HeroSection() {
     birthYear: "",
     bio: "",
   });
+  const [phoneError, setPhoneError] = useState("");
+  const [birthYearError, setBirthYearError] = useState("");
   const [loginFormData, setLoginFormData] = useState({
     email: "",
     password: "",
   });
+  const [termsDialogOpen, setTermsDialogOpen] = useState(false);
+  const [termsChecked, setTermsChecked] = useState(false);
 
   useEffect(() => {
     setIsVisible(true);
@@ -91,13 +105,15 @@ export default function HeroSection() {
   };
 
   const handleRegister = () => {
-    setRegisterDialogOpen(true);
+    setTermsChecked(false);
+    setTermsDialogOpen(true);
   };
 
   const handleRegisterClose = () => {
     setRegisterDialogOpen(false);
     setFormData({
       name: "",
+      username: "",
       phone: "",
       email: "",
       password: "",
@@ -105,9 +121,24 @@ export default function HeroSection() {
       birthYear: "",
       bio: "",
     });
+    setPhoneError("");
+    setBirthYearError("");
     setPhotoFile(null);
     setPhotoPreview(null);
     setRegisterStep(1);
+  };
+
+  const handleTermsAgree = () => {
+    setTermsDialogOpen(false);
+    setRegisterDialogOpen(true);
+    setTermsChecked(false);
+  };
+
+  const handleTermsDecline = () => {
+    setTermsDialogOpen(false);
+    setTermsChecked(false);
+    handleRegisterClose();
+    navigate("/");
   };
 
   const handlePhotoChange = (e) => {
@@ -144,7 +175,16 @@ export default function HeroSection() {
   };
 
   const handleInputChange = (field) => (e) => {
-    setFormData({ ...formData, [field]: e.target.value });
+    const value = e.target.value;
+    if (field === "birthYear") {
+      const { error } = evaluateBirthYearInput(value);
+      setBirthYearError(error);
+    }
+    if (field === "phone") {
+      const { error } = evaluatePhoneInput(value);
+      setPhoneError(error);
+    }
+    setFormData({ ...formData, [field]: value });
   };
 
   const handleLoginInputChange = (field) => (e) => {
@@ -197,11 +237,15 @@ export default function HeroSection() {
         const data = await response.json();
 
         if (!response.ok) {
+          const errorMessage =
+            data.message ||
+            (response.status === 403
+              ? "We could not confirm your age. Please contact support to update your profile."
+              : "Invalid email or password. Please try again.");
           Swal.fire({
             icon: "error",
             title: "Login Failed",
-            text:
-              data.message || "Invalid email or password. Please try again.",
+            text: errorMessage,
             confirmButtonColor: "#D4AF37",
             didOpen: () => {
               const swal = document.querySelector(".swal2-popup");
@@ -357,15 +401,60 @@ export default function HeroSection() {
     if (registerStep !== 2) {
       return;
     }
+
+    const { normalized: normalizedPhone, error: phoneValidationError } =
+      evaluatePhoneInput(formData.phone);
+
+    if (phoneValidationError) {
+      setPhoneError(phoneValidationError);
+      Swal.fire({
+        icon: "error",
+        title: "Invalid Phone Number",
+        text: phoneValidationError,
+        confirmButtonColor: "#D4AF37",
+      });
+      return;
+    }
+
+    const { normalized: normalizedBirthYear, error: birthYearValidationError } =
+      evaluateBirthYearInput(formData.birthYear);
+
+    if (birthYearValidationError) {
+      setBirthYearError(birthYearValidationError);
+      handleRegisterClose();
+      setTimeout(() => {
+        Swal.fire({
+          icon: "error",
+          title: "Age Verification Required",
+          text: birthYearValidationError,
+          confirmButtonColor: "#D4AF37",
+        });
+      }, 0);
+      return;
+    }
+
+    const normalizedUsername = formData.username.trim();
+    if (!normalizedUsername) {
+      Swal.fire({
+        icon: "error",
+        title: "Username Required",
+        text: "Please provide a username so other members can recognise you.",
+        confirmButtonColor: "#D4AF37",
+      });
+      setRegisterStep(1);
+      return;
+    }
+
     const submitData = {
       name: formData.name,
-      phone: formData.phone,
+      username: normalizedUsername,
+      phone: normalizedPhone,
       email: formData.email,
       password: formData.password,
     };
     if (formData.gender) submitData.gender = formData.gender;
-    if (formData.birthYear) {
-      submitData.birth_year = parseInt(formData.birthYear, 10);
+    if (normalizedBirthYear !== null) {
+      submitData.birth_year = normalizedBirthYear;
     }
 
     handleRegisterClose();
@@ -405,15 +494,13 @@ export default function HeroSection() {
           const formDataToSend = new FormData();
           // Add all form fields
           formDataToSend.append("name", formData.name);
-          formDataToSend.append("phone", formData.phone);
+          formDataToSend.append("username", normalizedUsername);
+          formDataToSend.append("phone", normalizedPhone);
           formDataToSend.append("email", formData.email);
           formDataToSend.append("password", formData.password);
           if (formData.gender) formDataToSend.append("gender", formData.gender);
-          if (formData.birthYear) {
-            formDataToSend.append(
-              "birth_year",
-              parseInt(formData.birthYear, 10)
-            );
+          if (normalizedBirthYear !== null) {
+            formDataToSend.append("birth_year", normalizedBirthYear);
           }
           if (formData.bio) formDataToSend.append("bio", formData.bio);
           // Add photo file
@@ -647,7 +734,9 @@ export default function HeroSection() {
       Swal.fire({
         icon: "error",
         title: "Reset Failed",
-        text: error.message || "We couldn't process your request. Please try again later.",
+        text:
+          error.message ||
+          "We couldn't process your request. Please try again later.",
         confirmButtonColor: "#D4AF37",
       });
     } finally {
@@ -1450,6 +1539,546 @@ export default function HeroSection() {
 
       {/* Registration Dialog */}
       <Dialog
+        open={termsDialogOpen}
+        onClose={(_, reason) => {
+          if (reason === "backdropClick" || reason === "escapeKeyDown") {
+            return;
+          }
+          handleTermsDecline();
+        }}
+        disableEscapeKeyDown
+        fullWidth
+        maxWidth="md"
+        PaperProps={{
+          sx: {
+            borderRadius: "20px",
+            backgroundColor: "rgba(255, 255, 255, 0.98)",
+            backdropFilter: "blur(24px)",
+            border: "1px solid rgba(212, 175, 55, 0.3)",
+            boxShadow: "0 30px 80px rgba(212, 175, 55, 0.25)",
+            maxHeight: "95vh",
+            margin: "auto",
+            width: { xs: "92%", sm: "86%", md: "760px" },
+            maxWidth: "760px",
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            fontWeight: 700,
+            fontSize: { xs: "1.3rem", sm: "1.6rem", md: "1.8rem" },
+            textAlign: "center",
+            background: "linear-gradient(45deg, #D4AF37, #B8941F)",
+            backgroundClip: "text",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            pt: { xs: 3, sm: 3.5 },
+            pb: { xs: 1.5, sm: 2 },
+          }}
+        >
+          TuVibe Terms & Conditions
+        </DialogTitle>
+        <DialogContent
+          dividers
+          sx={{
+            px: { xs: 3, sm: 4 },
+            py: { xs: 2, sm: 2.5 },
+            display: "flex",
+            flexDirection: "column",
+            gap: 2.5,
+          }}
+        >
+          <Box
+            sx={{
+              maxHeight: { xs: "45vh", md: "50vh" },
+              overflowY: "auto",
+              pr: 1,
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
+              "& h6": {
+                fontWeight: 700,
+                mb: 1,
+                fontSize: { xs: "1.05rem", sm: "1.15rem", md: "1.25rem" },
+              },
+              "& p": {
+                color: "rgba(0,0,0,0.75)",
+                fontSize: { xs: "0.85rem", sm: "0.95rem", md: "1rem" },
+                lineHeight: 1.6,
+                fontWeight: 600,
+              },
+              "& ul": {
+                color: "rgba(0,0,0,0.75)",
+                fontSize: { xs: "0.85rem", sm: "0.95rem", md: "1rem" },
+                lineHeight: 1.7,
+                paddingLeft: { xs: "1.25rem", sm: "1.5rem" },
+                margin: 0,
+                fontWeight: 600,
+              },
+              "& li": {
+                marginBottom: 0.5,
+                fontWeight: 600,
+              },
+            }}
+          >
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                1. Introduction
+              </Typography>
+              <Typography sx={{ color: "rgba(0,0,0,0.75)" }}>
+                Welcome to TuVibe (“the Platform”) accessible at
+                https://www.tuvibe.online. By creating an account, purchasing
+                tokens, or browsing our website, you confirm that you have read
+                and agree to these Terms & Conditions (“Terms”). These Terms
+                clarify our role, outline user responsibilities, and ensure safe
+                and respectful interactions. If you do not agree, please
+                discontinue using the Platform immediately.
+              </Typography>
+            </Box>
+
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                2. Eligibility
+              </Typography>
+              <Typography sx={{ color: "rgba(0,0,0,0.75)", mb: 1 }}>
+                TuVibe is intended strictly for adults aged 18 years and above.
+                By signing up or accessing any feature, you represent that:
+              </Typography>
+              <Typography
+                component="ul"
+                sx={{ pl: 3, color: "rgba(0,0,0,0.75)" }}
+              >
+                <li>You are at least 18 years old.</li>
+                <li>
+                  You have the legal capacity to enter a binding agreement.
+                </li>
+                <li>All details you provide are truthful and current.</li>
+              </Typography>
+              <Typography sx={{ color: "rgba(0,0,0,0.75)", mt: 1 }}>
+                TuVibe does not knowingly allow minors to register. Any
+                individual found to have misrepresented their age or identity
+                assumes full responsibility for their actions. TuVibe shall not
+                be held liable for any misrepresentation by users.
+              </Typography>
+            </Box>
+
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                3. Account Registration
+              </Typography>
+              <Typography sx={{ color: "rgba(0,0,0,0.75)", mb: 1 }}>
+                To use most TuVibe features, you must register an account. You
+                agree to:
+              </Typography>
+              <Typography
+                component="ul"
+                sx={{ pl: 3, color: "rgba(0,0,0,0.75)" }}
+              >
+                <li>Provide accurate and verifiable details.</li>
+                <li>Maintain one account per person.</li>
+                <li>Keep your login credentials confidential.</li>
+              </Typography>
+              <Typography sx={{ color: "rgba(0,0,0,0.75)", mt: 1 }}>
+                You remain responsible for all actions carried out through your
+                account. TuVibe may suspend, restrict, or close an account to
+                protect the integrity of the Platform or to comply with legal
+                obligations.
+              </Typography>
+            </Box>
+
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                4. Tokens &amp; Payments
+              </Typography>
+              <Typography sx={{ color: "rgba(0,0,0,0.75)", mb: 1 }}>
+                TuVibe operates a digital-token model used to unlock features
+                such as viewing or contacting certain profiles.
+              </Typography>
+              <Typography
+                component="ul"
+                sx={{ pl: 3, color: "rgba(0,0,0,0.75)" }}
+              >
+                <li>
+                  Tokens can be purchased using supported payment channels
+                  (e.g., M-PESA, debit/credit cards).
+                </li>
+                <li>
+                  Tokens are non-transferable, non-redeemable for cash, and
+                  non-refundable, except where required by law.
+                </li>
+                <li>Pricing and token values may be updated at any time.</li>
+              </Typography>
+              <Typography sx={{ color: "rgba(0,0,0,0.75)", mt: 1 }}>
+                Purchasing tokens does not create a financial or investment
+                relationship. Users should only buy tokens for use on the
+                Platform and are responsible for ensuring payments originate
+                from their own accounts.
+              </Typography>
+            </Box>
+
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                5. Premium Lounge
+              </Typography>
+              <Typography sx={{ color: "rgba(0,0,0,0.75)" }}>
+                TuVibe offers an optional Premium Lounge for enhanced visibility
+                and access to curated or verified categories of members. Premium
+                access is voluntary and fee-based, may change or expire at
+                TuVibe’s discretion, and does not guarantee any personal
+                outcome, match, or relationship. Membership fees are payable in
+                tokens or local currency as indicated. Failure to maintain
+                payment or misuse of the Platform may result in suspension of
+                Premium privileges.
+              </Typography>
+            </Box>
+
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                6. Communication via WhatsApp and External Platforms
+              </Typography>
+              <Typography sx={{ color: "rgba(0,0,0,0.75)", mb: 1 }}>
+                a) WhatsApp as the Sole Messaging Channel
+              </Typography>
+              <Typography sx={{ color: "rgba(0,0,0,0.75)", mb: 1 }}>
+                TuVibe does not host an internal messaging system. All
+                user-to-user communication occurs externally through WhatsApp.
+                By signing up or using TuVibe, you consent to being contacted by
+                other registered users via WhatsApp, in accordance with your
+                visibility and profile settings.
+              </Typography>
+              <Typography sx={{ color: "rgba(0,0,0,0.75)", mb: 1 }}>
+                b) User Responsibility for External Chats
+              </Typography>
+              <Typography
+                component="ul"
+                sx={{ pl: 3, color: "rgba(0,0,0,0.75)" }}
+              >
+                <li>
+                  TuVibe has no control over communication or content shared
+                  between users.
+                </li>
+                <li>
+                  TuVibe does not monitor, store, or mediate WhatsApp exchanges.
+                </li>
+                <li>
+                  TuVibe is not responsible or liable for any loss, harm, fraud,
+                  harassment, or other outcome resulting from off-platform
+                  communication.
+                </li>
+              </Typography>
+              <Typography sx={{ color: "rgba(0,0,0,0.75)", mb: 1 }}>
+                c) Safety and Verification Expectations
+              </Typography>
+              <Typography
+                component="ul"
+                sx={{ pl: 3, color: "rgba(0,0,0,0.75)" }}
+              >
+                <li>
+                  Verify the identity and intentions of anyone you interact
+                  with.
+                </li>
+                <li>Avoid sharing financial or personal information.</li>
+                <li>
+                  Report harassment, fraud, or misconduct to
+                  support@tuvibe.online.
+                </li>
+              </Typography>
+              <Typography sx={{ color: "rgba(0,0,0,0.75)", mb: 1 }}>
+                d) Access to Contacted Profiles for Safety Purposes
+              </Typography>
+              <Typography sx={{ color: "rgba(0,0,0,0.75)" }}>
+                TuVibe maintains a record of profiles you have contacted for
+                security and reporting reasons. You can view past connections
+                and report any user who later harasses, threatens, or violates
+                TuVibe’s safety standards. This feature is available on your
+                dashboard and includes profiles you have previously unlocked.
+              </Typography>
+            </Box>
+
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                7. User Conduct
+              </Typography>
+              <Typography sx={{ color: "rgba(0,0,0,0.75)", mb: 1 }}>
+                By using TuVibe, you agree not to:
+              </Typography>
+              <Typography
+                component="ul"
+                sx={{ pl: 3, color: "rgba(0,0,0,0.75)" }}
+              >
+                <li>
+                  Post unlawful, obscene, defamatory, or hateful material.
+                </li>
+                <li>
+                  Impersonate another individual or create fake or misleading
+                  profiles.
+                </li>
+                <li>Solicit minors or engage in any form of exploitation.</li>
+                <li>Use TuVibe for spam, scams, or illegal activities.</li>
+                <li>
+                  Interfere with the platform’s technical operations or attempt
+                  unauthorized access.
+                </li>
+              </Typography>
+              <Typography sx={{ color: "rgba(0,0,0,0.75)", mt: 1 }}>
+                Violation of these terms may lead to permanent suspension,
+                without refund or recourse.
+              </Typography>
+            </Box>
+
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                8. Verification &amp; Disclaimer
+              </Typography>
+              <Typography
+                component="ul"
+                sx={{ pl: 3, color: "rgba(0,0,0,0.75)" }}
+              >
+                <li>
+                  TuVibe conducts basic verification only (e.g., email or phone
+                  confirmation).
+                </li>
+                <li>
+                  TuVibe cannot guarantee that profiles are genuine or accurate.
+                </li>
+                <li>
+                  Users interact at their own discretion and must verify
+                  authenticity.
+                </li>
+              </Typography>
+              <Typography sx={{ color: "rgba(0,0,0,0.75)", mt: 1 }}>
+                TuVibe disclaims liability for outcomes arising from user
+                interactions, including deception, misrepresentation, or
+                personal loss.
+              </Typography>
+            </Box>
+
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                9. Reporting, Moderation &amp; Safety
+              </Typography>
+              <Typography sx={{ color: "rgba(0,0,0,0.75)" }}>
+                Users may report profiles that appear underage, suspicious, or
+                abusive by emailing support@tuvibe.online or using the reporting
+                options on the website. TuVibe reviews reports on a best-effort
+                basis but cannot guarantee action or response timelines. The
+                Platform relies on user feedback to maintain safety.
+              </Typography>
+            </Box>
+
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                10. Intellectual Property
+              </Typography>
+              <Typography
+                component="ul"
+                sx={{ pl: 3, color: "rgba(0,0,0,0.75)" }}
+              >
+                <li>
+                  All text, graphics, software, and branding belong to TuVibe or
+                  its licensors.
+                </li>
+                <li>
+                  You may view and use materials for personal, non-commercial
+                  purposes only.
+                </li>
+                <li>
+                  You may not reproduce, distribute, or modify Platform content
+                  without consent.
+                </li>
+                <li>
+                  By uploading content, you grant TuVibe a limited right to
+                  display it for functionality.
+                </li>
+              </Typography>
+            </Box>
+
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                11. Disclaimers
+              </Typography>
+              <Typography
+                component="ul"
+                sx={{ pl: 3, color: "rgba(0,0,0,0.75)" }}
+              >
+                <li>
+                  The Platform is provided on an “as is” and “as available”
+                  basis.
+                </li>
+                <li>
+                  TuVibe makes no warranties regarding availability,
+                  performance, or reliability.
+                </li>
+                <li>
+                  TuVibe does not guarantee compatibility with all devices or
+                  browsers.
+                </li>
+                <li>
+                  TuVibe provides a digital meeting space only and is not
+                  responsible for user actions.
+                </li>
+              </Typography>
+            </Box>
+
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                12. Limitation of Liability
+              </Typography>
+              <Typography
+                component="ul"
+                sx={{ pl: 3, color: "rgba(0,0,0,0.75)" }}
+              >
+                <li>
+                  TuVibe is not liable for indirect, incidental, or
+                  consequential loss.
+                </li>
+                <li>
+                  TuVibe is not liable for damages from user-to-user
+                  communication.
+                </li>
+                <li>
+                  TuVibe is not liable for harm, emotional distress, or loss of
+                  data.
+                </li>
+              </Typography>
+              <Typography sx={{ color: "rgba(0,0,0,0.75)", mt: 1 }}>
+                Total liability shall not exceed the total amount you paid to
+                TuVibe within the preceding twelve (12) months.
+              </Typography>
+            </Box>
+
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                13. Termination
+              </Typography>
+              <Typography
+                component="ul"
+                sx={{ pl: 3, color: "rgba(0,0,0,0.75)" }}
+              >
+                <li>
+                  You may deactivate your account at any time via
+                  support@tuvibe.online or the Delete Account option.
+                </li>
+                <li>
+                  TuVibe may suspend or terminate your account for violations of
+                  these Terms or applicable law.
+                </li>
+                <li>
+                  Upon termination, unused tokens or premium access are
+                  forfeited and non-refundable.
+                </li>
+              </Typography>
+            </Box>
+
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                14. Modifications
+              </Typography>
+              <Typography sx={{ color: "rgba(0,0,0,0.75)" }}>
+                TuVibe may revise these Terms from time to time. Updated Terms
+                will be posted on the website with the effective date indicated.
+                Continued use of the Platform constitutes acceptance of the
+                updated Terms.
+              </Typography>
+            </Box>
+
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                15. Governing Law
+              </Typography>
+              <Typography sx={{ color: "rgba(0,0,0,0.75)" }}>
+                These Terms and all related matters are governed by the laws of
+                Kenya, including the Companies Act (2015) and the Computer
+                Misuse and Cybercrimes Act (2018).
+              </Typography>
+            </Box>
+          </Box>
+
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={termsChecked}
+                onChange={(event) => setTermsChecked(event.target.checked)}
+                sx={{
+                  color: "#D4AF37",
+                  "&.Mui-checked": { color: "#D4AF37" },
+                }}
+              />
+            }
+            label={
+              <Typography
+                sx={{
+                  color: "rgba(0,0,0,0.8)",
+                  fontWeight: 500,
+                  fontSize: { xs: "0.95rem", sm: "1rem" },
+                  lineHeight: 1.5,
+                }}
+              >
+                I have read and agree to the TuVibe Terms &amp; Conditions.
+              </Typography>
+            }
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions
+          sx={{
+            px: { xs: 3, sm: 4 },
+            py: { xs: 2.5, sm: 3 },
+            gap: 2,
+            justifyContent: "center",
+          }}
+        >
+          <Button
+            onClick={handleTermsDecline}
+            variant="outlined"
+            sx={{
+              borderRadius: "14px",
+              px: { xs: 3, sm: 4 },
+              py: 1,
+              fontWeight: 600,
+              textTransform: "none",
+              borderColor: "rgba(0,0,0,0.4)",
+              color: "rgba(0,0,0,0.75)",
+              "&:hover": {
+                borderColor: "rgba(0,0,0,0.6)",
+                backgroundColor: "rgba(0,0,0,0.05)",
+              },
+            }}
+          >
+            Decline
+          </Button>
+          <Button
+            onClick={handleTermsAgree}
+            variant="contained"
+            disabled={!termsChecked}
+            sx={{
+              borderRadius: "14px",
+              px: { xs: 3, sm: 4 },
+              py: 1,
+              fontWeight: 600,
+              textTransform: "none",
+              background: "linear-gradient(45deg, #D4AF37, #B8941F)",
+              color: "rgba(0, 0, 0, 0.9)",
+              boxShadow: "0 10px 30px rgba(212, 175, 55, 0.3)",
+              "&:hover": {
+                background: "linear-gradient(45deg, #B8941F, #D4AF37)",
+                boxShadow: "0 12px 35px rgba(212, 175, 55, 0.35)",
+                transform: "translateY(-1px)",
+              },
+              "&:disabled": {
+                background: "rgba(0,0,0,0.1)",
+                color: "rgba(0,0,0,0.4)",
+                boxShadow: "none",
+              },
+            }}
+          >
+            Agree &amp; Continue
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Registration Dialog */}
+      <Dialog
         open={registerDialogOpen}
         onClose={handleRegisterClose}
         PaperProps={{
@@ -1529,12 +2158,51 @@ export default function HeroSection() {
                 />
                 <TextField
                   required
+                  label="Username"
+                  value={formData.username}
+                  onChange={handleInputChange("username")}
+                  fullWidth
+                  variant="outlined"
+                  placeholder="Visible to other members"
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: "12px",
+                      "& fieldset": {
+                        borderColor: "rgba(212, 175, 55, 0.3)",
+                      },
+                      "&:hover fieldset": {
+                        borderColor: "rgba(212, 175, 55, 0.6)",
+                      },
+                      "&.Mui-focused fieldset": {
+                        borderColor: "#D4AF37",
+                        borderWidth: "2px",
+                      },
+                    },
+                    "& .MuiInputBase-input": {
+                      py: 1.5,
+                      lineHeight: 1.5,
+                    },
+                    "& .MuiInputLabel-root": {
+                      "&.Mui-focused": {
+                        color: "#D4AF37",
+                      },
+                    },
+                  }}
+                />
+                <TextField
+                  required
                   label="Phone"
+                  type="tel"
                   value={formData.phone}
                   onChange={handleInputChange("phone")}
                   fullWidth
                   variant="outlined"
-                  placeholder="+1234567890"
+                  placeholder="+254798123456"
+                  error={Boolean(phoneError)}
+                  helperText={
+                    phoneError ||
+                    "Use the full country code, e.g., +254798123456."
+                  }
                   sx={{
                     "& .MuiOutlinedInput-root": {
                       borderRadius: "12px",
@@ -1676,6 +2344,9 @@ export default function HeroSection() {
                   type="number"
                   value={formData.birthYear}
                   onChange={handleInputChange("birthYear")}
+                  required
+                  error={Boolean(birthYearError)}
+                  helperText={birthYearError || " "}
                   fullWidth
                   variant="outlined"
                   inputProps={{
@@ -1852,6 +2523,7 @@ export default function HeroSection() {
                     // Validate required fields
                     if (
                       !formData.name ||
+                      !formData.username.trim() ||
                       !formData.phone ||
                       !formData.email ||
                       !formData.password
@@ -1860,6 +2532,32 @@ export default function HeroSection() {
                         icon: "error",
                         title: "Missing Fields",
                         text: "Please fill in all required fields.",
+                        confirmButtonColor: "#D4AF37",
+                        zIndex: 2000,
+                        didOpen: () => {
+                          const swalContainer =
+                            document.querySelector(".swal2-container");
+                          const swalPopup =
+                            document.querySelector(".swal2-popup");
+                          if (swalContainer) {
+                            swalContainer.style.zIndex = "2000";
+                          }
+                          if (swalPopup) {
+                            swalPopup.style.zIndex = "2001";
+                          }
+                        },
+                      });
+                      return;
+                    }
+                    const { error: stepPhoneError } = evaluatePhoneInput(
+                      formData.phone
+                    );
+                    if (stepPhoneError) {
+                      setPhoneError(stepPhoneError);
+                      Swal.fire({
+                        icon: "error",
+                        title: "Invalid Phone Number",
+                        text: stepPhoneError,
                         confirmButtonColor: "#D4AF37",
                         zIndex: 2000,
                         didOpen: () => {
@@ -2512,13 +3210,24 @@ export default function HeroSection() {
             py: { xs: 2.5, sm: 3 },
           }}
         >
-          <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center">
+          <Stack
+            direction="row"
+            spacing={1.5}
+            alignItems="center"
+            justifyContent="center"
+          >
             <Security sx={{ fontSize: { xs: 24, sm: 28 } }} />
             <Box component="span">Reset Password</Box>
           </Stack>
         </DialogTitle>
         <Divider />
-        <DialogContent sx={{ pt: { xs: 3, sm: 4 }, pb: { xs: 2, sm: 3 }, px: { xs: 3, sm: 4 } }}>
+        <DialogContent
+          sx={{
+            pt: { xs: 3, sm: 4 },
+            pb: { xs: 2, sm: 3 },
+            px: { xs: 3, sm: 4 },
+          }}
+        >
           <DialogContentText
             sx={{
               mb: { xs: 2.5, sm: 3 },
@@ -2528,7 +3237,8 @@ export default function HeroSection() {
               lineHeight: 1.6,
             }}
           >
-            Enter the email you used to sign up. We'll send you a fresh password so you can get back in.
+            Enter the email you used to sign up. We'll send you a fresh password
+            so you can get back in.
           </DialogContentText>
           <Box
             component="form"
@@ -2572,7 +3282,14 @@ export default function HeroSection() {
                 },
               }}
             />
-            <DialogActions sx={{ mt: 1, gap: 2, px: 0, flexDirection: { xs: "column", sm: "row" } }}>
+            <DialogActions
+              sx={{
+                mt: 1,
+                gap: 2,
+                px: 0,
+                flexDirection: { xs: "column", sm: "row" },
+              }}
+            >
               <Button
                 onClick={closeResetDialog}
                 variant="outlined"
@@ -2598,10 +3315,15 @@ export default function HeroSection() {
                 variant="contained"
                 fullWidth
                 startIcon={
-                  resetLoading ? <CircularProgress size={18} color="inherit" /> : <Security />
+                  resetLoading ? (
+                    <CircularProgress size={18} color="inherit" />
+                  ) : (
+                    <Security />
+                  )
                 }
                 sx={{
-                  background: "linear-gradient(135deg, #d4af37 0%, #f4d03f 100%)",
+                  background:
+                    "linear-gradient(135deg, #d4af37 0%, #f4d03f 100%)",
                   borderRadius: 3,
                   px: { xs: 2.5, sm: 3 },
                   py: 1,
@@ -2610,7 +3332,8 @@ export default function HeroSection() {
                   color: "#1a1a1a",
                   boxShadow: "0 4px 12px rgba(212, 175, 55, 0.3)",
                   "&:hover": {
-                    background: "linear-gradient(135deg, #b8941f 0%, #d4af37 100%)",
+                    background:
+                      "linear-gradient(135deg, #b8941f 0%, #d4af37 100%)",
                     boxShadow: "0 6px 16px rgba(212, 175, 55, 0.4)",
                     transform: "translateY(-1px)",
                   },

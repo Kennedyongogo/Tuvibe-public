@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  useCallback,
+} from "react";
 import {
   Box,
   Typography,
@@ -45,6 +51,7 @@ import {
 } from "@mui/icons-material";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
+import { getDisplayInitial, getDisplayName } from "../utils/userDisplay";
 
 export default function Profile({ user, setUser }) {
   const navigate = useNavigate();
@@ -68,7 +75,11 @@ export default function Profile({ user, setUser }) {
   };
 
   const computeAgeFromBirthYear = (birthYearValue) => {
-    if (birthYearValue === undefined || birthYearValue === null || birthYearValue === "") {
+    if (
+      birthYearValue === undefined ||
+      birthYearValue === null ||
+      birthYearValue === ""
+    ) {
       return "";
     }
 
@@ -142,6 +153,7 @@ export default function Profile({ user, setUser }) {
   const [showPostForm, setShowPostForm] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.name || "",
+    username: user?.username || "",
     gender: user?.gender || "",
     birthYear: resolveBirthYearFromUser(user),
     county: user?.county || "",
@@ -152,7 +164,10 @@ export default function Profile({ user, setUser }) {
     latitude: user?.latitude?.toString() || "",
     longitude: user?.longitude?.toString() || "",
   });
-  const [boostStatus, setBoostStatus] = useState({ status: "unknown", boost: null });
+  const [boostStatus, setBoostStatus] = useState({
+    status: "unknown",
+    boost: null,
+  });
   const [loadingBoostStatus, setLoadingBoostStatus] = useState(false);
 
   const userAge = useMemo(() => resolveAgeFromUser(user), [user]);
@@ -166,6 +181,7 @@ export default function Profile({ user, setUser }) {
     if (!isEditing && user) {
       setFormData({
         name: user?.name || "",
+        username: user?.username || "",
         gender: user?.gender || "",
         birthYear: resolveBirthYearFromUser(user),
         county: user?.county || "",
@@ -251,7 +267,9 @@ export default function Profile({ user, setUser }) {
       // Only check verification status for premium categories
       const isPremiumCategory =
         user?.category &&
-        ["Sugar Mummy", "Sponsor", "Ben 10"].includes(user.category);
+        ["Sugar Mummy", "Sponsor", "Ben 10", "Urban Chics"].includes(
+          user.category
+        );
 
       // If user is already verified or not premium, no need to check
       if (!isPremiumCategory || user?.isVerified) {
@@ -300,7 +318,7 @@ export default function Profile({ user, setUser }) {
   // Check if user is verified premium
   const isPremiumCategory =
     user?.category &&
-    ["Sugar Mummy", "Sponsor", "Ben 10"].includes(user.category);
+    ["Sugar Mummy", "Sponsor", "Ben 10", "Urban Chics"].includes(user.category);
   const isVerifiedPremium = isPremiumCategory && user?.isVerified;
 
   // Fetch "Looking For" posts (only for verified premium users)
@@ -788,6 +806,7 @@ export default function Profile({ user, setUser }) {
   const handleCancel = () => {
     setFormData({
       name: user?.name || "",
+      username: user?.username || "",
       gender: user?.gender || "",
       birthYear: resolveBirthYearFromUser(user),
       county: user?.county || "",
@@ -1098,6 +1117,17 @@ export default function Profile({ user, setUser }) {
 
     try {
       const token = localStorage.getItem("token");
+      const normalizedUsername = formData.username.trim();
+      if (!normalizedUsername) {
+        Swal.fire({
+          icon: "error",
+          title: "Username Required",
+          text: "Please choose a username so members can find you.",
+          confirmButtonColor: "#D4AF37",
+        });
+        setLoading(false);
+        return;
+      }
       let response;
 
       // Check if there are any new File objects to upload
@@ -1111,12 +1141,10 @@ export default function Profile({ user, setUser }) {
 
         // Add all form fields
         formDataToSend.append("name", formData.name);
+        formDataToSend.append("username", normalizedUsername);
         if (formData.gender) formDataToSend.append("gender", formData.gender);
         if (formData.birthYear) {
-          formDataToSend.append(
-            "birth_year",
-            parseInt(formData.birthYear, 10)
-          );
+          formDataToSend.append("birth_year", parseInt(formData.birthYear, 10));
         }
         if (formData.county) formDataToSend.append("county", formData.county);
         if (formData.bio) formDataToSend.append("bio", formData.bio);
@@ -1153,6 +1181,10 @@ export default function Profile({ user, setUser }) {
         const fieldConfigs = [
           {
             key: "name",
+          },
+          {
+            key: "username",
+            transform: (value) => value.trim(),
           },
           {
             key: "gender",
@@ -1599,7 +1631,10 @@ export default function Profile({ user, setUser }) {
               >
                 {!photoPreview &&
                   (!user?.photo || user.photo === "") &&
-                  (user?.name?.charAt(0)?.toUpperCase() || "U")}
+                  getDisplayInitial(user, {
+                    fallback: "U",
+                    currentUserId: user?.id,
+                  })}
               </Avatar>
               {/* Overlay indicator for pending/rejected photos */}
               {!isEditing &&
@@ -1707,13 +1742,28 @@ export default function Profile({ user, setUser }) {
             variant="h6"
             sx={{
               fontWeight: 700,
-              mb: 1,
+              mb: 0.25,
               color: "#1a1a1a",
               fontSize: { xs: "1rem", sm: "1.25rem" },
             }}
           >
-            {user?.name || "User"}
+            {getDisplayName(user, {
+              fallback: "User",
+              currentUserId: user?.id,
+            })}
           </Typography>
+          {user?.username && (
+            <Typography
+              variant="body2"
+              sx={{
+                color: "rgba(26, 26, 26, 0.65)",
+                marginBottom: 1,
+                fontWeight: 500,
+              }}
+            >
+              @{user.username}
+            </Typography>
+          )}
           {/* Photo Moderation Status */}
           {user?.photo && (
             <Box sx={{ mb: 1 }}>
@@ -1795,9 +1845,7 @@ export default function Profile({ user, setUser }) {
             {(isEditing ? birthYearAgePreview : userAge) !== "" && (
               <Chip
                 icon={<Cake sx={{ color: "#D4AF37 !important" }} />}
-                label={`${
-                  isEditing ? birthYearAgePreview : userAge
-                } yrs`}
+                label={`${isEditing ? birthYearAgePreview : userAge} yrs`}
                 sx={{
                   bgcolor: "rgba(212, 175, 55, 0.1)",
                   color: "#1a1a1a",
@@ -2777,7 +2825,8 @@ export default function Profile({ user, setUser }) {
               >
                 {loadingBoostStatus
                   ? "Checking boost status..."
-                  : boostStatus?.status === "active" && boostStatus?.boost?.ends_at
+                  : boostStatus?.status === "active" &&
+                      boostStatus?.boost?.ends_at
                     ? `Active until ${new Date(
                         boostStatus.boost.ends_at
                       ).toLocaleString()}`
@@ -2835,6 +2884,39 @@ export default function Profile({ user, setUser }) {
               disabled={!isEditing}
               InputProps={{
                 startAdornment: <Person sx={{ mr: 1, color: "#D4AF37" }} />,
+              }}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  "&:hover fieldset": {
+                    borderColor: "rgba(212, 175, 55, 0.5)",
+                  },
+                  "&.Mui-focused fieldset": {
+                    borderColor: "#D4AF37",
+                  },
+                },
+              }}
+            />
+            <TextField
+              fullWidth
+              label="Username"
+              name="username"
+              value={formData.username}
+              onChange={handleChange}
+              disabled={!isEditing}
+              helperText={
+                isEditing
+                  ? "This is what members will see. Stick to letters, numbers, or underscores."
+                  : ""
+              }
+              InputProps={{
+                startAdornment: (
+                  <Typography
+                    component="span"
+                    sx={{ mr: 1, color: "#D4AF37", fontWeight: 600 }}
+                  >
+                    @
+                  </Typography>
+                ),
               }}
               sx={{
                 "& .MuiOutlinedInput-root": {
@@ -3014,8 +3096,8 @@ export default function Profile({ user, setUser }) {
                       locationLoading
                         ? "Starting live tracking..."
                         : isLocationTracking
-                        ? "Live tracking on"
-                        : "Live tracking off"
+                          ? "Live tracking on"
+                          : "Live tracking off"
                     }
                     sx={{
                       fontWeight: 600,
@@ -3041,13 +3123,13 @@ export default function Profile({ user, setUser }) {
                       disabled={locationLoading}
                       variant="outlined"
                       size="small"
-                    sx={{
+                      sx={{
                         borderColor: "rgba(212, 175, 55, 0.5)",
                         color: "#D4AF37",
                         fontWeight: 600,
                         textTransform: "none",
                         borderRadius: "8px",
-                      width: { xs: "100%", sm: "auto" },
+                        width: { xs: "100%", sm: "auto" },
                         "&:hover": {
                           borderColor: "#D4AF37",
                           backgroundColor: "rgba(212, 175, 55, 0.1)",

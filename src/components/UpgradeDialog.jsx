@@ -19,10 +19,7 @@ import {
 import { Star, Info } from "@mui/icons-material";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
-import {
-  formatKshValue,
-  describeExchangeRate,
-} from "../utils/pricing";
+import { formatKshValue, describeExchangeRate } from "../utils/pricing";
 
 export default function UpgradeDialog({ open, onClose }) {
   const navigate = useNavigate();
@@ -208,7 +205,8 @@ export default function UpgradeDialog({ open, onClose }) {
             // Use the complete user object from the API response
             const updatedUser = {
               ...data.data.user,
-              token_balance: data.data.remainingBalance || data.data.user.token_balance,
+              token_balance:
+                data.data.remainingBalance || data.data.user.token_balance,
               premium_expires_at:
                 data.data.premiumExpiresAt || data.data.user.premium_expires_at,
             };
@@ -313,37 +311,6 @@ export default function UpgradeDialog({ open, onClose }) {
         </Box>
       </DialogTitle>
       <DialogContent>
-        <Alert
-          icon={<Info />}
-          severity="info"
-          sx={{
-            mb: 3,
-            backgroundColor: "rgba(212, 175, 55, 0.1)",
-            border: "1px solid rgba(212, 175, 55, 0.3)",
-            "& .MuiAlert-icon": {
-              color: "#D4AF37",
-            },
-          }}
-        >
-          <Typography
-            variant="body2"
-            sx={{
-              fontWeight: 600,
-              mb: 0.5,
-              ...(isSmallScreen ? smallFonts.body2 : {}),
-            }}
-          >
-            Premium Lounge Access Required
-          </Typography>
-          <Typography
-            variant="body2"
-            sx={{ ...(isSmallScreen ? smallFonts.body2 : {}) }}
-          >
-            Only premium users can access Premium Lounge. Upgrade to a premium
-            category to unlock premium features and connect with verified
-            premium users.
-          </Typography>
-        </Alert>
         <Typography
           variant="body2"
           sx={{
@@ -353,8 +320,9 @@ export default function UpgradeDialog({ open, onClose }) {
           }}
         >
           Choose a premium category to upgrade. You will be automatically
-          verified upon upgrade. Premium access lasts <strong>7 days</strong> (KES 100/week) and
-          renews when you upgrade again. Exchange rate: {describeExchangeRate()}.
+          verified upon upgrade. Premium access lasts <strong>7 days</strong>{" "}
+          (KES 100/week) and renews when you upgrade again. Exchange rate:{" "}
+          {describeExchangeRate()}.
         </Typography>
 
         {upgradeCategories.length === 0 ? (
@@ -448,9 +416,11 @@ export default function UpgradeDialog({ open, onClose }) {
               color="text.secondary"
               sx={{ ...(isSmallScreen ? smallFonts.body2 : {}) }}
             >
-              Cost: {upgradeCategories.find(
+              Cost:{" "}
+              {upgradeCategories.find(
                 (cat) => cat.category === selectedCategory
-              )?.costTokens || 0} tokens (
+              )?.costTokens || 0}{" "}
+              tokens (
               {formatKshValue(
                 upgradeCategories.find(
                   (cat) => cat.category === selectedCategory

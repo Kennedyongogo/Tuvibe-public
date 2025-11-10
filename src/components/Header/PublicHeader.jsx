@@ -40,6 +40,11 @@ import {
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
+import {
+  evaluateBirthYearInput,
+  MIN_PUBLIC_USER_AGE,
+} from "../../utils/ageValidation";
+import { evaluatePhoneInput } from "../../utils/phoneValidation";
 
 export default function PublicHeader() {
   const navigate = useNavigate();
@@ -58,13 +63,15 @@ export default function PublicHeader() {
     email: "",
     password: "",
     gender: "",
-    age: "",
+    birthYear: "",
     bio: "",
   });
   const [loginFormData, setLoginFormData] = useState({
     email: "",
     password: "",
   });
+  const [phoneError, setPhoneError] = useState("");
+  const [birthYearError, setBirthYearError] = useState("");
 
   useEffect(() => {
     const handleScroll = () => {
@@ -115,9 +122,11 @@ export default function PublicHeader() {
       email: "",
       password: "",
       gender: "",
-      age: "",
+      birthYear: "",
       bio: "",
     });
+    setPhoneError("");
+    setBirthYearError("");
     setPhotoFile(null);
     setPhotoPreview(null);
     setRegisterStep(1);
@@ -157,7 +166,16 @@ export default function PublicHeader() {
   };
 
   const handleInputChange = (field) => (e) => {
-    setFormData({ ...formData, [field]: e.target.value });
+    const value = e.target.value;
+    if (field === "birthYear") {
+      const { error } = evaluateBirthYearInput(value);
+      setBirthYearError(error);
+    }
+    if (field === "phone") {
+      const { error } = evaluatePhoneInput(value);
+      setPhoneError(error);
+    }
+    setFormData({ ...formData, [field]: value });
   };
 
   const handleLoginInputChange = (field) => (e) => {
@@ -214,11 +232,15 @@ export default function PublicHeader() {
         const data = await response.json();
 
         if (!response.ok) {
+          const errorMessage =
+            data.message ||
+            (response.status === 403
+              ? "We could not confirm your age. Please contact support to update your profile."
+              : "Invalid email or password. Please try again.");
           Swal.fire({
             icon: "error",
             title: "Login Failed",
-            text:
-              data.message || "Invalid email or password. Please try again.",
+            text: errorMessage,
             confirmButtonColor: "#D4AF37",
             didOpen: () => {
               const swal = document.querySelector(".swal2-popup");
@@ -306,11 +328,12 @@ export default function PublicHeader() {
               navigate("/home");
             }, 1500);
           } else {
+            const errorMessage =
+              data.message || "Invalid email or password. Please try again.";
             Swal.fire({
               icon: "error",
               title: "Login Failed",
-              text:
-                data.message || "Invalid email or password. Please try again.",
+              text: errorMessage,
               confirmButtonColor: "#D4AF37",
               didOpen: () => {
                 const swal = document.querySelector(".swal2-popup");
@@ -377,15 +400,46 @@ export default function PublicHeader() {
     if (registerStep !== 2) {
       return;
     }
+    const { normalized: normalizedPhone, error: phoneValidationError } =
+      evaluatePhoneInput(formData.phone);
+
+    if (phoneValidationError) {
+      setPhoneError(phoneValidationError);
+      Swal.fire({
+        icon: "error",
+        title: "Invalid Phone Number",
+        text: phoneValidationError,
+        confirmButtonColor: "#D4AF37",
+      });
+      return;
+    }
+    const { normalized: normalizedBirthYear, error: birthYearValidationError } =
+      evaluateBirthYearInput(formData.birthYear);
+
+    if (birthYearValidationError) {
+      setBirthYearError(birthYearValidationError);
+      handleRegisterClose();
+      setTimeout(() => {
+        Swal.fire({
+          icon: "error",
+          title: "Age Verification Required",
+          text: birthYearValidationError,
+          confirmButtonColor: "#D4AF37",
+        });
+      }, 0);
+      return;
+    }
     // Prepare data - only include non-empty optional fields
     const submitData = {
       name: formData.name,
-      phone: formData.phone,
+      phone: normalizedPhone,
       email: formData.email,
       password: formData.password,
     };
     if (formData.gender) submitData.gender = formData.gender;
-    if (formData.age) submitData.age = parseInt(formData.age);
+    if (normalizedBirthYear !== null) {
+      submitData.birth_year = normalizedBirthYear;
+    }
 
     // Close the registration dialog first so SweetAlert appears on top
     handleRegisterClose();
@@ -428,12 +482,12 @@ export default function PublicHeader() {
           const formDataToSend = new FormData();
           // Add all form fields
           formDataToSend.append("name", formData.name);
-          formDataToSend.append("phone", formData.phone);
+          formDataToSend.append("phone", normalizedPhone);
           formDataToSend.append("email", formData.email);
           formDataToSend.append("password", formData.password);
           if (formData.gender) formDataToSend.append("gender", formData.gender);
-          if (formData.age)
-            formDataToSend.append("age", parseInt(formData.age));
+          if (normalizedBirthYear !== null)
+            formDataToSend.append("birth_year", normalizedBirthYear);
           if (formData.bio) formDataToSend.append("bio", formData.bio);
           // Add photo file
           formDataToSend.append("profile_image", photoFile);
@@ -1063,11 +1117,17 @@ export default function PublicHeader() {
                 <TextField
                   required
                   label="Phone"
+                  type="tel"
                   value={formData.phone}
                   onChange={handleInputChange("phone")}
                   fullWidth
                   variant="outlined"
-                  placeholder="+1234567890"
+                  placeholder="+254798123456"
+                  error={Boolean(phoneError)}
+                  helperText={
+                    phoneError ||
+                    "Use the full country code, e.g., +254798123456."
+                  }
                   sx={{
                     "& .MuiOutlinedInput-root": {
                       borderRadius: "12px",
@@ -1220,13 +1280,19 @@ export default function PublicHeader() {
                 </FormControl>
 
                 <TextField
-                  label="Age"
+                  label="Year of Birth"
                   type="number"
-                  value={formData.age}
-                  onChange={handleInputChange("age")}
+                  value={formData.birthYear}
+                  onChange={handleInputChange("birthYear")}
+                  required
+                  error={Boolean(birthYearError)}
+                  helperText={birthYearError || " "}
                   fullWidth
                   variant="outlined"
-                  inputProps={{ min: 18, max: 100 }}
+                  inputProps={{
+                    min: 1900,
+                    max: new Date().getFullYear(),
+                  }}
                   sx={{
                     "& .MuiOutlinedInput-root": {
                       borderRadius: "12px",
@@ -1413,6 +1479,32 @@ export default function PublicHeader() {
                         icon: "error",
                         title: "Missing Fields",
                         text: "Please fill in all required fields.",
+                        confirmButtonColor: "#D4AF37",
+                        zIndex: 2000,
+                        didOpen: () => {
+                          const swalContainer =
+                            document.querySelector(".swal2-container");
+                          const swalPopup =
+                            document.querySelector(".swal2-popup");
+                          if (swalContainer) {
+                            swalContainer.style.zIndex = "2000";
+                          }
+                          if (swalPopup) {
+                            swalPopup.style.zIndex = "2001";
+                          }
+                        },
+                      });
+                      return;
+                    }
+                    const { error: stepPhoneError } = evaluatePhoneInput(
+                      formData.phone
+                    );
+                    if (stepPhoneError) {
+                      setPhoneError(stepPhoneError);
+                      Swal.fire({
+                        icon: "error",
+                        title: "Invalid Phone Number",
+                        text: stepPhoneError,
                         confirmButtonColor: "#D4AF37",
                         zIndex: 2000,
                         didOpen: () => {

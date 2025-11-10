@@ -46,6 +46,7 @@ import Swal from "sweetalert2";
 import ViewProfile from "../components/ViewProfile";
 import UpgradeDialog from "../components/UpgradeDialog";
 import { formatKshFromTokens } from "../utils/pricing";
+import { getDisplayInitial, getDisplayName } from "../utils/userDisplay";
 
 export default function Explore({ user }) {
   const navigate = useNavigate();
@@ -222,7 +223,7 @@ export default function Explore({ user }) {
     users.forEach((userData) => {
       const images = getAllImages(userData);
       const userId = userData.id;
-      
+
       // Preload all images for smooth transitions
       images.forEach((imageSrc) => {
         const img = new Image();
@@ -377,12 +378,23 @@ export default function Explore({ user }) {
         localStorage.setItem("user", JSON.stringify(updatedUser));
 
         // Check if current user is premium and target user is premium
-        const premiumCategories = ["Sugar Mummy", "Sponsor", "Ben 10"];
-        const isCurrentUserPremium = user?.category && premiumCategories.includes(user.category) && user?.isVerified;
-        
+        const premiumCategories = [
+          "Sugar Mummy",
+          "Sponsor",
+          "Ben 10",
+          "Urban Chics",
+        ];
+        const isCurrentUserPremium =
+          user?.category &&
+          premiumCategories.includes(user.category) &&
+          user?.isVerified;
+
         // Find the target user in the users list to check if they're premium
-        const targetUserData = users.find(u => u.id === targetUserId);
-        const isTargetUserPremium = targetUserData?.category && premiumCategories.includes(targetUserData.category) && targetUserData?.isVerified;
+        const targetUserData = users.find((u) => u.id === targetUserId);
+        const isTargetUserPremium =
+          targetUserData?.category &&
+          premiumCategories.includes(targetUserData.category) &&
+          targetUserData?.isVerified;
 
         // If both are premium users, redirect to Premium Lounge
         if (isCurrentUserPremium && isTargetUserPremium) {
@@ -583,6 +595,8 @@ export default function Explore({ user }) {
         return "#B0E0E6";
       case "Ben 10":
         return "#E6E6FA";
+      case "Urban Chics":
+        return "#FFE4B5";
       default:
         return "rgba(212, 175, 55, 0.15)";
     }
@@ -590,7 +604,12 @@ export default function Explore({ user }) {
 
   // Check if a user is premium (has premium category and is verified)
   const isPremiumUser = (userData) => {
-    const premiumCategories = ["Sugar Mummy", "Sponsor", "Ben 10"];
+    const premiumCategories = [
+      "Sugar Mummy",
+      "Sponsor",
+      "Ben 10",
+      "Urban Chics",
+    ];
     return (
       userData?.category &&
       premiumCategories.includes(userData.category) &&
@@ -736,6 +755,7 @@ export default function Explore({ user }) {
                 <MenuItem value="Sugar Mummy">Sugar Mummy</MenuItem>
                 <MenuItem value="Sponsor">Sponsor</MenuItem>
                 <MenuItem value="Ben 10">Ben 10</MenuItem>
+                <MenuItem value="Urban Chics">Urban Chics</MenuItem>
               </Select>
             </FormControl>
           </Grid>
@@ -1007,7 +1027,9 @@ export default function Explore({ user }) {
                                   key={`${userData.id}-img-${index}`}
                                   component="img"
                                   src={image}
-                                  alt={userData.name}
+                                  alt={getDisplayName(userData, {
+                                    fallback: "Member",
+                                  })}
                                   sx={{
                                     position: "absolute",
                                     top: 0,
@@ -1039,14 +1061,26 @@ export default function Explore({ user }) {
                             >
                               <Avatar
                                 sx={{
-                                  width: { xs: "120px", sm: "150px", md: "120px" },
-                                  height: { xs: "120px", sm: "150px", md: "120px" },
+                                  width: {
+                                    xs: "120px",
+                                    sm: "150px",
+                                    md: "120px",
+                                  },
+                                  height: {
+                                    xs: "120px",
+                                    sm: "150px",
+                                    md: "120px",
+                                  },
                                   bgcolor: "#D4AF37",
-                                  fontSize: { xs: "3rem", sm: "4rem", md: "3rem" },
+                                  fontSize: {
+                                    xs: "3rem",
+                                    sm: "4rem",
+                                    md: "3rem",
+                                  },
                                   fontWeight: 700,
                                 }}
                               >
-                                {userData.name?.charAt(0)?.toUpperCase() || "U"}
+                                {getDisplayInitial(userData, { fallback: "U" })}
                               </Avatar>
                             </Box>
                           );
@@ -1115,7 +1149,7 @@ export default function Explore({ user }) {
                             lineHeight: 1.2,
                           }}
                         >
-                          {userData.name}
+                          {getDisplayName(userData, { fallback: "Member" })}
                         </Typography>
                         {/* Verified Badge */}
                         {userData.isVerified && (
@@ -1384,10 +1418,16 @@ export default function Explore({ user }) {
                           }
                           onClick={() => {
                             // If both users are premium, navigate directly to Premium Lounge
-                            if (isPremiumUser(user) && isPremiumUser(userData)) {
+                            if (
+                              isPremiumUser(user) &&
+                              isPremiumUser(userData)
+                            ) {
                               navigate("/premium");
                             } else {
-                              handleWhatsAppUnlock(userData.id, userData.name);
+                              handleWhatsAppUnlock(
+                                userData.id,
+                                getDisplayName(userData, { fallback: "Member" })
+                              );
                             }
                           }}
                           disabled={unlocking[userData.id]}

@@ -25,6 +25,11 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  useMediaQuery,
 } from "@mui/material";
 import {
   LocationOn,
@@ -37,12 +42,14 @@ import {
   Star,
   AccessTime,
   Visibility,
+  CheckCircle,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import ViewProfile from "../components/ViewProfile";
 import UpgradeDialog from "../components/UpgradeDialog";
 import { formatKshFromTokens } from "../utils/pricing";
+import { getDisplayInitial, getDisplayName } from "../utils/userDisplay";
 
 export default function PremiumLounge({ user }) {
   const navigate = useNavigate();
@@ -59,21 +66,26 @@ export default function PremiumLounge({ user }) {
   const [lookingForDialogOpen, setLookingForDialogOpen] = useState(false);
   const [selectedLookingForPost, setSelectedLookingForPost] = useState(null);
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
+  const [benefitsDialogOpen, setBenefitsDialogOpen] = useState(false);
   const fetchingRef = useRef(false); // Track if we're currently fetching
   const lastFetchedRef = useRef({ category: null, tab: null }); // Track what we last fetched
 
+  const isRegularUser = user?.category === "Regular";
+  const isSmallScreen = useMediaQuery("(max-width:600px)");
+
   // Handle regular user - automatically open upgrade dialog
   useEffect(() => {
-    if (user && user.category === "Regular") {
-      // Automatically open upgrade dialog for regular users
-      setUpgradeDialogOpen(true);
+    if (isRegularUser) {
+      setBenefitsDialogOpen(true);
+      setUpgradeDialogOpen(false);
     }
-  }, [user]);
+  }, [isRegularUser]);
 
   const categories = [
     { label: "Sugar Mummy", value: "Sugar Mummy" },
     { label: "Sponsor", value: "Sponsor" },
     { label: "Ben 10", value: "Ben 10" },
+    { label: "Urban Chics", value: "Urban Chics" },
   ];
 
   const buildImageUrl = (imageUrl) => {
@@ -92,7 +104,7 @@ export default function PremiumLounge({ user }) {
     }
 
     // Don't fetch if user is regular - should be handled by early return
-    if (user && user.category === "Regular") {
+    if (isRegularUser) {
       setLoading(false);
       return;
     }
@@ -191,7 +203,7 @@ export default function PremiumLounge({ user }) {
       setLoading(false);
       fetchingRef.current = false;
     }
-  }, [user, selectedTab, navigate]);
+  }, [user, isRegularUser, selectedTab, navigate]);
 
   const fetchFavorites = async () => {
     const token = localStorage.getItem("token");
@@ -500,13 +512,12 @@ export default function PremiumLounge({ user }) {
         return "rgba(176, 196, 222, 0.3)";
       case "Ben 10":
         return "rgba(152, 251, 152, 0.3)";
+      case "Urban Chics":
+        return "rgba(255, 218, 185, 0.3)";
       default:
         return "rgba(212, 175, 55, 0.15)";
     }
   };
-
-  // Always render UpgradeDialog for regular users
-  const isRegularUser = user && user.category === "Regular";
 
   return (
     <Box
@@ -516,6 +527,161 @@ export default function PremiumLounge({ user }) {
         width: "100%",
       }}
     >
+      {/* Premium benefits dialog for regular users */}
+      <Dialog
+        open={isRegularUser && benefitsDialogOpen}
+        onClose={() => {
+          setBenefitsDialogOpen(false);
+          if (isRegularUser) {
+            navigate("/explore");
+          }
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography
+            variant="h6"
+            fontWeight={700}
+            sx={isSmallScreen ? { fontSize: "1rem" } : undefined}
+          >
+            Unlock Premium Lounge Benefits
+          </Typography>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Typography
+            variant="body2"
+            sx={{
+              mb: 2,
+              color: "text.secondary",
+              ...(isSmallScreen ? { fontSize: "0.85rem" } : {}),
+            }}
+          >
+            Upgrade to enjoy the full premium experience:
+          </Typography>
+          <List sx={{ py: 0 }}>
+            <ListItem
+              alignItems="flex-start"
+              sx={{ px: 0, ...(isSmallScreen ? { py: 0.5 } : {}) }}
+            >
+              <ListItemIcon sx={{ minWidth: 36, color: "#D4AF37" }}>
+                <CheckCircle />
+              </ListItemIcon>
+              <ListItemText
+                primaryTypographyProps={
+                  isSmallScreen ? { fontSize: "0.95rem", fontWeight: 600 } : {}
+                }
+                secondaryTypographyProps={
+                  isSmallScreen ? { fontSize: "0.8rem" } : {}
+                }
+                primary="Exclusive Access"
+                secondary="Only premium users can enter the private Premium Lounge with verified profiles, curated tabs, and premium-only matchmaking tools."
+              />
+            </ListItem>
+            <ListItem
+              alignItems="flex-start"
+              sx={{ px: 0, ...(isSmallScreen ? { py: 0.5 } : {}) }}
+            >
+              <ListItemIcon sx={{ minWidth: 36, color: "#D4AF37" }}>
+                <CheckCircle />
+              </ListItemIcon>
+              <ListItemText
+                primaryTypographyProps={
+                  isSmallScreen ? { fontSize: "0.95rem", fontWeight: 600 } : {}
+                }
+                secondaryTypographyProps={
+                  isSmallScreen ? { fontSize: "0.8rem" } : {}
+                }
+                primary="Instant Verification & Visibility"
+                secondary="Upgrading makes you instantly verified and boosts your profile’s visibility across Explore, Featured, and search."
+              />
+            </ListItem>
+            <ListItem
+              alignItems="flex-start"
+              sx={{ px: 0, ...(isSmallScreen ? { py: 0.5 } : {}) }}
+            >
+              <ListItemIcon sx={{ minWidth: 36, color: "#D4AF37" }}>
+                <CheckCircle />
+              </ListItemIcon>
+              <ListItemText
+                primaryTypographyProps={
+                  isSmallScreen ? { fontSize: "0.95rem", fontWeight: 600 } : {}
+                }
+                secondaryTypographyProps={
+                  isSmallScreen ? { fontSize: "0.8rem" } : {}
+                }
+                primary="Premium “Looking For” Posts"
+                secondary="Post exclusive “Looking For” ads in the Premium Lounge to attract matches directly."
+              />
+            </ListItem>
+            <ListItem
+              alignItems="flex-start"
+              sx={{ px: 0, ...(isSmallScreen ? { py: 0.5 } : {}) }}
+            >
+              <ListItemIcon sx={{ minWidth: 36, color: "#D4AF37" }}>
+                <CheckCircle />
+              </ListItemIcon>
+              <ListItemText
+                primaryTypographyProps={
+                  isSmallScreen ? { fontSize: "0.95rem", fontWeight: 600 } : {}
+                }
+                secondaryTypographyProps={
+                  isSmallScreen ? { fontSize: "0.8rem" } : {}
+                }
+                primary="Lower Chat Unlock Costs"
+                secondary="Premium-to-premium WhatsApp unlocks cost 90% less (2.5 KES vs 25 KES), helping you save tokens."
+              />
+            </ListItem>
+            <ListItem
+              alignItems="flex-start"
+              sx={{ px: 0, ...(isSmallScreen ? { py: 0.5 } : {}) }}
+            >
+              <ListItemIcon sx={{ minWidth: 36, color: "#D4AF37" }}>
+                <CheckCircle />
+              </ListItemIcon>
+              <ListItemText
+                primaryTypographyProps={
+                  isSmallScreen ? { fontSize: "0.95rem", fontWeight: 600 } : {}
+                }
+                secondaryTypographyProps={
+                  isSmallScreen ? { fontSize: "0.8rem" } : {}
+                }
+                primary="Faster Premium Matchmaking"
+                secondary="Premium members are routed to other verified users for quicker, smoother connections."
+              />
+            </ListItem>
+          </List>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button
+            onClick={() => {
+              setBenefitsDialogOpen(false);
+              navigate("/explore");
+            }}
+            sx={{ textTransform: "none" }}
+          >
+            Not now
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              setBenefitsDialogOpen(false);
+              setUpgradeDialogOpen(true);
+            }}
+            sx={{
+              textTransform: "none",
+              background: "linear-gradient(135deg, #D4AF37, #B8941F)",
+              color: "#1a1a1a",
+              "&:hover": {
+                background: "linear-gradient(135deg, #B8941F, #D4AF37)",
+              },
+            }}
+          >
+            Upgrade now
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Upgrade Dialog - always render for regular users, controlled by open prop */}
       <UpgradeDialog
         open={isRegularUser && upgradeDialogOpen}
@@ -773,7 +939,7 @@ export default function PremiumLounge({ user }) {
                         <Box
                           component="img"
                           src={buildImageUrl(userData.photo)}
-                          alt={userData.name}
+                          alt={getDisplayName(userData, { fallback: "Member" })}
                           sx={{
                             width: "100%",
                             height: "100%",
@@ -802,7 +968,7 @@ export default function PremiumLounge({ user }) {
                               fontWeight: 700,
                             }}
                           >
-                            {userData.name?.charAt(0)?.toUpperCase() || "U"}
+                            {getDisplayInitial(userData, { fallback: "U" })}
                           </Avatar>
                         </Box>
                       )}
@@ -920,7 +1086,7 @@ export default function PremiumLounge({ user }) {
                             flex: 1,
                           }}
                         >
-                          {userData.name}
+                          {getDisplayName(userData, { fallback: "Member" })}
                         </Typography>
                         {lookingForPosts[userData.id] && (
                           <Tooltip title="View What They're Looking For">
@@ -928,7 +1094,9 @@ export default function PremiumLounge({ user }) {
                               size="small"
                               onClick={() => {
                                 setSelectedLookingForPost({
-                                  userName: userData.name,
+                                  userName: getDisplayName(userData, {
+                                    fallback: "Member",
+                                  }),
                                   content: lookingForPosts[userData.id].content,
                                   createdAt:
                                     lookingForPosts[userData.id].createdAt,
@@ -1067,11 +1235,17 @@ export default function PremiumLounge({ user }) {
                         <Button
                           variant="contained"
                           color="primary"
-                          onClick={() => handleWhatsAppUnlock(userData.id, userData.name)}
+                          onClick={() =>
+                            handleWhatsAppUnlock(
+                              userData.id,
+                              getDisplayName(userData, { fallback: "Member" })
+                            )
+                          }
                           disabled={unlocking[userData.id]}
                           sx={{
                             mt: 1,
-                            background: "linear-gradient(135deg, #D4AF37, #B8941F)",
+                            background:
+                              "linear-gradient(135deg, #D4AF37, #B8941F)",
                             color: "#1a1a1a",
                             fontWeight: 600,
                             textTransform: "none",
@@ -1080,7 +1254,8 @@ export default function PremiumLounge({ user }) {
                             py: 1,
                             transition: "all 0.3s",
                             "&:hover": {
-                              background: "linear-gradient(135deg, #B8941F, #D4AF37)",
+                              background:
+                                "linear-gradient(135deg, #B8941F, #D4AF37)",
                               transform: "translateY(-2px)",
                             },
                             "&:disabled": {

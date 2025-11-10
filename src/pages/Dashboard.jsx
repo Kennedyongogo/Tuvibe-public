@@ -32,9 +32,7 @@ import {
   useTheme,
 } from "@mui/material";
 import { keyframes } from "@mui/system";
-import Autocomplete, {
-  createFilterOptions,
-} from "@mui/material/Autocomplete";
+import Autocomplete, { createFilterOptions } from "@mui/material/Autocomplete";
 import {
   Explore,
   Store,
@@ -52,6 +50,7 @@ import {
   LockOpen,
   NotificationsActive,
   MyLocation,
+  Insights,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
@@ -63,6 +62,7 @@ import {
 } from "../utils/pricing";
 import { KENYA_COUNTIES, normalizeCountyName } from "../data/kenyaCounties";
 import GeoTargetPicker from "../components/Boost/GeoTargetPicker";
+import { getDisplayInitial, getDisplayName } from "../utils/userDisplay";
 
 const goldShine = keyframes`
   0% {
@@ -97,7 +97,13 @@ const getRemainingTimeForDate = (dateValue) => {
   }
 };
 
-const BOOST_CATEGORIES = ["Regular", "Sugar Mummy", "Sponsor", "Ben 10"];
+const BOOST_CATEGORIES = [
+  "Regular",
+  "Sugar Mummy",
+  "Sponsor",
+  "Ben 10",
+  "Urban Chics",
+];
 const MIN_BOOST_HOURS = 1;
 const MAX_BOOST_HOURS = 6;
 const DEFAULT_BOOST_RADIUS_KM = 10;
@@ -116,6 +122,16 @@ const parseNumericValue = (value) => {
   if (value === null || value === undefined) return null;
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : null;
+};
+
+const formatDateTime = (value) => {
+  if (!value) return "—";
+  try {
+    return new Date(value).toLocaleString();
+  } catch (error) {
+    console.error("Failed to format date for statistics dialog:", error);
+    return value;
+  }
 };
 
 export default function Dashboard({ user, setUser }) {
@@ -148,6 +164,10 @@ export default function Dashboard({ user, setUser }) {
   const [loadingTargetedBoosts, setLoadingTargetedBoosts] = useState(false);
   const [targetedDialogOpen, setTargetedDialogOpen] = useState(false);
   const targetedCount = targetedBoosts.length;
+  const [statsDialogOpen, setStatsDialogOpen] = useState(false);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [statsError, setStatsError] = useState(null);
+  const [statsData, setStatsData] = useState(null);
   const [activeBoosts, setActiveBoosts] = useState([]);
   const [selectedBoostId, setSelectedBoostId] = useState(null);
   const [loadingBoostStatus, setLoadingBoostStatus] = useState(false);
@@ -242,13 +262,9 @@ export default function Dashboard({ user, setUser }) {
     (boost) => {
       if (!boost) return;
       setSelectedBoostId(boost.id);
-      setBoostCategory(
-        boost.target_category || user?.category || "Regular"
-      );
+      setBoostCategory(boost.target_category || user?.category || "Regular");
       const normalizedArea =
-        normalizeCountyName(boost.target_area) ||
-        boost.target_area ||
-        "";
+        normalizeCountyName(boost.target_area) || boost.target_area || "";
       setBoostArea(normalizedArea);
       const latValue = parseNumericValue(boost.target_lat);
       const lngValue = parseNumericValue(boost.target_lng);
@@ -319,16 +335,11 @@ export default function Dashboard({ user, setUser }) {
     setBoostArea(normalizeCountyName(user?.county) || "");
     setBoostHours(MIN_BOOST_HOURS);
     setBoostRadiusKm(DEFAULT_BOOST_RADIUS_KM);
-     setBoostLatitude(parseNumericValue(user?.latitude) ?? null);
-     setBoostLongitude(parseNumericValue(user?.longitude) ?? null);
-     setBoostTargetEdited(false);
+    setBoostLatitude(parseNumericValue(user?.latitude) ?? null);
+    setBoostLongitude(parseNumericValue(user?.longitude) ?? null);
+    setBoostTargetEdited(false);
     setLocationError("");
-  }, [
-    user?.category,
-    user?.county,
-    user?.latitude,
-    user?.longitude,
-  ]);
+  }, [user?.category, user?.county, user?.latitude, user?.longitude]);
 
   const openBoostDialog = useCallback(
     (shouldReset = true) => {
@@ -385,8 +396,8 @@ export default function Dashboard({ user, setUser }) {
         const boostsSource = Array.isArray(data.data?.boosts)
           ? data.data.boosts
           : data.data?.boost
-          ? [data.data.boost]
-          : [];
+            ? [data.data.boost]
+            : [];
         const boosts = boostsSource.filter(Boolean);
         setActiveBoosts(boosts);
         setSelectedBoostId((prev) => {
@@ -477,12 +488,7 @@ export default function Dashboard({ user, setUser }) {
     if (!boostTargetEdited) {
       applyBoostContext(selectedBoost);
     }
-  }, [
-    boostDialogOpen,
-    selectedBoost,
-    boostTargetEdited,
-    applyBoostContext,
-  ]);
+  }, [boostDialogOpen, selectedBoost, boostTargetEdited, applyBoostContext]);
 
   useEffect(() => {
     const latFromProfile = parseNumericValue(user?.latitude);
@@ -831,8 +837,7 @@ export default function Dashboard({ user, setUser }) {
         Swal.fire({
           icon: "warning",
           title: "Insufficient Tokens",
-          text:
-            data.message || "You do not have enough tokens for this boost.",
+          text: data.message || "You do not have enough tokens for this boost.",
           confirmButtonColor: "#D4AF37",
         });
         programmaticBoostCloseRef.current = false;
@@ -975,15 +980,17 @@ export default function Dashboard({ user, setUser }) {
           <div style="display: flex; flex-direction: column; gap: 10px;">
             <div>
               <label style="font-weight: 600; font-size: 0.85rem;">Current radius (km)</label>
-              <input type="number" class="swal2-input" style="margin-top: 4px; height: 36px; font-size: 0.82rem;" value="${Number.isFinite(currentRadius) ? Number(currentRadius).toFixed(
-        1
-      ) : ""}" disabled />
+              <input type="number" class="swal2-input" style="margin-top: 4px; height: 36px; font-size: 0.82rem;" value="${
+                Number.isFinite(currentRadius)
+                  ? Number(currentRadius).toFixed(1)
+                  : ""
+              }" disabled />
             </div>
             <div>
               <label for="extend-radius-input" style="font-weight: 600; font-size: 0.85rem;">New radius (km)</label>
               <input id="extend-radius-input" type="number" class="swal2-input" style="margin-top: 4px; height: 36px; font-size: 0.82rem;" min="${MIN_BOOST_RADIUS_KM}" max="${MAX_BOOST_RADIUS_KM}" step="0.5" value="${defaultRadius.toFixed(
-        1
-      )}" />
+                1
+              )}" />
             </div>
           </div>
           <small style="display:block; margin-top:4px; color: rgba(26,26,26,0.6); font-size: 0.72rem;">
@@ -1156,13 +1163,15 @@ export default function Dashboard({ user, setUser }) {
             } km → <strong>${newRadiusLabel}</strong></p>
             <p style="margin: 0 0 6px 0;"><strong>Current end time:</strong> ${currentEndsText}</p>
             <p style="margin: 0 0 6px 0;"><strong>New end time:</strong> ${previewEndsText}${
-        previewRemainingLabel ? ` (${previewRemainingLabel} from now)` : ""
-      }</p>
+              previewRemainingLabel
+                ? ` (${previewRemainingLabel} from now)`
+                : ""
+            }</p>
             <p style="margin: 0 0 10px 0;"><strong>Extension:</strong> Add ${hours} hour${
-          hours > 1 ? "s" : ""
-        } to this boost for ${totalTokens} tokens (${formatKshFromTokens(
-          totalTokens
-        )}).</p>
+              hours > 1 ? "s" : ""
+            } to this boost for ${totalTokens} tokens (${formatKshFromTokens(
+              totalTokens
+            )}).</p>
             <p style="font-size: 0.82rem; color: #555; margin: 0;">Extending keeps the same target area and audience.</p>
           </div>
         `,
@@ -1297,8 +1306,7 @@ export default function Dashboard({ user, setUser }) {
         icon: "error",
         title: "Extension Failed",
         text:
-          err.message ||
-          "Failed to extend your boost. Please try again later.",
+          err.message || "Failed to extend your boost. Please try again later.",
         confirmButtonColor: "#D4AF37",
       });
     } finally {
@@ -1377,9 +1385,7 @@ export default function Dashboard({ user, setUser }) {
   const fetchTargetedBoosts = useCallback(async () => {
     if (!user?.category) {
       setTargetedBoosts([]);
-      setTargetedBoostsError(
-        "Set your category to see boosts targeting you."
-      );
+      setTargetedBoostsError("Set your category to see boosts targeting you.");
       return;
     }
 
@@ -1438,7 +1444,49 @@ export default function Dashboard({ user, setUser }) {
     } finally {
       setLoadingTargetedBoosts(false);
     }
-  }, [user?.category, user?.latitude, user?.longitude, viewerLatitude, viewerLongitude]);
+  }, [
+    user?.category,
+    user?.latitude,
+    user?.longitude,
+    viewerLatitude,
+    viewerLongitude,
+  ]);
+
+  const fetchPremiumStats = useCallback(async () => {
+    setStatsLoading(true);
+    setStatsError(null);
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setStatsError("Please sign in again to view your statistics.");
+      setStatsData(null);
+      setStatsLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/premium/stats/overview", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setStatsData(data.data || null);
+      } else {
+        setStatsError(
+          data.message || "Unable to load your premium statistics right now."
+        );
+        setStatsData(null);
+      }
+    } catch (error) {
+      console.error("Error fetching premium stats:", error);
+      setStatsError("We couldn't load your statistics. Please try again.");
+      setStatsData(null);
+    } finally {
+      setStatsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchTargetedBoosts();
@@ -1451,6 +1499,24 @@ export default function Dashboard({ user, setUser }) {
         fetchTargetedBoosts();
       },
     });
+  };
+
+  useEffect(() => {
+    if (statsDialogOpen) {
+      fetchPremiumStats();
+    }
+  }, [statsDialogOpen, fetchPremiumStats]);
+
+  const handleOpenStatsDialog = () => {
+    setStatsDialogOpen(true);
+  };
+
+  const handleCloseStatsDialog = () => {
+    setStatsDialogOpen(false);
+  };
+
+  const handleRefreshStats = () => {
+    fetchPremiumStats();
   };
 
   return (
@@ -1472,7 +1538,12 @@ export default function Dashboard({ user, setUser }) {
             sx={{
               fontWeight: 700,
               mb: { xs: 1, sm: 0.5 },
-              fontSize: { xs: "1.6rem", sm: "2rem", md: "2.2rem", lg: "2.4rem" },
+              fontSize: {
+                xs: "1.6rem",
+                sm: "2rem",
+                md: "2.2rem",
+                lg: "2.4rem",
+              },
               whiteSpace: { xs: "normal", md: "nowrap" },
               overflow: "hidden",
               textOverflow: "ellipsis",
@@ -1482,7 +1553,12 @@ export default function Dashboard({ user, setUser }) {
               WebkitTextFillColor: "transparent",
             }}
           >
-            Welcome back, {user?.name || "User"}!
+            Welcome back,{" "}
+            {getDisplayName(user, {
+              fallback: "User",
+              currentUserId: user?.id,
+            })}
+            !
           </Typography>
           <Typography
             variant="body1"
@@ -1503,7 +1579,11 @@ export default function Dashboard({ user, setUser }) {
             alignItems: "center",
             gap: 1,
             width: "100%",
-            justifyContent: { xs: "space-between", sm: "flex-end" },
+            justifyContent: {
+              xs: "space-between",
+              sm: "flex-end",
+            },
+            flexWrap: { xs: "wrap", sm: "nowrap" },
           }}
         >
           <Button
@@ -1578,11 +1658,41 @@ export default function Dashboard({ user, setUser }) {
           >
             Boost Profile
           </Button>
-          <Tooltip title={targetedTooltip} arrow>
-            <span>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              flex: { xs: "0 0 auto", sm: "initial" },
+            }}
+          >
+            <Tooltip title={targetedTooltip} arrow>
+              <span>
+                <IconButton
+                  onClick={handleOpenTargetedDialog}
+                  disabled={loadingTargetedBoosts || targetedCount === 0}
+                  sx={{
+                    backgroundColor: "rgba(212, 175, 55, 0.12)",
+                    border: "1px solid rgba(212, 175, 55, 0.3)",
+                    "&:hover": {
+                      backgroundColor: "rgba(212, 175, 55, 0.22)",
+                    },
+                    flexShrink: 0,
+                  }}
+                >
+                  <Badge
+                    badgeContent={targetedCount}
+                    color="error"
+                    overlap="circular"
+                  >
+                    <NotificationsActive sx={{ color: "#D4AF37" }} />
+                  </Badge>
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="View profile insights" arrow>
               <IconButton
-                onClick={handleOpenTargetedDialog}
-                disabled={loadingTargetedBoosts || targetedCount === 0}
+                onClick={handleOpenStatsDialog}
                 sx={{
                   backgroundColor: "rgba(212, 175, 55, 0.12)",
                   border: "1px solid rgba(212, 175, 55, 0.3)",
@@ -1592,16 +1702,10 @@ export default function Dashboard({ user, setUser }) {
                   flexShrink: 0,
                 }}
               >
-                <Badge
-                  badgeContent={targetedCount}
-                  color="error"
-                  overlap="circular"
-                >
-                  <NotificationsActive sx={{ color: "#D4AF37" }} />
-                </Badge>
+                <Insights sx={{ color: "#D4AF37" }} />
               </IconButton>
-            </span>
-          </Tooltip>
+            </Tooltip>
+          </Box>
         </Box>
       </Box>
 
@@ -1918,7 +2022,9 @@ export default function Dashboard({ user, setUser }) {
                           key={`featured-${featuredUser.id}-img-${index}`}
                           component="img"
                           src={image}
-                          alt={featuredUser.name}
+                          alt={getDisplayName(featuredUser, {
+                            fallback: "Member",
+                          })}
                           sx={{
                             position: "absolute",
                             top: 0,
@@ -1969,7 +2075,7 @@ export default function Dashboard({ user, setUser }) {
                           fontSize: "0.9rem",
                         }}
                       >
-                        {featuredUser.name}
+                        {getDisplayName(featuredUser, { fallback: "Member" })}
                       </Typography>
                       {featuredUser.isVerified && (
                         <Verified sx={{ fontSize: 16, color: "#D4AF37" }} />
@@ -2326,6 +2432,312 @@ export default function Dashboard({ user, setUser }) {
       </Box>
 
       <Dialog
+        open={statsDialogOpen}
+        onClose={handleCloseStatsDialog}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: "20px",
+            border: "1px solid rgba(212, 175, 55, 0.3)",
+            boxShadow: "0 20px 60px rgba(212, 175, 55, 0.25)",
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            background: "linear-gradient(45deg, #D4AF37, #B8941F)",
+            color: "#1a1a1a",
+            fontWeight: 700,
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+            py: 2,
+          }}
+        >
+          <Insights />
+          Profile Insights
+        </DialogTitle>
+        <DialogContent
+          dividers
+          sx={{
+            pt: 3,
+            pb: 2,
+            display: "flex",
+            flexDirection: "column",
+            gap: 3,
+          }}
+        >
+          {statsLoading ? (
+            <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+              <CircularProgress sx={{ color: "#D4AF37" }} />
+            </Box>
+          ) : statsError ? (
+            <Alert
+              severity="warning"
+              sx={{
+                borderRadius: "12px",
+                backgroundColor: "rgba(212, 175, 55, 0.1)",
+                border: "1px solid rgba(212, 175, 55, 0.2)",
+              }}
+            >
+              {statsError}
+            </Alert>
+          ) : statsData ? (
+            <>
+              <Box
+                sx={{
+                  backgroundColor: "rgba(212, 175, 55, 0.08)",
+                  border: "1px solid rgba(212, 175, 55, 0.25)",
+                  borderRadius: "16px",
+                  p: 3,
+                }}
+              >
+                <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
+                  Profile Views
+                </Typography>
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 3,
+                  }}
+                >
+                  <Box>
+                    <Typography
+                      variant="h4"
+                      sx={{ fontWeight: 800, color: "#1a1a1a" }}
+                    >
+                      {statsData.profileViews?.total ?? 0}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: "#5c5c5c" }}>
+                      Total views
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography
+                      variant="h4"
+                      sx={{ fontWeight: 800, color: "#1a1a1a" }}
+                    >
+                      {statsData.profileViews?.uniqueViewers ?? 0}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: "#5c5c5c" }}>
+                      Unique viewers
+                    </Typography>
+                  </Box>
+                </Box>
+                <Divider sx={{ my: 2 }} />
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
+                  Recent viewers
+                </Typography>
+                {statsData.profileViews?.recent?.length ? (
+                  <List dense disablePadding>
+                    {statsData.profileViews.recent.map((viewer, index) => (
+                      <ListItem
+                        key={`${viewer?.id || "viewer"}-${viewer?.viewedAt || index}`}
+                        sx={{ px: 0, py: 0.75 }}
+                      >
+                        <ListItemAvatar>
+                          <Avatar
+                            src={viewer?.photo || undefined}
+                            alt={getDisplayName(viewer, { fallback: "Viewer" })}
+                          >
+                            {getDisplayInitial(viewer, { fallback: "V" })}
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={getDisplayName(viewer, {
+                            fallback: "Someone viewed your profile",
+                          })}
+                          secondary={formatDateTime(viewer?.viewedAt)}
+                          primaryTypographyProps={{ fontWeight: 600 }}
+                        />
+                      </ListItem>
+                    ))}
+                  </List>
+                ) : (
+                  <Typography variant="body2" sx={{ color: "#5c5c5c" }}>
+                    No views recorded yet. Boost your profile to increase
+                    visibility!
+                  </Typography>
+                )}
+              </Box>
+
+              <Box
+                sx={{
+                  backgroundColor: "rgba(212, 175, 55, 0.06)",
+                  border: "1px solid rgba(212, 175, 55, 0.2)",
+                  borderRadius: "16px",
+                  p: 3,
+                }}
+              >
+                <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
+                  Contact Unlocks
+                </Typography>
+                <Typography
+                  variant="h4"
+                  sx={{ fontWeight: 800, color: "#1a1a1a" }}
+                >
+                  {statsData.contactUnlocks?.total ?? 0}
+                </Typography>
+                <Typography variant="body2" sx={{ color: "#5c5c5c", mb: 2 }}>
+                  Total members who unlocked your contact
+                </Typography>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
+                  Recent unlocks
+                </Typography>
+                {statsData.contactUnlocks?.recent?.length ? (
+                  <List dense disablePadding>
+                    {statsData.contactUnlocks.recent.map((unlock, index) => (
+                      <ListItem
+                        key={`${unlock?.id || "unlock"}-${unlock?.unlockedAt || index}`}
+                        sx={{ px: 0, py: 0.75 }}
+                      >
+                        <ListItemAvatar>
+                          <Avatar
+                            src={unlock?.photo || undefined}
+                            alt={getDisplayName(unlock, { fallback: "Member" })}
+                          >
+                            {getDisplayInitial(unlock, { fallback: "M" })}
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={getDisplayName(unlock, {
+                            fallback: "Someone unlocked your contact details",
+                          })}
+                          secondary={formatDateTime(unlock?.unlockedAt)}
+                          primaryTypographyProps={{ fontWeight: 600 }}
+                        />
+                        <Typography
+                          variant="body2"
+                          sx={{ color: "#B8941F", fontWeight: 600 }}
+                        >
+                          {unlock?.tokenCost != null
+                            ? `${unlock.tokenCost} tokens`
+                            : ""}
+                        </Typography>
+                      </ListItem>
+                    ))}
+                  </List>
+                ) : (
+                  <Typography variant="body2" sx={{ color: "#5c5c5c" }}>
+                    No unlocks yet. Keep engaging to encourage connections.
+                  </Typography>
+                )}
+              </Box>
+
+              <Box
+                sx={{
+                  backgroundColor: "rgba(212, 175, 55, 0.05)",
+                  border: "1px solid rgba(212, 175, 55, 0.18)",
+                  borderRadius: "16px",
+                  p: 3,
+                }}
+              >
+                <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
+                  Boost Activity
+                </Typography>
+                <Typography variant="body2" sx={{ color: "#5c5c5c", mb: 2 }}>
+                  Total boosts purchased:{" "}
+                  <strong>{statsData.boostStatus?.totalBoosts ?? 0}</strong>
+                </Typography>
+                {statsData.boostStatus?.active ? (
+                  <Box
+                    sx={{
+                      display: "grid",
+                      gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                      gap: 2,
+                    }}
+                  >
+                    <Box>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                        Active boost ends
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: "#5c5c5c" }}>
+                        {formatDateTime(statsData.boostStatus.active.endsAt)}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                        Views during this boost
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: "#1a1a1a" }}>
+                        {statsData.boostStatus.active.viewsDuringActiveWindow ??
+                          0}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                        Target audience
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: "#5c5c5c" }}>
+                        {statsData.boostStatus.active.targetCategory ||
+                          "All categories"}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                        Target area
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: "#5c5c5c" }}>
+                        {statsData.boostStatus.active.targetArea ||
+                          "Nationwide"}
+                      </Typography>
+                    </Box>
+                  </Box>
+                ) : (
+                  <Typography variant="body2" sx={{ color: "#5c5c5c" }}>
+                    No active boost running right now. Start a boost to push
+                    your profile to the top.
+                  </Typography>
+                )}
+              </Box>
+            </>
+          ) : (
+            <Typography variant="body2" sx={{ color: "#5c5c5c" }}>
+              No statistics to display yet.
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions
+          sx={{
+            px: 3,
+            py: 2,
+            display: "flex",
+            justifyContent: "space-between",
+          }}
+        >
+          <Button
+            onClick={handleRefreshStats}
+            disabled={statsLoading}
+            sx={{
+              color: "#B8941F",
+              textTransform: "none",
+              fontWeight: 600,
+            }}
+          >
+            Refresh
+          </Button>
+          <Button
+            onClick={handleCloseStatsDialog}
+            sx={{
+              background: "linear-gradient(135deg, #D4AF37, #B8941F)",
+              color: "#1a1a1a",
+              textTransform: "none",
+              fontWeight: 700,
+              borderRadius: "999px",
+              px: 3,
+              "&:hover": {
+                background: "linear-gradient(135deg, #B8941F, #D4AF37)",
+              },
+            }}
+          >
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
         open={boostDialogOpen}
         onClose={(_, _reason) => {
           if (!boosting) {
@@ -2503,8 +2915,10 @@ export default function Dashboard({ user, setUser }) {
                     and where they are logging in from.
                   </li>
                   <li>
-                    <strong>Affordable:</strong> Each hour costs {BOOST_PRICE_TOKENS} tokens (
-                    {formatKshFromTokens(BOOST_PRICE_TOKENS)}) — {describeExchangeRate()}.
+                    <strong>Affordable:</strong> Each hour costs{" "}
+                    {BOOST_PRICE_TOKENS} tokens (
+                    {formatKshFromTokens(BOOST_PRICE_TOKENS)}) —{" "}
+                    {describeExchangeRate()}.
                   </li>
                 </Box>
               </Alert>
@@ -2554,8 +2968,7 @@ export default function Dashboard({ user, setUser }) {
                     const endsAt = boost.ends_at
                       ? new Date(boost.ends_at).toLocaleString()
                       : null;
-                    const targetArea =
-                      boost.target_area || "Custom location";
+                    const targetArea = boost.target_area || "Custom location";
 
                     return (
                       <Card
@@ -2568,7 +2981,8 @@ export default function Dashboard({ user, setUser }) {
                             : "rgba(26, 26, 26, 0.08)",
                           borderWidth: isSelected ? 2 : 1,
                           cursor: "pointer",
-                          transition: "border-color 0.2s ease, box-shadow 0.2s ease",
+                          transition:
+                            "border-color 0.2s ease, box-shadow 0.2s ease",
                           "&:hover": {
                             borderColor: "rgba(33, 150, 243, 0.6)",
                             boxShadow: "0 6px 20px rgba(33, 150, 243, 0.12)",
@@ -2650,11 +3064,13 @@ export default function Dashboard({ user, setUser }) {
                               handleExtendBoost(boost);
                             }}
                             sx={{
-                              background: "linear-gradient(135deg, #2196F3, #64B5F6)",
+                              background:
+                                "linear-gradient(135deg, #2196F3, #64B5F6)",
                               color: "#0D1C2C",
                               fontWeight: 600,
                               "&:hover": {
-                                background: "linear-gradient(135deg, #1976D2, #42A5F5)",
+                                background:
+                                  "linear-gradient(135deg, #1976D2, #42A5F5)",
                               },
                             }}
                           >
@@ -2697,20 +3113,26 @@ export default function Dashboard({ user, setUser }) {
                     <strong>{selectedBoost.target_area || "this area"}</strong>{" "}
                     for {boostCategory}.
                   </Typography>
-                  <Typography variant="caption" sx={{ display: "block", mt: 0.5 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{ display: "block", mt: 0.5 }}
+                  >
                     {selectedBoostRemaining
                       ? `Time remaining: ${selectedBoostRemaining}.`
                       : "This boost is active for a little longer."}{" "}
                     {selectedBoostExpiresAt
                       ? `Ends at ${selectedBoostExpiresAt}.`
                       : ""}
-                    Extend to add hours or widen the radius without creating a new boost.
+                    Extend to add hours or widen the radius without creating a
+                    new boost.
                   </Typography>
                 </Alert>
               )}
 
               <FormControl fullWidth>
-                <InputLabel id="boost-category-label">Target category</InputLabel>
+                <InputLabel id="boost-category-label">
+                  Target category
+                </InputLabel>
                 <Select
                   labelId="boost-category-label"
                   value={boostCategory}
@@ -2840,10 +3262,10 @@ export default function Dashboard({ user, setUser }) {
                   Cost preview
                 </Typography>
                 <Typography variant="body2">
-                  {totalBoostTokens.toLocaleString()} tokens ({
-                    formatKshFromTokens(totalBoostTokens)
-                  }) for {sanitizedBoostHours} hour
-                  {sanitizedBoostHours > 1 ? "s" : ""} covering roughly {" "}
+                  {totalBoostTokens.toLocaleString()} tokens (
+                  {formatKshFromTokens(totalBoostTokens)}) for{" "}
+                  {sanitizedBoostHours} hour
+                  {sanitizedBoostHours > 1 ? "s" : ""} covering roughly{" "}
                   {sanitizedBoostRadiusKm.toFixed(1)} km.
                 </Typography>
               </Alert>
@@ -2857,7 +3279,7 @@ export default function Dashboard({ user, setUser }) {
                   }}
                 >
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    Active boost remaining: {boostTimeRemaining.hours}h {" "}
+                    Active boost remaining: {boostTimeRemaining.hours}h{" "}
                     {boostTimeRemaining.minutes}m
                   </Typography>
                   <Typography
@@ -2875,10 +3297,14 @@ export default function Dashboard({ user, setUser }) {
 
               <Alert
                 severity="warning"
-                sx={{ borderRadius: "12px", bgcolor: "rgba(255, 193, 7, 0.12)" }}
+                sx={{
+                  borderRadius: "12px",
+                  bgcolor: "rgba(255, 193, 7, 0.12)",
+                }}
               >
                 <Typography variant="body2">
-                  <strong>Current Balance:</strong> {user?.token_balance || "0.00"} tokens
+                  <strong>Current Balance:</strong>{" "}
+                  {user?.token_balance || "0.00"} tokens
                 </Typography>
               </Alert>
             </Stack>
@@ -3040,13 +3466,17 @@ export default function Dashboard({ user, setUser }) {
                       <ListItemAvatar>
                         <Avatar
                           src={profileImage || undefined}
-                          alt={owner?.name || "Boosted user"}
+                          alt={getDisplayName(owner, {
+                            fallback: "Boosted user",
+                          })}
                           sx={{
                             bgcolor: profileImage ? "transparent" : "#D4AF37",
                             color: profileImage ? "inherit" : "#1a1a1a",
                           }}
                         >
-                          {profileImage ? null : owner?.name?.charAt(0) || "?"}
+                          {profileImage
+                            ? null
+                            : getDisplayInitial(owner, { fallback: "B" })}
                         </Avatar>
                       </ListItemAvatar>
                       <ListItemText
@@ -3054,7 +3484,9 @@ export default function Dashboard({ user, setUser }) {
                           fontWeight: 700,
                           color: "#1a1a1a",
                         }}
-                        primary={owner?.name || "Boosted profile"}
+                        primary={getDisplayName(owner, {
+                          fallback: "Boosted profile",
+                        })}
                         secondary={
                           <Box sx={{ mt: 0.5 }}>
                             {owner?.category && (

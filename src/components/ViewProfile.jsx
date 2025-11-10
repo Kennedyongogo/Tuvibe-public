@@ -23,6 +23,7 @@ import {
   PhotoCamera,
 } from "@mui/icons-material";
 import Swal from "sweetalert2";
+import { getDisplayInitial, getDisplayName } from "../utils/userDisplay";
 
 export default function ViewProfile({ open, onClose, userId, user }) {
   const [profileUser, setProfileUser] = useState(null);
@@ -187,25 +188,25 @@ export default function ViewProfile({ open, onClose, userId, user }) {
           </Box>
         ) : profileUser ? (
           <Box>
-                         {/* Profile Header */}
-             <Box sx={{ textAlign: "center", mb: 3 }}>
-               <Avatar
-                 src={buildImageUrl(profileUser.photo)}
-                 sx={{
-                   width: { xs: 80, sm: 100 },
-                   height: { xs: 80, sm: 100 },
-                   bgcolor: "#D4AF37",
-                   fontSize: { xs: "2rem", sm: "2.5rem" },
-                   fontWeight: 700,
-                   border: "3px solid rgba(212, 175, 55, 0.3)",
-                   boxShadow: "0 8px 24px rgba(212, 175, 55, 0.2)",
-                   mx: "auto",
-                   mb: 2,
-                 }}
-               >
-                 {!profileUser.photo &&
-                   (profileUser.name?.charAt(0)?.toUpperCase() || "U")}
-               </Avatar>
+            {/* Profile Header */}
+            <Box sx={{ textAlign: "center", mb: 3 }}>
+              <Avatar
+                src={buildImageUrl(profileUser.photo)}
+                sx={{
+                  width: { xs: 80, sm: 100 },
+                  height: { xs: 80, sm: 100 },
+                  bgcolor: "#D4AF37",
+                  fontSize: { xs: "2rem", sm: "2.5rem" },
+                  fontWeight: 700,
+                  border: "3px solid rgba(212, 175, 55, 0.3)",
+                  boxShadow: "0 8px 24px rgba(212, 175, 55, 0.2)",
+                  mx: "auto",
+                  mb: 2,
+                }}
+              >
+                {!profileUser.photo &&
+                  getDisplayInitial(profileUser, { fallback: "U" })}
+              </Avatar>
 
               <Typography
                 variant="h5"
@@ -215,7 +216,7 @@ export default function ViewProfile({ open, onClose, userId, user }) {
                   color: "#1a1a1a",
                 }}
               >
-                {profileUser.name}
+                {getDisplayName(profileUser, { fallback: "Member" })}
               </Typography>
 
               <Stack
@@ -345,7 +346,9 @@ export default function ViewProfile({ open, onClose, userId, user }) {
 
               return (
                 <>
-                  <Divider sx={{ my: 3, borderColor: "rgba(212, 175, 55, 0.2)" }} />
+                  <Divider
+                    sx={{ my: 3, borderColor: "rgba(212, 175, 55, 0.2)" }}
+                  />
                   <Box sx={{ mt: 3 }}>
                     <Typography
                       variant="h6"
@@ -356,25 +359,26 @@ export default function ViewProfile({ open, onClose, userId, user }) {
                         fontSize: { xs: "1rem", sm: "1.125rem" },
                       }}
                     >
-                      Gallery ({allImages.length} {allImages.length === 1 ? "photo" : "photos"})
+                      Gallery ({allImages.length}{" "}
+                      {allImages.length === 1 ? "photo" : "photos"})
                     </Typography>
 
-                                         {/* Gallery Container */}
-                     <Box
-                       sx={{
-                         position: "relative",
-                         width: "100%",
-                         borderRadius: "12px",
-                         overflow: "hidden",
-                         bgcolor: "rgba(212, 175, 55, 0.05)",
-                         minHeight: { xs: "150px", sm: "200px" },
-                         maxHeight: { xs: "200px", sm: "250px" },
-                         aspectRatio: "1",
-                         display: "flex",
-                         alignItems: "center",
-                         justifyContent: "center",
-                       }}
-                     >
+                    {/* Gallery Container */}
+                    <Box
+                      sx={{
+                        position: "relative",
+                        width: "100%",
+                        borderRadius: "12px",
+                        overflow: "hidden",
+                        bgcolor: "rgba(212, 175, 55, 0.05)",
+                        minHeight: { xs: "150px", sm: "200px" },
+                        maxHeight: { xs: "200px", sm: "250px" },
+                        aspectRatio: "1",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
                       {/* Main Image Display */}
                       {allImages.map((image, index) => (
                         <Box
@@ -484,8 +488,12 @@ export default function ViewProfile({ open, onClose, userId, user }) {
                             color: "rgba(26, 26, 26, 0.5)",
                           }}
                         >
-                          <PhotoCamera sx={{ fontSize: 48, mb: 1, opacity: 0.3 }} />
-                          <Typography variant="body2">No photos available</Typography>
+                          <PhotoCamera
+                            sx={{ fontSize: 48, mb: 1, opacity: 0.3 }}
+                          />
+                          <Typography variant="body2">
+                            No photos available
+                          </Typography>
                         </Box>
                       )}
                     </Box>
@@ -516,30 +524,30 @@ export default function ViewProfile({ open, onClose, userId, user }) {
                           scrollbarWidth: "thin",
                         }}
                       >
-                                                 {allImages.map((image, index) => (
-                           <Box
-                             key={`thumb-${index}`}
-                             onClick={() => setCurrentImageIndex(index)}
-                             sx={{
-                               position: "relative",
-                               flexShrink: 0,
-                               width: 60,
-                               height: 60,
-                               borderRadius: "8px",
-                               overflow: "hidden",
-                               cursor: "pointer",
-                               border:
-                                 currentImageIndex === index
-                                   ? "2px solid #D4AF37"
-                                   : "2px solid transparent",
-                               opacity: currentImageIndex === index ? 1 : 0.7,
-                               transition: "all 0.2s ease",
-                               "&:hover": {
-                                 opacity: 1,
-                                 transform: "scale(1.05)",
-                               },
-                             }}
-                           >
+                        {allImages.map((image, index) => (
+                          <Box
+                            key={`thumb-${index}`}
+                            onClick={() => setCurrentImageIndex(index)}
+                            sx={{
+                              position: "relative",
+                              flexShrink: 0,
+                              width: 60,
+                              height: 60,
+                              borderRadius: "8px",
+                              overflow: "hidden",
+                              cursor: "pointer",
+                              border:
+                                currentImageIndex === index
+                                  ? "2px solid #D4AF37"
+                                  : "2px solid transparent",
+                              opacity: currentImageIndex === index ? 1 : 0.7,
+                              transition: "all 0.2s ease",
+                              "&:hover": {
+                                opacity: 1,
+                                transform: "scale(1.05)",
+                              },
+                            }}
+                          >
                             <Box
                               component="img"
                               src={image}
@@ -564,8 +572,6 @@ export default function ViewProfile({ open, onClose, userId, user }) {
           </Box>
         ) : null}
       </DialogContent>
-
-
     </Dialog>
   );
 }

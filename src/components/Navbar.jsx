@@ -33,6 +33,7 @@ import {
 import { useNavigate, useLocation } from "react-router-dom";
 import Swal from "sweetalert2";
 import PublicResetPasswordDialog from "./Account/PublicResetPasswordDialog";
+import { getDisplayInitial, getDisplayName } from "../utils/userDisplay";
 
 const drawerWidth = 260;
 
@@ -283,7 +284,10 @@ export default function Navbar({ user, setUser }) {
               fontWeight: 600,
             }}
           >
-            {user?.name?.charAt(0)?.toUpperCase() || "U"}
+            {getDisplayInitial(user, {
+              fallback: "U",
+              currentUserId: user?.id,
+            })}
           </Avatar>
           <Box sx={{ ml: 1.5, flexGrow: 1, minWidth: 0 }}>
             <Typography
@@ -296,7 +300,10 @@ export default function Navbar({ user, setUser }) {
                 whiteSpace: "nowrap",
               }}
             >
-              {user?.name || "User"}
+              {getDisplayName(user, {
+                fallback: "User",
+                currentUserId: user?.id,
+              })}
             </Typography>
             <Typography
               variant="caption"
@@ -367,7 +374,10 @@ export default function Navbar({ user, setUser }) {
                 border: "2px solid rgba(212, 175, 55, 0.3)",
               }}
             >
-              {user?.name?.charAt(0)?.toUpperCase() || "U"}
+              {getDisplayInitial(user, {
+                fallback: "U",
+                currentUserId: user?.id,
+              })}
             </Avatar>
             <ArrowDropDown
               sx={{
