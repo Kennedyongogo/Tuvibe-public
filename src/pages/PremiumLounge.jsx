@@ -810,6 +810,10 @@ export default function PremiumLounge({ user }) {
                 onChange={handleTabChange}
                 variant="fullWidth"
                 sx={{
+                  minHeight: isSmallScreen ? 44 : 48,
+                  "& .MuiTabs-flexContainer": {
+                    gap: isSmallScreen ? 0.5 : 0,
+                  },
                   "& .MuiTabs-indicator": {
                     backgroundColor: "#D4AF37",
                     height: 3,
@@ -817,8 +821,13 @@ export default function PremiumLounge({ user }) {
                   "& .MuiTab-root": {
                     textTransform: "none",
                     fontWeight: 600,
-                    fontSize: "0.95rem",
                     color: "rgba(26, 26, 26, 0.6)",
+                    fontSize: isSmallScreen ? "0.75rem" : "0.95rem",
+                    lineHeight: 1.2,
+                    minWidth: 0,
+                    paddingInline: isSmallScreen ? 0.5 : 1.5,
+                    paddingBlock: isSmallScreen ? 0.5 : 1,
+                    borderRadius: isSmallScreen ? "8px" : 0,
                     "&.Mui-selected": {
                       color: "#D4AF37",
                     },
