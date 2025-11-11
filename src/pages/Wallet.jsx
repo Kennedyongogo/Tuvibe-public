@@ -198,7 +198,27 @@ export default function Wallet({ user, setUser }) {
         throw new Error("Paystack inline SDK not loaded");
       }
 
-      const paystackAmountNumber = Number(paystack_amount);
+      const paystackAmountNumberRaw = Number(paystack_amount);
+      const fallbackPaystackAmount = Math.round(
+        convertTokensToKsh(effectiveTokens) * 100
+      );
+      const paystackAmountNumber =
+        Number.isFinite(paystackAmountNumberRaw) &&
+        paystackAmountNumberRaw > 0
+          ? paystackAmountNumberRaw
+          : fallbackPaystackAmount;
+
+      if (
+        !Number.isFinite(paystackAmountNumberRaw) ||
+        paystackAmountNumberRaw <= 0
+      ) {
+        console.warn("Paystack amount missing; using fallback value", {
+          paystack_amount: paystack_amount ?? null,
+          fallbackPaystackAmount,
+          tokens: effectiveTokens,
+        });
+      }
+
       if (!Number.isFinite(paystackAmountNumber) || paystackAmountNumber <= 0) {
         throw new Error("Invalid Paystack amount received from server");
       }
