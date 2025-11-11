@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -31,7 +31,6 @@ import {
   Payment,
 } from "@mui/icons-material";
 import Swal from "sweetalert2";
-import { useNavigate } from "react-router-dom";
 import {
   TOKENS_PER_KSH,
   convertTokensToKsh,
@@ -39,6 +38,7 @@ import {
 } from "../utils/pricing";
 
 const QUICK_TOKEN_PACKS = [100, 250, 500, 1000];
+const PAYSTACK_PUBLIC_KEY = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY;
 
 const formatKsh = (kshValue) =>
   `KES ${Number(kshValue).toLocaleString("en-KE", {
@@ -55,8 +55,6 @@ export default function Wallet({ user, setUser }) {
   const [customAmountError, setCustomAmountError] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
-  const navigate = useNavigate();
-  const paymentAbortRef = useRef(false);
 
   const quickBuyOptions = QUICK_TOKEN_PACKS.map((tokens) => ({
     tokens,
@@ -111,87 +109,6 @@ export default function Wallet({ user, setUser }) {
     }
   };
 
-  const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-  const updateStatusMessage = (message) => {
-    const statusEl = document.querySelector(".swal-paystack-status");
-    if (statusEl) {
-      statusEl.textContent = message;
-    }
-  };
-
-const handlePaystackCancel = () => {
-  paymentAbortRef.current = true;
-  updateStatusMessage("Cancelling payment...");
-  Swal.hideLoading();
-  setPurchasing(false);
-  Swal.close();
-};
-
-  const pollPaymentStatus = async (reference, attempt = 1) => {
-    const MAX_ATTEMPTS = 12; // ~1 min if interval is 5s
-    const STATUS_INTERVAL = 5000;
-
-  if (paymentAbortRef.current) {
-    return { status: "cancelled" };
-  }
-
-    if (attempt === 1) {
-      updateStatusMessage("Waiting for Paystack confirmation...");
-    }
-
-    if (attempt > MAX_ATTEMPTS) {
-      return { status: "timeout" };
-    }
-
-    await wait(STATUS_INTERVAL);
-
-  if (paymentAbortRef.current) {
-    return { status: "cancelled" };
-  }
-
-    updateStatusMessage(
-      `Checking payment status (${attempt}/${MAX_ATTEMPTS})...`
-    );
-
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(
-        `/api/paystack/verify?reference=${reference}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        updateStatusMessage("Payment confirmed! Updating wallet...");
-        return { status: "success", data };
-      }
-
-      if (response.status === 400) {
-        const message = (data.message || "").toLowerCase();
-        if (message.includes("not successful")) {
-          return pollPaymentStatus(reference, attempt + 1);
-        }
-        return { status: "failed", data };
-      }
-
-      throw new Error(data.message || "Verification failed");
-    } catch (error) {
-      console.error("verifyPayment error:", error);
-      if (attempt >= MAX_ATTEMPTS) {
-        return { status: "error", message: error.message };
-      }
-    if (paymentAbortRef.current) {
-      return { status: "cancelled" };
-    }
-      return pollPaymentStatus(reference, attempt + 1);
-    }
-  };
-
   const handlePurchase = async (tokensRequested) => {
     if (purchasing) return;
 
@@ -207,7 +124,6 @@ const handlePaystackCancel = () => {
       return;
     }
 
-    paymentAbortRef.current = false;
     setPurchasing(true);
 
     try {
@@ -230,30 +146,38 @@ const handlePaystackCancel = () => {
         throw new Error(data.message || "Failed to initialize payment");
       }
 
-      const { authorization_url, reference, bypassed, credited_tokens, balance: updatedBalance } = data;
+      const {
+        reference,
+        bypassed,
+        credited_tokens,
+        balance: updatedBalance,
+        paystack_amount,
+        currency,
+      } = data;
       const effectiveTokens = credited_tokens || tokensRequested;
       const effectiveKsh = convertTokensToKsh(effectiveTokens);
 
       if (bypassed) {
-         const parsedBalance = updatedBalance !== undefined ? Number(updatedBalance) : NaN;
-         const balanceToApply = Number.isFinite(parsedBalance)
-           ? parsedBalance
-           : Number.isFinite(Number(balance))
-           ? Number(balance)
-           : null;
-         if (balanceToApply !== null) {
-           setBalance(balanceToApply);
-           const updatedUserData = {
-             ...(currentUser || {}),
-             token_balance: balanceToApply,
-           };
-           localStorage.setItem("user", JSON.stringify(updatedUserData));
-           if (setUser) setUser(updatedUserData);
-         }
+        const parsedBalance =
+          updatedBalance !== undefined ? Number(updatedBalance) : NaN;
+        const balanceToApply = Number.isFinite(parsedBalance)
+          ? parsedBalance
+          : Number.isFinite(Number(balance))
+          ? Number(balance)
+          : null;
+        if (balanceToApply !== null) {
+          setBalance(balanceToApply);
+          const updatedUserData = {
+            ...(currentUser || {}),
+            token_balance: balanceToApply,
+          };
+          localStorage.setItem("user", JSON.stringify(updatedUserData));
+          if (setUser) setUser(updatedUserData);
+        }
 
-         await fetchWallet();
-         setPurchasing(false);
-         Swal.fire({
+        await fetchWallet();
+        setPurchasing(false);
+        Swal.fire({
           icon: "success",
           title: "Tokens Added",
           html: `
@@ -266,114 +190,113 @@ const handlePaystackCancel = () => {
         return;
       }
 
-      if (!authorization_url) {
-        throw new Error("Missing Paystack authorization URL");
+      if (!PAYSTACK_PUBLIC_KEY) {
+        throw new Error("Paystack public key not configured");
       }
 
-      window.open(authorization_url, "_blank", "noopener");
+      if (!window.PaystackPop) {
+        throw new Error("Paystack inline SDK not loaded");
+      }
 
-      Swal.fire({
-        icon: "info",
-        title: "Complete Paystack Payment",
-        html: `
-          <p style="margin-bottom: 12px;">We opened a secure Paystack checkout window in a new tab.</p>
-          <p style="margin-bottom: 12px;">Authorize the payment there and return here once you receive confirmation.</p>
-          <p class="swal-paystack-status" style="margin: 12px 0; font-weight: 600; color: #555;">Waiting for Paystack confirmation...</p>
-        `,
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        showConfirmButton: false,
-        showCancelButton: true,
-        cancelButtonText: "Cancel payment",
-        cancelButtonColor: "#9E9E9E",
-        didOpen: () => {
-          const swal = document.querySelector(".swal2-popup");
-          if (swal) {
-            swal.style.borderRadius = "20px";
+      const paystackAmountNumber = Number(paystack_amount);
+      if (!Number.isFinite(paystackAmountNumber) || paystackAmountNumber <= 0) {
+        throw new Error("Invalid Paystack amount received from server");
+      }
+
+      const metadata = {
+        tokens: effectiveTokens,
+      };
+      const userIdentifier =
+        currentUser?.public_id ||
+        currentUser?.id ||
+        currentUser?.user_id ||
+        currentUser?.uuid;
+      if (userIdentifier) {
+        metadata.userId = userIdentifier;
+      }
+
+      let paymentCompleted = false;
+
+      const handler = window.PaystackPop.setup({
+        key: PAYSTACK_PUBLIC_KEY,
+        email: currentUser.email,
+        amount: paystackAmountNumber,
+        currency: currency || "KES",
+        ref: reference,
+        metadata,
+        onClose: () => {
+          if (!paymentCompleted) {
+            setPurchasing(false);
+            Swal.fire({
+              icon: "info",
+              title: "Payment Cancelled",
+              text: "You can restart the payment whenever you’re ready.",
+              confirmButtonColor: "#D4AF37",
+            });
           }
-          const cancelButton = Swal.getCancelButton();
-          if (cancelButton) {
-            cancelButton.style.fontWeight = "600";
-            cancelButton.style.borderRadius = "999px";
-            cancelButton.addEventListener("click", handlePaystackCancel);
-          }
-          const htmlContainer = Swal.getHtmlContainer();
-          if (htmlContainer) {
-            const isSmallScreen = window.matchMedia("(max-width: 480px)").matches;
-            if (isSmallScreen) {
-              htmlContainer.style.fontSize = "14px";
-              htmlContainer.style.lineHeight = "1.4";
-              htmlContainer.querySelectorAll("p").forEach((p) => {
-                p.style.fontSize = "14px";
-                p.style.lineHeight = "1.4";
-              });
-            } else {
-              htmlContainer.style.fontSize = "16px";
-              htmlContainer.querySelectorAll("p").forEach((p) => {
-                p.style.lineHeight = "1.5";
-              });
-            }
-          }
-          Swal.showLoading();
         },
-        willClose: () => {
-          const cancelButton = Swal.getCancelButton();
-          if (cancelButton) {
-            cancelButton.removeEventListener("click", handlePaystackCancel);
+        callback: async (paystackResponse) => {
+          try {
+            Swal.fire({
+              icon: "info",
+              title: "Verifying Payment...",
+              text: "Please wait while we confirm your payment.",
+              allowOutsideClick: false,
+              showConfirmButton: false,
+            });
+            Swal.showLoading();
+
+            const authToken = localStorage.getItem("token");
+            const verifyResponse = await fetch(
+              `/api/paystack/verify?reference=${paystackResponse.reference}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${authToken}`,
+                },
+              }
+            );
+            const verifyData = await verifyResponse.json();
+            Swal.close();
+
+            if (!verifyResponse.ok || !verifyData.success) {
+              throw new Error(
+                verifyData.message ||
+                  "Paystack reported that the payment was not completed."
+              );
+            }
+
+            paymentCompleted = true;
+            await fetchWallet();
+            Swal.fire({
+              icon: "success",
+              title: "Payment Successful",
+              html: `
+                <p><strong>${effectiveTokens.toLocaleString()} tokens</strong> added to your wallet.</p>
+                <p style="font-size: 0.9em; color: #666; margin-top: 8px;">Equivalent to ${formatKsh(effectiveKsh)}</p>
+                <p style="font-size: 0.85em; color: #888; margin-top: 6px;">Reference: <code>${paystackResponse.reference}</code></p>
+              `,
+              timer: 2600,
+              showConfirmButton: false,
+              confirmButtonColor: "#D4AF37",
+            });
+          } catch (verifyError) {
+            console.error("verifyPayment error:", verifyError);
+            Swal.close();
+            Swal.fire({
+              icon: "error",
+              title: "Verification Failed",
+              text:
+                verifyError.message ||
+                "Something went wrong. Please contact support.",
+              confirmButtonColor: "#D4AF37",
+            });
+          } finally {
+            setPurchasing(false);
           }
         },
       });
 
-      const result = await pollPaymentStatus(reference);
-
-      Swal.close();
-
-      setPurchasing(false);
-
-      if (result.status === "success") {
-        await fetchWallet();
-        Swal.fire({
-          icon: "success",
-          title: "Payment Confirmed",
-          html: `
-            <p><strong>${effectiveTokens.toLocaleString()} tokens</strong> added to your wallet.</p>
-            <p style="font-size: 0.9em; color: #666; margin-top: 8px;">Equivalent to ${formatKsh(effectiveKsh)}</p>
-            <p style="font-size: 0.85em; color: #888; margin-top: 6px;">Reference: <code>${reference}</code></p>
-          `,
-          timer: 2600,
-          showConfirmButton: false,
-          confirmButtonColor: "#D4AF37",
-        });
-      } else if (result.status === "cancelled") {
-        Swal.fire({
-          icon: "info",
-          title: "Payment Cancelled",
-          text: "You can restart the payment whenever you’re ready.",
-          confirmButtonColor: "#D4AF37",
-        });
-      } else if (result.status === "timeout") {
-        Swal.fire({
-          icon: "info",
-          title: "Awaiting Confirmation",
-          html: `
-            <p>We did not receive Paystack confirmation yet.</p>
-            <p style="margin-top: 10px;">If you completed payment, your tokens will arrive shortly once Paystack notifies us.</p>
-            <p style="margin-top: 10px;">You can refresh the wallet later to confirm.</p>
-          `,
-          confirmButtonColor: "#D4AF37",
-        });
-      } else if (result.status === "failed") {
-        Swal.fire({
-          icon: "warning",
-          title: "Payment Not Completed",
-          text:
-            result.data?.message ||
-            "Paystack reported that the payment was not completed.",
-          confirmButtonColor: "#D4AF37",
-        });
-      } else if (result.status === "error") {
-        throw new Error(result.message || "Failed to verify payment");
-      }
+      handler.openIframe();
     } catch (error) {
       console.error("Purchase error:", error);
       setPurchasing(false);
