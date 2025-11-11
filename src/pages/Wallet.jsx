@@ -237,6 +237,66 @@ export default function Wallet({ user, setUser }) {
 
       let paymentCompleted = false;
 
+      const handlePaystackVerification = async (paystackResponse) => {
+        try {
+          Swal.fire({
+            icon: "info",
+            title: "Verifying Payment...",
+            text: "Please wait while we confirm your payment.",
+            allowOutsideClick: false,
+            showConfirmButton: false,
+          });
+          Swal.showLoading();
+
+          const authToken = localStorage.getItem("token");
+          const verifyResponse = await fetch(
+            `/api/paystack/verify?reference=${paystackResponse.reference}`,
+            {
+              headers: {
+                Authorization: `Bearer ${authToken}`,
+              },
+            }
+          );
+          const verifyData = await verifyResponse.json();
+          Swal.close();
+
+          if (!verifyResponse.ok || !verifyData.success) {
+            throw new Error(
+              verifyData.message ||
+                "Paystack reported that the payment was not completed."
+            );
+          }
+
+          paymentCompleted = true;
+          await fetchWallet();
+          Swal.fire({
+            icon: "success",
+            title: "Payment Successful",
+            html: `
+              <p><strong>${effectiveTokens.toLocaleString()} tokens</strong> added to your wallet.</p>
+              <p style="font-size: 0.9em; color: #666; margin-top: 8px;">Equivalent to ${formatKsh(effectiveKsh)}</p>
+              <p style="font-size: 0.85em; color: #888; margin-top: 6px;">Reference: <code>${paystackResponse.reference}</code></p>
+            `,
+            timer: 2600,
+            showConfirmButton: false,
+            confirmButtonColor: "#D4AF37",
+          });
+        } catch (verifyError) {
+          console.error("verifyPayment error:", verifyError);
+          Swal.close();
+          Swal.fire({
+            icon: "error",
+            title: "Verification Failed",
+            text:
+              verifyError.message ||
+              "Something went wrong. Please contact support.",
+            confirmButtonColor: "#D4AF37",
+          });
+        } finally {
+          setPurchasing(false);
+        }
+      };
+
       const handler = window.PaystackPop.setup({
         key: PAYSTACK_PUBLIC_KEY,
         email: currentUser.email,
@@ -255,64 +315,8 @@ export default function Wallet({ user, setUser }) {
             });
           }
         },
-        callback: async (paystackResponse) => {
-          try {
-            Swal.fire({
-              icon: "info",
-              title: "Verifying Payment...",
-              text: "Please wait while we confirm your payment.",
-              allowOutsideClick: false,
-              showConfirmButton: false,
-            });
-            Swal.showLoading();
-
-            const authToken = localStorage.getItem("token");
-            const verifyResponse = await fetch(
-              `/api/paystack/verify?reference=${paystackResponse.reference}`,
-              {
-                headers: {
-                  Authorization: `Bearer ${authToken}`,
-                },
-              }
-            );
-            const verifyData = await verifyResponse.json();
-            Swal.close();
-
-            if (!verifyResponse.ok || !verifyData.success) {
-              throw new Error(
-                verifyData.message ||
-                  "Paystack reported that the payment was not completed."
-              );
-            }
-
-            paymentCompleted = true;
-            await fetchWallet();
-            Swal.fire({
-              icon: "success",
-              title: "Payment Successful",
-              html: `
-                <p><strong>${effectiveTokens.toLocaleString()} tokens</strong> added to your wallet.</p>
-                <p style="font-size: 0.9em; color: #666; margin-top: 8px;">Equivalent to ${formatKsh(effectiveKsh)}</p>
-                <p style="font-size: 0.85em; color: #888; margin-top: 6px;">Reference: <code>${paystackResponse.reference}</code></p>
-              `,
-              timer: 2600,
-              showConfirmButton: false,
-              confirmButtonColor: "#D4AF37",
-            });
-          } catch (verifyError) {
-            console.error("verifyPayment error:", verifyError);
-            Swal.close();
-            Swal.fire({
-              icon: "error",
-              title: "Verification Failed",
-              text:
-                verifyError.message ||
-                "Something went wrong. Please contact support.",
-              confirmButtonColor: "#D4AF37",
-            });
-          } finally {
-            setPurchasing(false);
-          }
+        callback: function (paystackResponse) {
+          handlePaystackVerification(paystackResponse);
         },
       });
 
