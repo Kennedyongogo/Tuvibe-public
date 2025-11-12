@@ -98,7 +98,13 @@ const getRemainingTimeForDate = (dateValue) => {
   }
 };
 
-const BOOST_CATEGORIES = ["Regular", "Sugar Mummy", "Sponsor", "Ben 10"];
+const BOOST_CATEGORIES = [
+  "Regular",
+  "Sugar Mummy",
+  "Sponsor",
+  "Ben 10",
+  "Urban Chics",
+];
 const MIN_BOOST_HOURS = 1;
 const MAX_BOOST_HOURS = 6;
 const DEFAULT_BOOST_RADIUS_KM = 10;

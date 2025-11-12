@@ -307,11 +307,12 @@ export default function Explore({ user }) {
         throw new Error(costData.message || "Failed to get chat cost");
       }
 
-      const cost = costData.data.cost;
+      const cost = Number(costData.data.cost || 0);
+      const isFreeUnlock = cost === 0;
 
-      // Check user balance
+      // Check user balance only when tokens are required
       const user = JSON.parse(localStorage.getItem("user") || "{}");
-      if (Number(user.token_balance || 0) < cost) {
+      if (!isFreeUnlock && Number(user.token_balance || 0) < cost) {
         Swal.fire({
           icon: "warning",
           title: "Insufficient Tokens",
@@ -338,9 +339,11 @@ export default function Explore({ user }) {
       const confirmResult = await Swal.fire({
         icon: "question",
         title: "Unlock WhatsApp Contact?",
-        html: `<p>This will cost you <strong>${cost} tokens</strong> (${formatKshFromTokens(cost)})</p><p>Your balance: ${user.token_balance || 0} tokens</p>`,
+        html: isFreeUnlock
+          ? `<p><strong>Good news!</strong> This unlock is free for premium users.</p>`
+          : `<p>This will cost you <strong>${cost} tokens</strong> (${formatKshFromTokens(cost)})</p><p>Your balance: ${user.token_balance || 0} tokens</p>`,
         showCancelButton: true,
-        confirmButtonText: "Unlock",
+        confirmButtonText: isFreeUnlock ? "Unlock for Free" : "Unlock",
         cancelButtonText: "Cancel",
         confirmButtonColor: "#D4AF37",
         didOpen: () => {
@@ -371,11 +374,13 @@ export default function Explore({ user }) {
 
       if (unlockData.success && unlockData.data) {
         // Update user balance in localStorage
-        const updatedUser = {
-          ...user,
-          token_balance: (Number(user.token_balance || 0) - cost).toFixed(2),
-        };
-        localStorage.setItem("user", JSON.stringify(updatedUser));
+        if (!isFreeUnlock) {
+          const updatedUser = {
+            ...user,
+            token_balance: (Number(user.token_balance || 0) - cost).toFixed(2),
+          };
+          localStorage.setItem("user", JSON.stringify(updatedUser));
+        }
 
         // Check if current user is premium and target user is premium
         const premiumCategories = [

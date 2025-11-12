@@ -43,7 +43,6 @@ import {
   Pending,
   Cancel as CancelIcon,
   HowToReg,
-  Add,
   Delete,
   Visibility,
   ChevronLeft,
@@ -150,7 +149,6 @@ export default function Profile({ user, setUser }) {
   const [loadingPosts, setLoadingPosts] = useState(false);
   const [editingPostId, setEditingPostId] = useState(null);
   const [postContent, setPostContent] = useState("");
-  const [showPostForm, setShowPostForm] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.name || "",
     username: user?.username || "",
@@ -350,62 +348,6 @@ export default function Profile({ user, setUser }) {
 
     fetchLookingForPosts();
   }, [isVerifiedPremium]);
-
-  // Handle create "Looking For" post
-  const handleCreatePost = async () => {
-    if (!postContent.trim()) {
-      Swal.fire({
-        icon: "warning",
-        title: "Content Required",
-        text: "Please enter what you're looking for",
-        confirmButtonColor: "#D4AF37",
-      });
-      return;
-    }
-
-    const token = localStorage.getItem("token");
-    try {
-      setLoadingPosts(true);
-      const response = await fetch("/api/posts", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ content: postContent.trim() }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setLookingForPosts((prev) => [data.data, ...prev]);
-        setPostContent("");
-        setShowPostForm(false);
-        Swal.fire({
-          icon: "success",
-          title: "Posted!",
-          text: "Your 'Looking For' post has been created",
-          timer: 1500,
-          showConfirmButton: false,
-          confirmButtonColor: "#D4AF37",
-        });
-      } else {
-        throw new Error(data.message || "Failed to create post");
-      }
-    } catch (err) {
-      console.error("Create post error:", err);
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text:
-          err.message ||
-          "Failed to create post. Only verified premium users can post.",
-        confirmButtonColor: "#D4AF37",
-      });
-    } finally {
-      setLoadingPosts(false);
-    }
-  };
 
   // Handle update post
   const handleUpdatePost = async (postId) => {
@@ -2577,34 +2519,10 @@ export default function Profile({ user, setUser }) {
                 <Visibility sx={{ color: "#D4AF37" }} />
                 Looking For
               </Typography>
-              {!showPostForm && (
-                <Button
-                  variant="contained"
-                  size="small"
-                  startIcon={<Add />}
-                  onClick={() => {
-                    setShowPostForm(true);
-                    setPostContent("");
-                    setEditingPostId(null);
-                  }}
-                  sx={{
-                    background: "linear-gradient(135deg, #D4AF37, #B8941F)",
-                    color: "#1a1a1a",
-                    fontWeight: 600,
-                    textTransform: "none",
-                    borderRadius: "8px",
-                    "&:hover": {
-                      background: "linear-gradient(135deg, #B8941F, #D4AF37)",
-                    },
-                  }}
-                >
-                  New Post
-                </Button>
-              )}
             </Box>
 
-            {/* Create/Edit Post Form */}
-            {(showPostForm || editingPostId) && (
+            {/* Edit Post Form */}
+            {editingPostId && (
               <Card
                 sx={{
                   p: 2,
@@ -2628,7 +2546,6 @@ export default function Profile({ user, setUser }) {
                     variant="outlined"
                     size="small"
                     onClick={() => {
-                      setShowPostForm(false);
                       setEditingPostId(null);
                       setPostContent("");
                     }}
@@ -2643,13 +2560,7 @@ export default function Profile({ user, setUser }) {
                   <Button
                     variant="contained"
                     size="small"
-                    onClick={() => {
-                      if (editingPostId) {
-                        handleUpdatePost(editingPostId);
-                      } else {
-                        handleCreatePost();
-                      }
-                    }}
+                    onClick={() => handleUpdatePost(editingPostId)}
                     disabled={loadingPosts || !postContent.trim()}
                     sx={{
                       background: "linear-gradient(135deg, #D4AF37, #B8941F)",
@@ -2662,10 +2573,8 @@ export default function Profile({ user, setUser }) {
                   >
                     {loadingPosts ? (
                       <CircularProgress size={16} color="inherit" />
-                    ) : editingPostId ? (
-                      "Update"
                     ) : (
-                      "Post"
+                      "Update"
                     )}
                   </Button>
                 </Stack>
@@ -2698,7 +2607,7 @@ export default function Profile({ user, setUser }) {
                   variant="body2"
                   sx={{ color: "rgba(26, 26, 26, 0.6)" }}
                 >
-                  No posts yet. Create your first "Looking For" post!
+                  No posts yet. Create your first "Looking For" post from the Premium Lounge.
                 </Typography>
               </Card>
             ) : (
@@ -2747,7 +2656,6 @@ export default function Profile({ user, setUser }) {
                           onClick={() => {
                             setEditingPostId(post.id);
                             setPostContent(post.content);
-                            setShowPostForm(false);
                           }}
                           sx={{ color: "#D4AF37" }}
                         >
