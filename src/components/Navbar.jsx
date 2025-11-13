@@ -37,7 +37,12 @@ import { getDisplayInitial, getDisplayName } from "../utils/userDisplay";
 
 const drawerWidth = 260;
 
-export default function Navbar({ user, setUser }) {
+export default function Navbar({
+  user,
+  setUser,
+  isSuspended = false,
+  onLogout,
+}) {
   const navigate = useNavigate();
   const location = useLocation();
   const [anchorEl, setAnchorEl] = useState(null);
@@ -46,7 +51,7 @@ export default function Navbar({ user, setUser }) {
   const prevPathnameRef = useRef(location.pathname);
   const anchorElRef = useRef(null);
 
-  const menuItems = [
+  const baseMenuItems = [
     { text: "Home", icon: <Home />, path: "/home", mobileLabel: "Home" },
     {
       text: "Explore",
@@ -79,6 +84,7 @@ export default function Navbar({ user, setUser }) {
       mobileLabel: "Profile",
     },
   ];
+  const menuItems = isSuspended ? [] : baseMenuItems;
 
   const handleProfileMenuOpen = (event) => {
     const target = event.currentTarget;
@@ -125,6 +131,11 @@ export default function Navbar({ user, setUser }) {
 
     // Small delay to ensure menu is closed before showing Swal
     await new Promise((resolve) => setTimeout(resolve, 100));
+
+    if (onLogout) {
+      await onLogout();
+      return;
+    }
 
     const result = await Swal.fire({
       title: "Logout?",
@@ -256,6 +267,27 @@ export default function Navbar({ user, setUser }) {
             </ListItem>
           );
         })}
+        {menuItems.length === 0 && (
+          <Box
+            sx={{
+              mt: 3,
+              p: 2,
+              borderRadius: 2,
+              border: "1px dashed rgba(212, 175, 55, 0.4)",
+              backgroundColor: "rgba(212, 175, 55, 0.08)",
+              color: "#7f8c8d",
+            }}
+          >
+            <Typography variant="subtitle2" fontWeight={600}>
+              Account Suspended
+            </Typography>
+            <Typography variant="body2" sx={{ mt: 1 }}>
+              Access to navigation is temporarily disabled. Use the appeal
+              button on the main screen to contact support or logout to return
+              later.
+            </Typography>
+          </Box>
+        )}
       </List>
 
       {/* User Section */}
@@ -475,68 +507,70 @@ export default function Navbar({ user, setUser }) {
       </Box>
 
       {/* Bottom Navigation - Mobile Only */}
-      <Paper
-        sx={{
-          position: "fixed",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          zIndex: 1000,
-          display: { xs: "block", md: "none" },
-          borderTop: "1px solid rgba(212, 175, 55, 0.2)",
-          boxShadow: "0 -4px 20px rgba(212, 175, 55, 0.1)",
-          backgroundColor: "rgba(255, 255, 255, 0.98)",
-          backdropFilter: "blur(20px)",
-        }}
-        elevation={3}
-      >
-        <BottomNavigation
-          value={bottomNavValue}
-          onChange={(event, newValue) => {
-            setBottomNavValue(newValue);
-            navigate(menuItems[newValue].path);
-          }}
-          showLabels
+      {menuItems.length > 0 && (
+        <Paper
           sx={{
-            backgroundColor: "transparent",
-            height: 70,
-            "& .MuiBottomNavigationAction-root": {
-              color: "rgba(26, 26, 26, 0.6)",
-              minWidth: 0,
-              padding: "6px 12px",
-              outline: "none",
-              "&:focus": {
-                outline: "none",
-              },
-              "&:focus-visible": {
-                outline: "none",
-              },
-              "&.Mui-selected": {
-                color: "#D4AF37",
-                fontWeight: 600,
-              },
-            },
-            "& .MuiBottomNavigationAction-label": {
-              fontSize: "0.7rem",
-              fontWeight: 500,
-              marginTop: "4px",
-              "&.Mui-selected": {
-                fontSize: "0.7rem",
-                fontWeight: 600,
-              },
-            },
+            position: "fixed",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 1000,
+            display: { xs: "block", md: "none" },
+            borderTop: "1px solid rgba(212, 175, 55, 0.2)",
+            boxShadow: "0 -4px 20px rgba(212, 175, 55, 0.1)",
+            backgroundColor: "rgba(255, 255, 255, 0.98)",
+            backdropFilter: "blur(20px)",
           }}
+          elevation={3}
         >
-          {menuItems.map((item, index) => (
-            <BottomNavigationAction
-              key={item.text}
-              label={item.mobileLabel || item.text}
-              icon={item.icon}
-              value={index}
-            />
-          ))}
-        </BottomNavigation>
-      </Paper>
+          <BottomNavigation
+            value={bottomNavValue}
+            onChange={(event, newValue) => {
+              setBottomNavValue(newValue);
+              navigate(menuItems[newValue].path);
+            }}
+            showLabels
+            sx={{
+              backgroundColor: "transparent",
+              height: 70,
+              "& .MuiBottomNavigationAction-root": {
+                color: "rgba(26, 26, 26, 0.6)",
+                minWidth: 0,
+                padding: "6px 12px",
+                outline: "none",
+                "&:focus": {
+                  outline: "none",
+                },
+                "&:focus-visible": {
+                  outline: "none",
+                },
+                "&.Mui-selected": {
+                  color: "#D4AF37",
+                  fontWeight: 600,
+                },
+              },
+              "& .MuiBottomNavigationAction-label": {
+                fontSize: "0.7rem",
+                fontWeight: 500,
+                marginTop: "4px",
+                "&.Mui-selected": {
+                  fontSize: "0.7rem",
+                  fontWeight: 600,
+                },
+              },
+            }}
+          >
+            {menuItems.map((item, index) => (
+              <BottomNavigationAction
+                key={item.text}
+                label={item.mobileLabel || item.text}
+                icon={item.icon}
+                value={index}
+              />
+            ))}
+          </BottomNavigation>
+        </Paper>
+      )}
     </Box>
   );
 }

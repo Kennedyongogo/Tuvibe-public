@@ -25,6 +25,7 @@ import {
   Stack,
   Checkbox,
   FormControlLabel,
+  Alert,
 } from "@mui/material";
 import {
   Login,
@@ -80,6 +81,7 @@ export default function HeroSection() {
   });
   const [phoneError, setPhoneError] = useState("");
   const [birthYearError, setBirthYearError] = useState("");
+  const [photoError, setPhotoError] = useState("");
   const [loginFormData, setLoginFormData] = useState({
     email: "",
     password: "",
@@ -123,6 +125,7 @@ export default function HeroSection() {
     });
     setPhoneError("");
     setBirthYearError("");
+    setPhotoError("");
     setPhotoFile(null);
     setPhotoPreview(null);
     setRegisterStep(1);
@@ -165,6 +168,7 @@ export default function HeroSection() {
         return;
       }
       setPhotoFile(file);
+      setPhotoError("");
       // Create preview
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -445,6 +449,21 @@ export default function HeroSection() {
       return;
     }
 
+    const photoToUpload = photoFile;
+
+    if (!photoToUpload) {
+      setPhotoError("Profile photo is required to complete registration.");
+      Swal.fire({
+        icon: "info",
+        title: "Profile Photo Needed",
+        text: "Please upload a clear profile photo to complete your registration.",
+        confirmButtonColor: "#D4AF37",
+      });
+      return;
+    }
+
+    setPhotoError("");
+
     const submitData = {
       name: formData.name,
       username: normalizedUsername,
@@ -490,7 +509,7 @@ export default function HeroSection() {
       try {
         let response;
         // If photo file is selected, use FormData for multipart upload
-        if (photoFile) {
+        if (photoToUpload) {
           const formDataToSend = new FormData();
           // Add all form fields
           formDataToSend.append("name", formData.name);
@@ -504,7 +523,7 @@ export default function HeroSection() {
           }
           if (formData.bio) formDataToSend.append("bio", formData.bio);
           // Add photo file
-          formDataToSend.append("profile_image", photoFile);
+          formDataToSend.append("profile_image", photoToUpload);
 
           response = await fetch("/api/public/register", {
             method: "POST",
@@ -2388,8 +2407,24 @@ export default function HeroSection() {
                   justifyContent: "center",
                   gap: 3,
                   py: 2,
+                  width: "100%",
                 }}
               >
+                <Alert
+                  severity="info"
+                  sx={{
+                    width: "100%",
+                    borderRadius: "12px",
+                    background: "rgba(212, 175, 55, 0.12)",
+                    color: "rgba(26, 26, 26, 0.9)",
+                    border: "1px solid rgba(212, 175, 55, 0.35)",
+                    fontWeight: 600,
+                    textAlign: "center",
+                  }}
+                >
+                  Step 2 of 2: Upload your profile photo to complete
+                  registration.
+                </Alert>
                 <TextField
                   label="Bio"
                   name="bio"
@@ -2438,11 +2473,19 @@ export default function HeroSection() {
                     sx={{
                       width: 150,
                       height: 150,
-                      border: "2px dashed rgba(212, 175, 55, 0.5)",
+                      border: `2px dashed ${
+                        photoError ? "#d32f2f" : "rgba(212, 175, 55, 0.5)"
+                      }`,
                       borderRadius: "12px",
+                      backgroundColor: photoError
+                        ? "rgba(211, 47, 47, 0.05)"
+                        : "transparent",
+                      transition: "all 0.2s ease",
                       "&:hover": {
-                        borderColor: "#D4AF37",
-                        backgroundColor: "rgba(212, 175, 55, 0.1)",
+                        borderColor: photoError ? "#d32f2f" : "#D4AF37",
+                        backgroundColor: photoError
+                          ? "rgba(211, 47, 47, 0.08)"
+                          : "rgba(212, 175, 55, 0.1)",
                       },
                     }}
                   >
@@ -2470,17 +2513,29 @@ export default function HeroSection() {
                 >
                   {photoPreview
                     ? "Click to change photo"
-                    : "Upload Profile Photo (Optional)"}
+                    : "Upload Profile Photo (Required)"}
                 </Typography>
                 <Typography
                   variant="caption"
                   sx={{
-                    color: "rgba(26, 26, 26, 0.5)",
+                    color: "rgba(26, 26, 26, 0.65)",
                     textAlign: "center",
                   }}
                 >
-                  You can skip photo and bio and add them later
+                  A clear, recent photo helps real members connect faster.
                 </Typography>
+                {photoError && (
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "#d32f2f",
+                      textAlign: "center",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {photoError}
+                  </Typography>
+                )}
               </Box>
             )}
           </DialogContent>
