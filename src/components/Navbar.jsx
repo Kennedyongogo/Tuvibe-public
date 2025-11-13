@@ -371,110 +371,114 @@ export default function Navbar({
       >
         <Toolbar>
           <Box sx={{ flexGrow: 1 }} />
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 1,
-              cursor: "pointer",
-              px: 1,
-              py: 0.5,
-              borderRadius: "12px",
-              transition: "all 0.3s ease",
-              "&:hover": {
-                backgroundColor: "rgba(212, 175, 55, 0.1)",
-              },
-            }}
-            onClick={handleProfileMenuOpen}
-          >
-            <Avatar
-              src={
-                user?.photo
-                  ? user.photo.startsWith("http")
-                    ? user.photo
-                    : user.photo.startsWith("/")
-                      ? user.photo
-                      : `/uploads/${user.photo}`
-                  : undefined
-              }
-              sx={{
-                width: 36,
-                height: 36,
-                bgcolor: "#D4AF37",
-                fontWeight: 600,
-                fontSize: "1rem",
-                border: "2px solid rgba(212, 175, 55, 0.3)",
-              }}
-            >
-              {getDisplayInitial(user, {
-                fallback: "U",
-                currentUserId: user?.id,
-              })}
-            </Avatar>
-            <ArrowDropDown
-              sx={{
-                fontSize: 28,
-                color: "#D4AF37",
-                transition: "transform 0.3s ease",
-                transform: Boolean(anchorEl)
-                  ? "rotate(180deg)"
-                  : "rotate(0deg)",
-              }}
-            />
-          </Box>
-          <Menu
-            id="account-menu"
-            anchorEl={anchorEl}
-            open={Boolean(anchorEl)}
-            onClose={handleProfileMenuClose}
-            anchorOrigin={{
-              vertical: "bottom",
-              horizontal: "right",
-            }}
-            transformOrigin={{
-              vertical: "top",
-              horizontal: "right",
-            }}
-            PaperProps={{
-              sx: {
-                borderRadius: "12px",
-                mt: 1,
-                minWidth: 200,
-                boxShadow: "0 8px 32px rgba(212, 175, 55, 0.15)",
-                border: "1px solid rgba(212, 175, 55, 0.2)",
-              },
-            }}
-            disableScrollLock={true}
-          >
-            <MenuItem
-              onClick={() => {
-                handleProfileMenuClose();
-                navigate("/reports");
-              }}
-            >
-              <Report sx={{ mr: 2, color: "#D4AF37" }} />
-              Reports
-            </MenuItem>
-            <MenuItem
-              onClick={() => {
-                handleProfileMenuClose();
-                setTimeout(() => setResetPasswordOpen(true), 100);
-              }}
-            >
-              <Lock sx={{ mr: 2, color: "#D4AF37" }} />
-              Reset Password
-            </MenuItem>
-            <Divider />
-            <MenuItem
-              onClick={(e) => {
-                e.preventDefault();
-                handleLogout();
-              }}
-            >
-              <Logout sx={{ mr: 2, color: "#D4AF37" }} />
-              Logout
-            </MenuItem>
-          </Menu>
+          {!isSuspended && (
+            <>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  cursor: "pointer",
+                  px: 1,
+                  py: 0.5,
+                  borderRadius: "12px",
+                  transition: "all 0.3s ease",
+                  "&:hover": {
+                    backgroundColor: "rgba(212, 175, 55, 0.1)",
+                  },
+                }}
+                onClick={handleProfileMenuOpen}
+              >
+                <Avatar
+                  src={
+                    user?.photo
+                      ? user.photo.startsWith("http")
+                        ? user.photo
+                        : user.photo.startsWith("/")
+                          ? user.photo
+                          : `/uploads/${user.photo}`
+                      : undefined
+                  }
+                  sx={{
+                    width: 36,
+                    height: 36,
+                    bgcolor: "#D4AF37",
+                    fontWeight: 600,
+                    fontSize: "1rem",
+                    border: "2px solid rgba(212, 175, 55, 0.3)",
+                  }}
+                >
+                  {getDisplayInitial(user, {
+                    fallback: "U",
+                    currentUserId: user?.id,
+                  })}
+                </Avatar>
+                <ArrowDropDown
+                  sx={{
+                    fontSize: 28,
+                    color: "#D4AF37",
+                    transition: "transform 0.3s ease",
+                    transform: Boolean(anchorEl)
+                      ? "rotate(180deg)"
+                      : "rotate(0deg)",
+                  }}
+                />
+              </Box>
+              <Menu
+                id="account-menu"
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                onClose={handleProfileMenuClose}
+                anchorOrigin={{
+                  vertical: "bottom",
+                  horizontal: "right",
+                }}
+                transformOrigin={{
+                  vertical: "top",
+                  horizontal: "right",
+                }}
+                PaperProps={{
+                  sx: {
+                    borderRadius: "12px",
+                    mt: 1,
+                    minWidth: 200,
+                    boxShadow: "0 8px 32px rgba(212, 175, 55, 0.15)",
+                    border: "1px solid rgba(212, 175, 55, 0.2)",
+                  },
+                }}
+                disableScrollLock={true}
+              >
+                <MenuItem
+                  onClick={() => {
+                    handleProfileMenuClose();
+                    navigate("/reports");
+                  }}
+                >
+                  <Report sx={{ mr: 2, color: "#D4AF37" }} />
+                  Reports
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    handleProfileMenuClose();
+                    setTimeout(() => setResetPasswordOpen(true), 100);
+                  }}
+                >
+                  <Lock sx={{ mr: 2, color: "#D4AF37" }} />
+                  Reset Password
+                </MenuItem>
+                <Divider />
+                <MenuItem
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleLogout();
+                  }}
+                >
+                  <Logout sx={{ mr: 2, color: "#D4AF37" }} />
+                  Logout
+                </MenuItem>
+              </Menu>
+            </>
+          )}
           <PublicResetPasswordDialog
             open={resetPasswordOpen}
             onClose={() => setResetPasswordOpen(false)}

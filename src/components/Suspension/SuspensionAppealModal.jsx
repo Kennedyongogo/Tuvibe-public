@@ -56,7 +56,6 @@ export default function SuspensionAppealModal({
   onClose,
   suspension,
   token,
-  socketContext,
   onSuspensionUpdated,
 }) {
   const [messages, setMessages] = useState([]);
@@ -82,10 +81,12 @@ export default function SuspensionAppealModal({
     });
   }, []);
 
-  const fetchThread = useCallback(async () => {
+  const fetchThread = useCallback(async (silent = false) => {
     if (!open || !suspensionId || !token) return;
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
       setError("");
 
       const response = await fetch(
@@ -121,15 +122,19 @@ export default function SuspensionAppealModal({
       }
     } catch (err) {
       console.error("[SuspensionAppealModal] fetchThread error:", err);
-      setError(err.message || "Failed to load appeal messages.");
+      if (!silent) {
+        setError(err.message || "Failed to load appeal messages.");
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, [open, suspensionId, token, onSuspensionUpdated]);
 
   useEffect(() => {
     if (open && suspensionId) {
-      fetchThread();
+      fetchThread(false);
     } else if (!open) {
       setMessages([]);
       setMessageInput("");
@@ -138,66 +143,16 @@ export default function SuspensionAppealModal({
   }, [open, suspensionId, fetchThread]);
 
   useEffect(() => {
-    const sock = socketContext?.socket;
-    if (!open || !sock || !suspensionId) return undefined;
+    if (!open || !suspensionId) {
+      return undefined;
+    }
 
-    const handleNewMessage = (payload) => {
-      if (payload?.message?.suspension_id !== suspensionId) return;
-      appendMessage(payload.message);
-      if (typeof onSuspensionUpdated === "function") {
-        const unread = payload.unreadCounts?.user ?? 0;
-        onSuspensionUpdated({
-          id: suspensionId,
-          unreadCount: unread,
-        });
-      }
-    };
+    const intervalId = setInterval(() => {
+      fetchThread(true);
+    }, 5000);
 
-    const handleRead = (payload) => {
-      if (payload?.suspensionId !== suspensionId) return;
-      if (typeof onSuspensionUpdated === "function") {
-        const unread = payload.unreadCounts?.user ?? 0;
-        onSuspensionUpdated({
-          id: suspensionId,
-          unreadCount: unread,
-        });
-      }
-    };
-
-    const handleUpdate = (updatedSuspension) => {
-      if (updatedSuspension?.id !== suspensionId) return;
-      if (typeof onSuspensionUpdated === "function") {
-        onSuspensionUpdated(updatedSuspension);
-      }
-    };
-
-    const handleRevoked = (updatedSuspension) => {
-      if (updatedSuspension?.id !== suspensionId) return;
-      if (typeof onSuspensionUpdated === "function") {
-        onSuspensionUpdated(updatedSuspension);
-      }
-      onClose?.();
-    };
-
-    sock.on("suspension:message:new", handleNewMessage);
-    sock.on("suspension:messages:read", handleRead);
-    sock.on("suspension:update", handleUpdate);
-    sock.on("suspension:revoked", handleRevoked);
-
-    return () => {
-      sock.off("suspension:message:new", handleNewMessage);
-      sock.off("suspension:messages:read", handleRead);
-      sock.off("suspension:update", handleUpdate);
-      sock.off("suspension:revoked", handleRevoked);
-    };
-  }, [
-    socketContext,
-    open,
-    suspensionId,
-    appendMessage,
-    onSuspensionUpdated,
-    onClose,
-  ]);
+    return () => clearInterval(intervalId);
+  }, [open, suspensionId, fetchThread]);
 
   const handleSendMessage = useCallback(async () => {
     if (!messageInput.trim() || !suspensionId || !token) return;

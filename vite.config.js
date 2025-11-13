@@ -16,6 +16,16 @@ export default defineConfig({
       workbox: {
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB limit
         cleanupOutdatedCaches: true,
+        navigateFallbackDenylist: [/^\/api/],
+        // Exclude API routes from precaching
+        globIgnores: ["**/api/**"],
+        runtimeCaching: [
+          {
+            // All API routes go directly to network - no precaching
+            urlPattern: ({ url }) => url.pathname.startsWith("/api"),
+            handler: "NetworkOnly",
+          },
+        ],
       },
       includeAssets: ["favicon.ico"],
       manifest: {
@@ -64,12 +74,6 @@ export default defineConfig({
         target: "http://localhost:4000",
         changeOrigin: true,
         secure: false,
-      },
-      "/socket.io": {
-        target: "http://localhost:4000",
-        changeOrigin: true,
-        secure: false,
-        ws: true,
       },
     },
   },

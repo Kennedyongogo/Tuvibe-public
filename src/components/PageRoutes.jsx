@@ -25,7 +25,28 @@ import Market from "../pages/Market";
 import Reports from "../pages/Reports";
 import SuspensionGate from "./Suspension/SuspensionGate";
 import SuspensionAppealModal from "./Suspension/SuspensionAppealModal";
-import useSuspensionSocket from "../hooks/useSuspensionSocket";
+
+const hasUserChanged = (prevUser, nextUser) => {
+  if (!prevUser || !nextUser) {
+    return prevUser !== nextUser;
+  }
+
+  const prevKeys = Object.keys(prevUser);
+  const nextKeys = Object.keys(nextUser);
+
+  if (prevKeys.length !== nextKeys.length) {
+    return true;
+  }
+
+  for (let i = 0; i < prevKeys.length; i += 1) {
+    const key = prevKeys[i];
+    if (prevUser[key] !== nextUser[key]) {
+      return true;
+    }
+  }
+
+  return false;
+};
 
 function PageRoutes() {
   const navigate = useNavigate();
@@ -81,7 +102,8 @@ function PageRoutes() {
   }, [navigate]);
 
   const fetchSuspensionStatus = useCallback(
-    async (shouldGate = false) => {
+    async (shouldGate = false, options = {}) => {
+      const { silent = false } = options;
       const token = localStorage.getItem("token");
       if (!token || !user) {
         setSuspension(null);
@@ -91,7 +113,9 @@ function PageRoutes() {
       }
 
       try {
-        setLoadingSuspension(true);
+        if (!silent) {
+          setLoadingSuspension(true);
+        }
         if (initialSuspensionCheckRef.current || shouldGate) {
           setSuspensionReady(false);
         }
@@ -118,7 +142,9 @@ function PageRoutes() {
       } catch (error) {
         console.error("[PageRoutes] fetchSuspensionStatus error:", error);
       } finally {
-        setLoadingSuspension(false);
+        if (!silent) {
+          setLoadingSuspension(false);
+        }
         setSuspensionReady(true);
         initialSuspensionCheckRef.current = false;
       }
@@ -182,6 +208,18 @@ function PageRoutes() {
   }, [navigate]);
 
   const handleSuspensionUpdated = useCallback((updated) => {
+    if (typeof updated === "function") {
+      setSuspension((prev) => {
+        const nextValue = updated(prev);
+        if (!nextValue || nextValue.status === "revoked") {
+          setAppealOpen(false);
+          return null;
+        }
+        return nextValue;
+      });
+      return;
+    }
+
     if (!updated || updated.status === "revoked") {
       setSuspension(null);
       setAppealOpen(false);
@@ -194,57 +232,6 @@ function PageRoutes() {
     }));
   }, []);
 
-  const suspensionHandlers = useMemo(() => {
-    if (!user) return {};
-
-    return {
-      "suspension:update": (payload) => {
-        if (payload?.public_user_id !== user.id) return;
-        handleSuspensionUpdated(payload);
-      },
-      "suspension:revoked": (payload) => {
-        if (payload?.public_user_id !== user.id) return;
-        handleSuspensionUpdated(null);
-      },
-      "suspension:message:new": (payload) => {
-        const suspensionId =
-          payload?.suspensionId || payload?.message?.suspension_id;
-        if (!suspensionId || suspensionId !== suspension?.id) return;
-        if (appealOpen) return;
-
-        const unread =
-          payload?.unreadCounts?.user ??
-          (typeof payload?.unreadCounts === "number"
-            ? payload.unreadCounts
-            : undefined);
-
-        handleSuspensionUpdated({
-          ...(suspension || {}),
-          unreadCount:
-            unread !== undefined ? unread : suspension?.unreadCount || 0,
-        });
-      },
-      "suspension:messages:read": (payload) => {
-        if (payload?.suspensionId !== suspension?.id) return;
-        const unread =
-          payload?.unreadCounts?.user ??
-          (typeof payload?.unreadCounts === "number"
-            ? payload.unreadCounts
-            : 0);
-
-        handleSuspensionUpdated({
-          ...(suspension || {}),
-          unreadCount: unread,
-        });
-      },
-    };
-  }, [user, suspension, handleSuspensionUpdated, appealOpen]);
-
-  const suspensionSocket = useSuspensionSocket({
-    token: authToken,
-    enabled: Boolean(user && authToken),
-    eventHandlers: suspensionHandlers,
-  });
 
   useEffect(() => {
     checkAuthentication();
@@ -257,7 +244,11 @@ function PageRoutes() {
         initialSuspensionCheckRef.current = true;
         prevUserIdRef.current = user.id;
       }
-      fetchSuspensionStatus(isNewUser);
+      if (isNewUser) {
+        fetchSuspensionStatus(true);
+      } else {
+        fetchSuspensionStatus(false, { silent: true });
+      }
     } else {
       setSuspension(null);
       setAppealOpen(false);
@@ -316,9 +307,27 @@ function PageRoutes() {
           const data = await response.json();
           if (data.success && data.data) {
             const updatedUser = { ...data.data };
-            localStorage.setItem("user", JSON.stringify(updatedUser));
-            setUser(updatedUser);
-            await fetchSuspensionStatus();
+            let savedUser = null;
+            const savedUserRaw = localStorage.getItem("user");
+            if (savedUserRaw) {
+              try {
+                savedUser = JSON.parse(savedUserRaw);
+              } catch (parseError) {
+                console.error("Failed to parse saved user from storage:", parseError);
+                savedUser = null;
+              }
+            }
+            if (hasUserChanged(savedUser, updatedUser)) {
+              localStorage.setItem("user", JSON.stringify(updatedUser));
+            }
+
+            setUser((prevUser) => {
+              if (!hasUserChanged(prevUser, updatedUser)) {
+                return prevUser;
+              }
+              return updatedUser;
+            });
+            await fetchSuspensionStatus(false, { silent: true });
           }
         }
       } catch (error) {
@@ -332,27 +341,16 @@ function PageRoutes() {
   }, [user, fetchSuspensionStatus]);
 
   useEffect(() => {
-    if (
-      !suspension?.id ||
-      !suspensionSocket?.joinSuspension ||
-      !suspensionSocket?.leaveSuspension ||
-      !suspensionSocket?.isConnected
-    ) {
+    if (!user || !authToken) {
       return undefined;
     }
 
-    const targetId = suspension.id;
-    suspensionSocket.joinSuspension(targetId);
+    const intervalId = setInterval(() => {
+      fetchSuspensionStatus(false, { silent: true });
+    }, 10000);
 
-    return () => {
-      suspensionSocket.leaveSuspension(targetId);
-    };
-  }, [
-    suspension?.id,
-    suspensionSocket?.isConnected,
-    suspensionSocket?.joinSuspension,
-    suspensionSocket?.leaveSuspension,
-  ]);
+    return () => clearInterval(intervalId);
+  }, [user, authToken, fetchSuspensionStatus]);
 
   useEffect(() => {
     if (!suspension) {
@@ -432,7 +430,6 @@ function PageRoutes() {
         onClose={() => setAppealOpen(false)}
         suspension={suspension}
         token={authToken}
-        socketContext={suspensionSocket}
         onSuspensionUpdated={handleSuspensionUpdated}
       />
     </Box>

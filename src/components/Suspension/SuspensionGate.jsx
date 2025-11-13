@@ -22,6 +22,8 @@ const formatTimestamp = (value) => {
   });
 };
 
+const highlightColor = "#b8860b";
+
 export default function SuspensionGate({
   user,
   suspension,
@@ -75,7 +77,7 @@ export default function SuspensionGate({
             <Typography
               variant="subtitle1"
               fontWeight={700}
-              color="#b8860b"
+              color={highlightColor}
               display="flex"
               alignItems="center"
               gap={1}
@@ -90,21 +92,39 @@ export default function SuspensionGate({
             >
               {suspension?.reason || "No reason provided yet."}
             </Typography>
-            <Stack direction="row" spacing={1} flexWrap="wrap">
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={{ xs: 1.5, sm: 1 }}
+              flexWrap="wrap"
+              alignItems={{ xs: "center", sm: "flex-start" }}
+              justifyContent={{ xs: "center", sm: "flex-start" }}
+            >
               {createdAt && (
                 <Chip
                   size="small"
                   label={`Started: ${formatTimestamp(createdAt)}`}
-                  color="warning"
                   variant="outlined"
+                  sx={{
+                    borderColor: highlightColor,
+                    color: highlightColor,
+                    backgroundColor: "rgba(184, 134, 11, 0.08)",
+                    alignSelf: { xs: "center", sm: "flex-start" },
+                    fontWeight: 600,
+                  }}
                 />
               )}
               {updatedAt && (
                 <Chip
                   size="small"
                   label={`Updated: ${formatTimestamp(updatedAt)}`}
-                  color="warning"
                   variant="outlined"
+                  sx={{
+                    borderColor: highlightColor,
+                    color: highlightColor,
+                    backgroundColor: "rgba(184, 134, 11, 0.08)",
+                    alignSelf: { xs: "center", sm: "flex-start" },
+                    fontWeight: 600,
+                  }}
                 />
               )}
               {typeof suspension?.unreadCount === "number" &&
@@ -149,10 +169,20 @@ export default function SuspensionGate({
         </Button>
         <Button
           variant="outlined"
-          color="inherit"
+          color="warning"
           onClick={onLogout}
           startIcon={<LogoutIcon />}
-          sx={{ minWidth: 180, fontWeight: 600, textTransform: "none" }}
+          sx={{
+            minWidth: 180,
+            fontWeight: 700,
+            textTransform: "none",
+            borderColor: highlightColor,
+            color: highlightColor,
+            "&:hover": {
+              borderColor: highlightColor,
+              backgroundColor: "rgba(184, 134, 11, 0.08)",
+            },
+          }}
         >
           Logout
         </Button>
