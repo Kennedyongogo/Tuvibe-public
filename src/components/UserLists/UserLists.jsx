@@ -153,15 +153,17 @@ export default function UserLists({
     return imageUrl;
   };
 
-  // Get all images for a user
+  // Get all images for a user (main photo + photos array)
   const getAllImages = (userData) => {
     const images = [];
-    if (userData.photo && userData.photo_moderation_status === "approved") {
+    // Add main photo if it exists (API already filters unapproved photos)
+    if (userData.photo) {
       images.push(buildImageUrl(userData.photo));
     }
+    // Add photos from array if they exist (API already filters to approved only)
     if (userData.photos && Array.isArray(userData.photos)) {
       userData.photos.forEach((photo) => {
-        if (photo.path && photo.moderation_status === "approved") {
+        if (photo && photo.path) {
           images.push(buildImageUrl(photo.path));
         }
       });
