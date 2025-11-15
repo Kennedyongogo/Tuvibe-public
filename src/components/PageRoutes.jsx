@@ -358,7 +358,9 @@ function PageRoutes() {
     }
   }, [suspension]);
 
-  const showGlobalLoader = loading || !suspensionReady;
+  // Only block the whole app when we don't yet know the user.
+  // If user exists, render immediately and let suspension gate handle its own loading.
+  const showGlobalLoader = loading && !user;
 
   if (showGlobalLoader) {
     return (

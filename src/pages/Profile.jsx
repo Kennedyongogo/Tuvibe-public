@@ -127,6 +127,7 @@ export default function Profile({ user, setUser }) {
   const [galleryPreviews, setGalleryPreviews] = useState([]);
   const galleryInputRef = useRef(null);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [galleryUploadInProgress, setGalleryUploadInProgress] = useState(false);
   const galleryScrollRef = useRef(null);
   const isScrollingRef = useRef(false);
   const scrollTimeoutRef = useRef(null);
@@ -928,6 +929,63 @@ export default function Profile({ user, setUser }) {
       setGalleryPhotos((prev) => [...prev, ...validFiles]);
       // Reset to first photo when new photos are added
       setCurrentPhotoIndex(0);
+
+      // Upload to server immediately so photos appear without waiting for Save
+      const uploadGalleryFiles = async (filesToUpload) => {
+        try {
+          setGalleryUploadInProgress(true);
+          const token = localStorage.getItem("token");
+          const form = new FormData();
+          filesToUpload.forEach((file) => {
+            form.append("profile_images", file);
+          });
+
+          const response = await fetch("/api/public/me/photos", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            body: form,
+          });
+
+          const data = await response.json();
+          if (!response.ok || !data?.success) {
+            console.error("Gallery upload failed:", data);
+            return;
+          }
+
+          // Clear local pending files since backend has accepted them
+          setGalleryPhotos([]);
+          setGalleryPreviews([]);
+
+          // Update user data with server response if provided
+          if (data?.data?.user) {
+            setUser(data.data.user);
+          } else {
+            // Fallback: refresh profile
+            try {
+              const meRes = await fetch("/api/public/me", {
+                headers: { Authorization: `Bearer ${token}` },
+              });
+              const meData = await meRes.json();
+              if (meData?.success && meData?.data) {
+                setUser(meData.data);
+              }
+            } catch (refreshErr) {
+              console.error(
+                "Failed to refresh profile after gallery upload:",
+                refreshErr
+              );
+            }
+          }
+        } catch (e) {
+          console.error("Unexpected error uploading gallery files:", e);
+        } finally {
+          setGalleryUploadInProgress(false);
+        }
+      };
+
+      uploadGalleryFiles(validFiles);
     }
   };
 
@@ -2189,6 +2247,9 @@ export default function Profile({ user, setUser }) {
                                         ? item.photo.path
                                         : `/uploads/${item.photo.path}`
                                     }
+                                    loading="lazy"
+                                    decoding="async"
+                                    fetchpriority="low"
                                     alt={`Gallery photo ${item.index + 1}`}
                                     sx={{
                                       width: "100%",
@@ -2272,6 +2333,9 @@ export default function Profile({ user, setUser }) {
                                   <Box
                                     component="img"
                                     src={item.preview}
+                                    loading="lazy"
+                                    decoding="async"
+                                    fetchpriority="low"
                                     alt={`New photo ${item.index + 1}`}
                                     sx={{
                                       width: "100%",

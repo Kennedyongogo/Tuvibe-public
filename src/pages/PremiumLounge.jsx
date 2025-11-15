@@ -1110,6 +1110,9 @@ export default function PremiumLounge({ user }) {
                         <Box
                           component="img"
                           src={buildImageUrl(userData.photo)}
+                          loading="lazy"
+                          decoding="async"
+                          fetchpriority="low"
                           alt={getDisplayName(userData, { fallback: "Member" })}
                           sx={{
                             width: "100%",

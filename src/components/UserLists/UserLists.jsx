@@ -265,6 +265,9 @@ export default function UserLists({
                 key={`${userData.id}-img-${index}`}
                 component="img"
                 src={image}
+                loading="lazy"
+                decoding="async"
+                fetchpriority="low"
                 alt={getDisplayName(userData, { fallback: "Member" })}
                 sx={{
                   position: "absolute",

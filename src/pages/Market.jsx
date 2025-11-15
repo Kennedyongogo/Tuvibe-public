@@ -354,6 +354,9 @@ const Market = ({ user }) => {
                               key={`${item.id}-img-${index}`}
                               component="img"
                               src={getImageUrl(imagePath)}
+                              loading="lazy"
+                              decoding="async"
+                              fetchpriority="low"
                               alt={item.title}
                               sx={{
                                 position: "absolute",
@@ -620,6 +623,9 @@ const Market = ({ user }) => {
                       key={`dialog-img-${index}`}
                       component="img"
                       src={getImageUrl(imagePath)}
+                      loading="lazy"
+                      decoding="async"
+                      fetchpriority="low"
                       alt={selectedItem.title}
                       sx={{
                         position: "absolute",

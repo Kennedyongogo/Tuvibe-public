@@ -1032,6 +1032,9 @@ export default function Explore({ user }) {
                                   key={`${userData.id}-img-${index}`}
                                   component="img"
                                   src={image}
+                    loading="lazy"
+                    decoding="async"
+                    fetchpriority="low"
                                   alt={getDisplayName(userData, {
                                     fallback: "Member",
                                   })}

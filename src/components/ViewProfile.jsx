@@ -385,6 +385,9 @@ export default function ViewProfile({ open, onClose, userId, user }) {
                           key={`gallery-img-${index}`}
                           component="img"
                           src={image}
+                        loading="lazy"
+                        decoding="async"
+                        fetchpriority="low"
                           alt={`Gallery photo ${index + 1}`}
                           sx={{
                             position: "absolute",
@@ -551,6 +554,9 @@ export default function ViewProfile({ open, onClose, userId, user }) {
                             <Box
                               component="img"
                               src={image}
+                              loading="lazy"
+                              decoding="async"
+                              fetchpriority="low"
                               alt={`Thumbnail ${index + 1}`}
                               sx={{
                                 width: "100%",

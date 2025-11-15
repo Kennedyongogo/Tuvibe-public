@@ -30,6 +30,7 @@ import {
   Divider,
   useMediaQuery,
   useTheme,
+  Skeleton,
 } from "@mui/material";
 import { keyframes } from "@mui/system";
 import Autocomplete, {
@@ -510,7 +511,10 @@ export default function Dashboard({ user, setUser }) {
   useEffect(() => {
     if (!locationRequestedRef.current) {
       locationRequestedRef.current = true;
-      requestCurrentLocation({ applyToBoost: false });
+      const id = setTimeout(() => {
+        requestCurrentLocation({ applyToBoost: false });
+      }, 400); // defer until after first paint
+      return () => clearTimeout(id);
     }
   }, [requestCurrentLocation]);
 
@@ -597,6 +601,8 @@ export default function Dashboard({ user, setUser }) {
   useEffect(() => {
     fetchFeaturedItems();
     fetchFeaturedUsers();
+    // Also fetch current boosts without blocking render
+    fetchActiveBoosts();
   }, []);
 
   // Auto-transition images for each featured user
@@ -1983,8 +1989,35 @@ export default function Dashboard({ user, setUser }) {
           </Button>
         </Box>
         {loadingFeaturedUsers ? (
-          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-            <CircularProgress sx={{ color: "#D4AF37" }} />
+          <Box
+            sx={{
+              display: "flex",
+              gap: 2,
+              flexDirection: { xs: "column", sm: "row" },
+              flexWrap: "wrap",
+            }}
+          >
+            {Array.from({ length: 10 }).map((_, idx) => (
+              <Card
+                key={`fu-skel-${idx}`}
+                sx={{
+                  flex: {
+                    xs: "0 0 100%",
+                    sm: "0 0 calc(50% - 8px)",
+                    md: "0 0 calc(20% - 16px)",
+                  },
+                  borderRadius: "12px",
+                  overflow: "hidden",
+                  border: "1px solid rgba(212, 175, 55, 0.2)",
+                }}
+              >
+                <Skeleton variant="rectangular" height={200} />
+                <CardContent sx={{ p: 2 }}>
+                  <Skeleton width="60%" />
+                  <Skeleton width="40%" />
+                </CardContent>
+              </Card>
+            ))}
           </Box>
         ) : featuredUsers.length > 0 ? (
           <Box
@@ -2046,6 +2079,8 @@ export default function Dashboard({ user, setUser }) {
                         height: 200,
                         overflow: "hidden",
                         bgcolor: "rgba(212, 175, 55, 0.1)",
+                            contentVisibility: "auto",
+                            containIntrinsicSize: "300px 200px",
                       }}
                     >
                       {images.map((image, index) => (
@@ -2053,6 +2088,9 @@ export default function Dashboard({ user, setUser }) {
                           key={`featured-${featuredUser.id}-img-${index}`}
                           component="img"
                           src={image}
+                              loading="lazy"
+                              decoding="async"
+                              fetchpriority="low"
                           alt={featuredUser.name}
                           sx={{
                             position: "absolute",
@@ -2250,8 +2288,35 @@ export default function Dashboard({ user, setUser }) {
           </Button>
         </Box>
         {loadingFeatured ? (
-          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-            <CircularProgress sx={{ color: "#D4AF37" }} />
+          <Box
+            sx={{
+              display: "flex",
+              gap: 2,
+              flexDirection: { xs: "column", sm: "row" },
+              flexWrap: "wrap",
+            }}
+          >
+            {Array.from({ length: 6 }).map((_, idx) => (
+              <Card
+                key={`fi-skel-${idx}`}
+                sx={{
+                  flex: {
+                    xs: "0 0 100%",
+                    sm: "0 0 calc(50% - 8px)",
+                    md: "0 0 calc(33.333% - 14px)",
+                  },
+                  borderRadius: "12px",
+                  overflow: "hidden",
+                  border: "1px solid rgba(212, 175, 55, 0.2)",
+                }}
+              >
+                <Skeleton variant="rectangular" height={180} />
+                <CardContent sx={{ p: 2 }}>
+                  <Skeleton width="70%" />
+                  <Skeleton width="40%" />
+                </CardContent>
+              </Card>
+            ))}
           </Box>
         ) : featuredItems.length > 0 ? (
           <Box
