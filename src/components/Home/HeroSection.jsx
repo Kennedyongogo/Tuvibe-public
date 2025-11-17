@@ -1120,6 +1120,483 @@ export default function HeroSection() {
             }}
           />
         </Box>
+
+        {/* Matching Hearts Animation - Two hearts coming together */}
+        <Box
+          sx={{
+            position: "absolute",
+            left: "50%",
+            top: { xs: "15%", md: "18%" },
+            transform: "translateX(-50%)",
+            display: "flex",
+            gap: { xs: 3, md: 4 },
+            zIndex: 3,
+            "& > *:first-of-type": {
+              animation: "heartMatchLeft 6s ease-in-out infinite",
+              animationDelay: "2s",
+            },
+            "& > *:last-of-type": {
+              animation: "heartMatchRight 6s ease-in-out infinite",
+              animationDelay: "2s",
+            },
+          }}
+        >
+          <Favorite
+            sx={{
+              fontSize: { xs: "1.5rem", md: "2rem" },
+              color: "#ff6b9d",
+              filter: "drop-shadow(0 4px 12px rgba(255, 107, 157, 0.6))",
+              animation: "heartPulse 2s ease-in-out infinite",
+            }}
+          />
+          <Favorite
+            sx={{
+              fontSize: { xs: "1.5rem", md: "2rem" },
+              color: "#ff6b9d",
+              filter: "drop-shadow(0 4px 12px rgba(255, 107, 157, 0.6))",
+              animation: "heartPulse 2s ease-in-out infinite 0.5s",
+            }}
+          />
+        </Box>
+
+        {/* Pulsing Connection Nodes */}
+        {[...Array(6)].map((_, i) => (
+          <Box
+            key={`node-${i}`}
+            sx={{
+              position: "absolute",
+              left: `${15 + i * 12}%`,
+              top: `${20 + (i % 3) * 25}%`,
+              width: { xs: "8px", md: "12px" },
+              height: { xs: "8px", md: "12px" },
+              borderRadius: "50%",
+              background:
+                "radial-gradient(circle, rgba(255, 215, 0, 0.8) 0%, rgba(212, 175, 55, 0.4) 50%, transparent 100%)",
+              boxShadow: "0 0 20px rgba(255, 215, 0, 0.6)",
+              animation: `pulseNode ${3 + i * 0.5}s ease-in-out infinite`,
+              animationDelay: `${i * 0.3}s`,
+              zIndex: 2,
+            }}
+          />
+        ))}
+
+        {/* Animated Connection Lines */}
+        <svg
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            zIndex: 1,
+            pointerEvents: "none",
+            opacity: 0.3,
+          }}
+        >
+          <defs>
+            <linearGradient
+              id="lineGradient"
+              x1="0%"
+              y1="0%"
+              x2="100%"
+              y2="100%"
+            >
+              <stop offset="0%" stopColor="#ff6b9d" stopOpacity="0.6" />
+              <stop offset="50%" stopColor="#D4AF37" stopOpacity="0.4" />
+              <stop offset="100%" stopColor="#25D366" stopOpacity="0.6" />
+            </linearGradient>
+          </defs>
+          <path
+            d="M 15% 25% Q 30% 35%, 50% 30% T 85% 25%"
+            stroke="url(#lineGradient)"
+            strokeWidth="2"
+            fill="none"
+            strokeDasharray="5,5"
+            style={{
+              animation: "dashMove 8s linear infinite",
+            }}
+          />
+          <path
+            d="M 10% 60% Q 35% 50%, 60% 55% T 90% 60%"
+            stroke="url(#lineGradient)"
+            strokeWidth="2"
+            fill="none"
+            strokeDasharray="5,5"
+            style={{
+              animation: "dashMove 10s linear infinite reverse",
+            }}
+          />
+          <path
+            d="M 20% 75% Q 40% 65%, 50% 70% T 80% 75%"
+            stroke="url(#lineGradient)"
+            strokeWidth="2"
+            fill="none"
+            strokeDasharray="5,5"
+            style={{
+              animation: "dashMove 12s linear infinite",
+            }}
+          />
+        </svg>
+
+        {/* Sparkle/Glitter Effects */}
+        {[...Array(12)].map((_, i) => (
+          <Box
+            key={`sparkle-${i}`}
+            sx={{
+              position: "absolute",
+              left: `${5 + i * 7.5}%`,
+              top: `${10 + (i % 4) * 20}%`,
+              width: { xs: "4px", md: "6px" },
+              height: { xs: "4px", md: "6px" },
+              background:
+                "radial-gradient(circle, rgba(255, 255, 255, 1) 0%, rgba(255, 215, 0, 0.8) 50%, transparent 100%)",
+              borderRadius: "50%",
+              boxShadow:
+                "0 0 10px rgba(255, 215, 0, 0.8), 0 0 20px rgba(255, 255, 255, 0.6)",
+              animation: `sparkle ${2 + (i % 3)}s ease-in-out infinite`,
+              animationDelay: `${i * 0.2}s`,
+              zIndex: 2,
+              "&::before": {
+                content: '""',
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                width: "200%",
+                height: "1px",
+                background:
+                  "linear-gradient(90deg, transparent, rgba(255, 215, 0, 0.8), transparent)",
+                animation: `sparkleRotate ${3 + (i % 2)}s linear infinite`,
+              },
+              "&::after": {
+                content: '""',
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%) rotate(90deg)",
+                width: "200%",
+                height: "1px",
+                background:
+                  "linear-gradient(90deg, transparent, rgba(255, 215, 0, 0.8), transparent)",
+                animation: `sparkleRotate ${3 + (i % 2)}s linear infinite`,
+              },
+            }}
+          />
+        ))}
+
+        {/* Floating Love Bubbles */}
+        {[...Array(8)].map((_, i) => (
+          <Box
+            key={`bubble-${i}`}
+            sx={{
+              position: "absolute",
+              left: `${10 + i * 11}%`,
+              bottom: `${5 + (i % 3) * 8}%`,
+              width: { xs: "20px", md: "30px" },
+              height: { xs: "20px", md: "30px" },
+              borderRadius: "50%",
+              background:
+                "radial-gradient(circle, rgba(255, 107, 157, 0.3) 0%, rgba(255, 192, 203, 0.2) 50%, transparent 100%)",
+              border: "2px solid rgba(255, 107, 157, 0.4)",
+              animation: `bubbleFloat ${4 + (i % 3)}s ease-in-out infinite`,
+              animationDelay: `${i * 0.4}s`,
+              zIndex: 1,
+              "&::before": {
+                content: '"💕"',
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                fontSize: { xs: "10px", md: "14px" },
+                opacity: 0.7,
+              },
+            }}
+          />
+        ))}
+
+        {/* Floating Profile Cards - Realistic Dating App Cards */}
+        {[...Array(4)].map((_, i) => {
+          const names = ["Alex", "Sam", "Jordan", "Taylor"];
+          const ages = [25, 28, 24, 27];
+          const avatars = ["👤", "👩", "👨", "👤"];
+          return (
+            <Box
+              key={`profileCard-${i}`}
+              sx={{
+                position: "absolute",
+                left: `${20 + i * 20}%`,
+                top: `${15 + (i % 2) * 30}%`,
+                width: { xs: "70px", md: "95px" },
+                height: { xs: "110px", md: "140px" },
+                borderRadius: "16px",
+                background:
+                  "linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 248, 220, 0.2) 100%)",
+                backdropFilter: "blur(12px)",
+                border: "2px solid rgba(255, 255, 255, 0.4)",
+                boxShadow:
+                  "0 8px 32px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.1) inset",
+                animation: `profileCardFloat ${6 + i * 0.5}s ease-in-out infinite`,
+                animationDelay: `${i * 1.2}s`,
+                zIndex: 2,
+                overflow: "hidden",
+                display: "flex",
+                flexDirection: "column",
+                p: { xs: 0.75, md: 1 },
+                "&::before": {
+                  content: '""',
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: "55%",
+                  background:
+                    "linear-gradient(135deg, rgba(255, 107, 157, 0.25) 0%, rgba(255, 192, 203, 0.2) 50%, rgba(212, 175, 55, 0.15) 100%)",
+                  borderRadius: "12px 12px 0 0",
+                  zIndex: 0,
+                },
+              }}
+            >
+              {/* Profile Picture Area */}
+              <Box
+                sx={{
+                  position: "relative",
+                  width: { xs: "45px", md: "60px" },
+                  height: { xs: "45px", md: "60px" },
+                  borderRadius: "50%",
+                  background:
+                    "linear-gradient(135deg, rgba(255, 107, 157, 0.4) 0%, rgba(255, 192, 203, 0.3) 50%, rgba(212, 175, 55, 0.3) 100%)",
+                  border: "3px solid rgba(255, 255, 255, 0.6)",
+                  boxShadow:
+                    "0 4px 12px rgba(0, 0, 0, 0.2), inset 0 0 20px rgba(255, 255, 255, 0.3)",
+                  mx: "auto",
+                  mt: { xs: 0.5, md: 0.75 },
+                  mb: { xs: 0.5, md: 0.75 },
+                  zIndex: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: { xs: "24px", md: "32px" },
+                  "&::after": {
+                    content: `"${avatars[i]}"`,
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    transform: "translate(-50%, -50%)",
+                    opacity: 0.8,
+                  },
+                }}
+              />
+
+              {/* Name and Age */}
+              <Box
+                sx={{
+                  position: "relative",
+                  zIndex: 1,
+                  textAlign: "center",
+                  mt: "auto",
+                  mb: { xs: 0.5, md: 0.75 },
+                }}
+              >
+                <Typography
+                  sx={{
+                    fontSize: { xs: "0.65rem", md: "0.8rem" },
+                    fontWeight: 700,
+                    color: "rgba(0, 0, 0, 0.85)",
+                    textShadow: "0 1px 3px rgba(255, 255, 255, 0.8)",
+                    lineHeight: 1.2,
+                    mb: 0.25,
+                  }}
+                >
+                  {names[i]}
+                </Typography>
+                <Typography
+                  sx={{
+                    fontSize: { xs: "0.55rem", md: "0.7rem" },
+                    fontWeight: 500,
+                    color: "rgba(0, 0, 0, 0.65)",
+                    textShadow: "0 1px 2px rgba(255, 255, 255, 0.6)",
+                    lineHeight: 1,
+                  }}
+                >
+                  {ages[i]}
+                </Typography>
+              </Box>
+
+              {/* Decorative Elements */}
+              <Box
+                sx={{
+                  position: "absolute",
+                  bottom: { xs: "12px", md: "15px" },
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  width: "50%",
+                  height: "3px",
+                  background: "rgba(255, 255, 255, 0.6)",
+                  borderRadius: "2px",
+                  zIndex: 1,
+                }}
+              />
+            </Box>
+          );
+        })}
+
+        {/* Heart Burst Particles - When hearts match */}
+        {[...Array(12)].map((_, i) => {
+          const angle = i * 30 * (Math.PI / 180); // 30 degrees per heart
+          const distance = 80;
+          const x = Math.cos(angle) * distance;
+          const y = Math.sin(angle) * distance;
+          return (
+            <Box
+              key={`heartBurst-${i}`}
+              sx={{
+                position: "absolute",
+                left: `calc(50% + ${x}px)`,
+                top: { xs: `calc(15% + ${y}px)`, md: `calc(18% + ${y}px)` },
+                width: { xs: "8px", md: "12px" },
+                height: { xs: "8px", md: "12px" },
+                transform: "translate(-50%, -50%)",
+                animation: `heartBurst ${2 + (i % 3) * 0.3}s ease-out infinite`,
+                animationDelay: `${(i % 3) * 0.2}s`,
+                zIndex: 4,
+                "&::before": {
+                  content: '"❤️"',
+                  position: "absolute",
+                  fontSize: { xs: "8px", md: "12px" },
+                  animation: `heartBurstRotate ${1.5 + (i % 2) * 0.3}s linear infinite`,
+                },
+              }}
+            />
+          );
+        })}
+
+        {/* Connection Ripple Waves - Like when two people connect */}
+        {[...Array(3)].map((_, i) => (
+          <Box
+            key={`ripple-${i}`}
+            sx={{
+              position: "absolute",
+              left: "50%",
+              top: { xs: "15%", md: "18%" },
+              transform: "translate(-50%, -50%)",
+              width: { xs: "100px", md: "150px" },
+              height: { xs: "100px", md: "150px" },
+              borderRadius: "50%",
+              border: "2px solid rgba(255, 107, 157, 0.4)",
+              animation: `rippleWave ${3 + i * 0.5}s ease-out infinite`,
+              animationDelay: `${i * 1}s`,
+              zIndex: 3,
+            }}
+          />
+        ))}
+
+        {/* Floating Chat Message Bubbles */}
+        {[...Array(5)].map((_, i) => (
+          <Box
+            key={`chatBubble-${i}`}
+            sx={{
+              position: "absolute",
+              left: `${15 + (i % 3) * 25}%`,
+              top: `${25 + (i % 2) * 35}%`,
+              width: { xs: "50px", md: "70px" },
+              minHeight: { xs: "30px", md: "40px" },
+              background:
+                "linear-gradient(135deg, rgba(37, 211, 102, 0.2) 0%, rgba(18, 140, 126, 0.15) 100%)",
+              backdropFilter: "blur(8px)",
+              border: "1.5px solid rgba(37, 211, 102, 0.4)",
+              borderRadius: "18px 18px 18px 4px",
+              boxShadow: "0 4px 12px rgba(37, 211, 102, 0.2)",
+              animation: `chatBubbleFloat ${5 + i * 0.4}s ease-in-out infinite`,
+              animationDelay: `${i * 0.8}s`,
+              zIndex: 2,
+              "&::before": {
+                content: '"💬"',
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                fontSize: { xs: "16px", md: "20px" },
+                opacity: 0.8,
+              },
+              "&::after": {
+                content: '""',
+                position: "absolute",
+                bottom: "-8px",
+                left: "10px",
+                width: 0,
+                height: 0,
+                borderLeft: "8px solid transparent",
+                borderRight: "8px solid transparent",
+                borderTop: "8px solid rgba(37, 211, 102, 0.2)",
+              },
+            }}
+          />
+        ))}
+
+        {/* Floating Profile Avatars - Circular avatars */}
+        {[...Array(6)].map((_, i) => (
+          <Box
+            key={`avatar-${i}`}
+            sx={{
+              position: "absolute",
+              left: `${10 + (i % 3) * 30}%`,
+              top: `${20 + Math.floor(i / 3) * 40}%`,
+              width: { xs: "40px", md: "55px" },
+              height: { xs: "40px", md: "55px" },
+              borderRadius: "50%",
+              background:
+                "linear-gradient(135deg, rgba(255, 107, 157, 0.3) 0%, rgba(255, 192, 203, 0.2) 50%, rgba(212, 175, 55, 0.2) 100%)",
+              border: "3px solid rgba(255, 255, 255, 0.5)",
+              boxShadow:
+                "0 4px 20px rgba(255, 107, 157, 0.3), inset 0 0 20px rgba(255, 255, 255, 0.2)",
+              animation: `avatarFloat ${4 + (i % 3) * 0.5}s ease-in-out infinite`,
+              animationDelay: `${i * 0.6}s`,
+              zIndex: 2,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              "&::before": {
+                content: '"👤"',
+                fontSize: { xs: "20px", md: "28px" },
+                opacity: 0.7,
+              },
+            }}
+          />
+        ))}
+
+        {/* Notification Badges - Pulsing notification dots */}
+        {[...Array(4)].map((_, i) => (
+          <Box
+            key={`notification-${i}`}
+            sx={{
+              position: "absolute",
+              left: `${25 + (i % 2) * 50}%`,
+              top: `${30 + Math.floor(i / 2) * 30}%`,
+              width: { xs: "12px", md: "16px" },
+              height: { xs: "12px", md: "16px" },
+              borderRadius: "50%",
+              background:
+                "radial-gradient(circle, rgba(255, 0, 0, 0.9) 0%, rgba(255, 0, 0, 0.6) 50%, transparent 100%)",
+              boxShadow: "0 0 15px rgba(255, 0, 0, 0.6)",
+              animation: `notificationPulse ${2 + (i % 2) * 0.5}s ease-in-out infinite`,
+              animationDelay: `${i * 0.5}s`,
+              zIndex: 3,
+              "&::before": {
+                content: '""',
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                width: "100%",
+                height: "100%",
+                borderRadius: "50%",
+                background: "rgba(255, 0, 0, 0.4)",
+                animation: `notificationRipple ${2 + (i % 2) * 0.5}s ease-out infinite`,
+                animationDelay: `${i * 0.5}s`,
+              },
+            }}
+          />
+        ))}
       </Box>
 
       {/* Content Overlay */}
@@ -1298,7 +1775,10 @@ export default function HeroSection() {
                 variant="contained"
                 startIcon={
                   <PersonAdd
-                    sx={{ fontSize: { xs: "1.1rem", md: "1.25rem" } }}
+                    sx={{
+                      fontSize: { xs: "1.1rem", md: "1.25rem" },
+                      transition: "transform 0.3s ease",
+                    }}
                   />
                 }
                 onClick={handleRegister}
@@ -1337,6 +1817,19 @@ export default function HeroSection() {
                       "linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent)",
                     transition: "left 0.6s ease",
                   },
+                  "&::after": {
+                    content: '""',
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    width: 0,
+                    height: 0,
+                    borderRadius: "50%",
+                    background:
+                      "radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, transparent 70%)",
+                    transform: "translate(-50%, -50%)",
+                    transition: "width 0.6s ease, height 0.6s ease",
+                  },
                   "&:hover": {
                     background:
                       "linear-gradient(135deg, #ffd700 0%, #f7c948 25%, #e6b800 50%, #d4af37 75%, #b8941f 100%)",
@@ -1351,6 +1844,13 @@ export default function HeroSection() {
                     "&::before": {
                       left: "100%",
                     },
+                    "&::after": {
+                      width: "300px",
+                      height: "300px",
+                    },
+                    "& .MuiButton-startIcon": {
+                      transform: "rotate(360deg) scale(1.2)",
+                    },
                   },
                   "&:active": {
                     transform: "translateY(0) scale(1)",
@@ -1364,6 +1864,7 @@ export default function HeroSection() {
                   "& .MuiButton-startIcon": {
                     marginRight: { xs: "8px", md: "10px" },
                     marginLeft: 0,
+                    transition: "transform 0.4s ease",
                   },
                 }}
               >
@@ -1372,7 +1873,12 @@ export default function HeroSection() {
               <Button
                 variant="outlined"
                 startIcon={
-                  <Login sx={{ fontSize: { xs: "1.1rem", md: "1.25rem" } }} />
+                  <Login
+                    sx={{
+                      fontSize: { xs: "1.1rem", md: "1.25rem" },
+                      transition: "transform 0.3s ease",
+                    }}
+                  />
                 }
                 onClick={handleLogin}
                 fullWidth
@@ -1413,6 +1919,19 @@ export default function HeroSection() {
                       "linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent)",
                     transition: "left 0.6s ease",
                   },
+                  "&::after": {
+                    content: '""',
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    width: 0,
+                    height: 0,
+                    borderRadius: "50%",
+                    background:
+                      "radial-gradient(circle, rgba(255, 215, 0, 0.2) 0%, transparent 70%)",
+                    transform: "translate(-50%, -50%)",
+                    transition: "width 0.6s ease, height 0.6s ease",
+                  },
                   "&:hover": {
                     backgroundColor: "rgba(255, 255, 255, 0.45)",
                     borderColor: "rgba(255, 255, 255, 0.8)",
@@ -1429,6 +1948,13 @@ export default function HeroSection() {
                     "&::before": {
                       left: "100%",
                     },
+                    "&::after": {
+                      width: "300px",
+                      height: "300px",
+                    },
+                    "& .MuiButton-startIcon": {
+                      transform: "translateX(5px) scale(1.2)",
+                    },
                   },
                   "&:active": {
                     transform: "translateY(0) scale(1)",
@@ -1442,6 +1968,7 @@ export default function HeroSection() {
                   "& .MuiButton-startIcon": {
                     marginRight: { xs: "8px", md: "10px" },
                     marginLeft: 0,
+                    transition: "transform 0.4s ease",
                   },
                 }}
               >
@@ -3232,6 +3759,248 @@ export default function HeroSection() {
             75% {
               transform: translateY(-20px) rotate(-5deg);
               opacity: 0.8;
+            }
+          }
+          
+          @keyframes heartMatchLeft {
+            0%, 100% {
+              transform: translateX(0) scale(1);
+            }
+            25% {
+              transform: translateX(20px) scale(1.1);
+            }
+            50% {
+              transform: translateX(40px) scale(1.2);
+            }
+            75% {
+              transform: translateX(20px) scale(1.1);
+            }
+          }
+          
+          @keyframes heartMatchRight {
+            0%, 100% {
+              transform: translateX(0) scale(1);
+            }
+            25% {
+              transform: translateX(-20px) scale(1.1);
+            }
+            50% {
+              transform: translateX(-40px) scale(1.2);
+            }
+            75% {
+              transform: translateX(-20px) scale(1.1);
+            }
+          }
+          
+          @keyframes heartPulse {
+            0%, 100% {
+              transform: scale(1);
+              opacity: 0.8;
+            }
+            50% {
+              transform: scale(1.3);
+              opacity: 1;
+            }
+          }
+          
+          @keyframes pulseNode {
+            0%, 100% {
+              transform: scale(1);
+              opacity: 0.6;
+              box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+            }
+            50% {
+              transform: scale(1.5);
+              opacity: 1;
+              box-shadow: 0 0 40px rgba(255, 215, 0, 0.9), 0 0 60px rgba(255, 215, 0, 0.6);
+            }
+          }
+          
+          @keyframes dashMove {
+            0% {
+              stroke-dashoffset: 0;
+              opacity: 0.3;
+            }
+            50% {
+              opacity: 0.6;
+            }
+            100% {
+              stroke-dashoffset: 50;
+              opacity: 0.3;
+            }
+          }
+          
+          @keyframes sparkle {
+            0%, 100% {
+              transform: scale(1) rotate(0deg);
+              opacity: 0.6;
+            }
+            25% {
+              transform: scale(1.5) rotate(90deg);
+              opacity: 1;
+            }
+            50% {
+              transform: scale(1.2) rotate(180deg);
+              opacity: 0.8;
+            }
+            75% {
+              transform: scale(1.5) rotate(270deg);
+              opacity: 1;
+            }
+          }
+          
+          @keyframes sparkleRotate {
+            0% {
+              transform: translate(-50%, -50%) rotate(0deg);
+              opacity: 0.8;
+            }
+            50% {
+              opacity: 1;
+            }
+            100% {
+              transform: translate(-50%, -50%) rotate(360deg);
+              opacity: 0.8;
+            }
+          }
+          
+          @keyframes bubbleFloat {
+            0% {
+              transform: translateY(0) translateX(0) scale(1);
+              opacity: 0.4;
+            }
+            33% {
+              transform: translateY(-30px) translateX(10px) scale(1.1);
+              opacity: 0.7;
+            }
+            66% {
+              transform: translateY(-60px) translateX(-5px) scale(1.2);
+              opacity: 0.9;
+            }
+            100% {
+              transform: translateY(-100px) translateX(0) scale(0.8);
+              opacity: 0;
+            }
+          }
+          
+          @keyframes profileCardFloat {
+            0%, 100% {
+              transform: translateY(0) rotate(0deg);
+              opacity: 0.6;
+            }
+            25% {
+              transform: translateY(-15px) rotate(2deg);
+              opacity: 0.8;
+            }
+            50% {
+              transform: translateY(-25px) rotate(0deg);
+              opacity: 0.9;
+            }
+            75% {
+              transform: translateY(-15px) rotate(-2deg);
+              opacity: 0.8;
+            }
+          }
+          
+          @keyframes heartBurst {
+            0% {
+              transform: translate(-50%, -50%) scale(0) rotate(0deg);
+              opacity: 1;
+            }
+            30% {
+              transform: translate(-50%, -50%) scale(1.2) rotate(120deg);
+              opacity: 0.9;
+            }
+            60% {
+              transform: translate(-50%, -50%) scale(1.5) rotate(240deg);
+              opacity: 0.6;
+            }
+            100% {
+              transform: translate(-50%, -50%) scale(2) rotate(360deg);
+              opacity: 0;
+            }
+          }
+          
+          @keyframes heartBurstRotate {
+            0% {
+              transform: rotate(0deg) scale(1);
+            }
+            50% {
+              transform: rotate(180deg) scale(1.2);
+            }
+            100% {
+              transform: rotate(360deg) scale(1);
+            }
+          }
+          
+          @keyframes rippleWave {
+            0% {
+              transform: translate(-50%, -50%) scale(0.5);
+              opacity: 0.8;
+              border-width: 3px;
+            }
+            50% {
+              opacity: 0.4;
+            }
+            100% {
+              transform: translate(-50%, -50%) scale(2.5);
+              opacity: 0;
+              border-width: 1px;
+            }
+          }
+          
+          @keyframes chatBubbleFloat {
+            0%, 100% {
+              transform: translateY(0) translateX(0);
+              opacity: 0.7;
+            }
+            25% {
+              transform: translateY(-20px) translateX(5px);
+              opacity: 0.9;
+            }
+            50% {
+              transform: translateY(-35px) translateX(-3px);
+              opacity: 1;
+            }
+            75% {
+              transform: translateY(-20px) translateX(5px);
+              opacity: 0.9;
+            }
+          }
+          
+          @keyframes avatarFloat {
+            0%, 100% {
+              transform: translateY(0) scale(1);
+              opacity: 0.7;
+            }
+            33% {
+              transform: translateY(-25px) scale(1.1);
+              opacity: 0.9;
+            }
+            66% {
+              transform: translateY(-40px) scale(1.05);
+              opacity: 1;
+            }
+          }
+          
+          @keyframes notificationPulse {
+            0%, 100% {
+              transform: scale(1);
+              opacity: 0.9;
+            }
+            50% {
+              transform: scale(1.3);
+              opacity: 1;
+            }
+          }
+          
+          @keyframes notificationRipple {
+            0% {
+              transform: translate(-50%, -50%) scale(1);
+              opacity: 0.6;
+            }
+            100% {
+              transform: translate(-50%, -50%) scale(2.5);
+              opacity: 0;
             }
           }
         `}
