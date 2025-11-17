@@ -67,7 +67,7 @@ export default function Explore({ user }) {
     county: "",
     category: "",
     online: "",
-    search: "",
+    username: "",
   });
 
   // Location search
@@ -113,7 +113,7 @@ export default function Explore({ user }) {
       if (filters.county) queryParams.append("county", filters.county);
       if (filters.category) queryParams.append("category", filters.category);
       if (filters.online) queryParams.append("online", filters.online);
-      if (filters.search) queryParams.append("q", filters.search);
+      if (filters.username) queryParams.append("q", filters.username);
 
       // Add location-based search parameters
       if (nearbyEnabled) {
@@ -272,7 +272,7 @@ export default function Explore({ user }) {
       county: "",
       category: "",
       online: "",
-      search: "",
+      username: "",
     });
     setPage(1);
   };
@@ -685,7 +685,7 @@ export default function Explore({ user }) {
           {(filters.county ||
             filters.category ||
             filters.online ||
-            filters.search) && (
+            filters.username) && (
             <Button
               startIcon={<Clear />}
               onClick={handleClearFilters}
@@ -703,18 +703,47 @@ export default function Explore({ user }) {
         </Box>
 
         <Grid container spacing={2}>
-          {/* Search */}
-          <Grid item xs={12} sm={6} md={4}>
+          {/* Username Search */}
+          <Grid item xs={12} sm={6} md={3}>
             <TextField
               fullWidth
-              placeholder="Search by name or county..."
-              value={filters.search}
-              onChange={(e) => handleFilterChange("search", e.target.value)}
+              placeholder="Search by username..."
+              value={filters.username}
+              onChange={(e) => handleFilterChange("username", e.target.value)}
               size="small"
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
                     <Search sx={{ color: "#D4AF37" }} />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: "12px",
+                  "&:hover fieldset": {
+                    borderColor: "rgba(212, 175, 55, 0.5)",
+                  },
+                  "&.Mui-focused fieldset": {
+                    borderColor: "#D4AF37",
+                  },
+                },
+              }}
+            />
+          </Grid>
+
+          {/* County Search */}
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField
+              fullWidth
+              placeholder="Search by county..."
+              value={filters.county}
+              onChange={(e) => handleFilterChange("county", e.target.value)}
+              size="small"
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <LocationOn sx={{ color: "#D4AF37", fontSize: "1.2rem" }} />
                   </InputAdornment>
                 ),
               }}
@@ -763,35 +792,6 @@ export default function Explore({ user }) {
                 <MenuItem value="Urban Chics">Urban Chics</MenuItem>
               </Select>
             </FormControl>
-          </Grid>
-
-          {/* County Filter */}
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              fullWidth
-              placeholder="County"
-              value={filters.county}
-              onChange={(e) => handleFilterChange("county", e.target.value)}
-              size="small"
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <LocationOn sx={{ color: "#D4AF37", fontSize: "1.2rem" }} />
-                  </InputAdornment>
-                ),
-              }}
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: "12px",
-                  "&:hover fieldset": {
-                    borderColor: "rgba(212, 175, 55, 0.5)",
-                  },
-                  "&.Mui-focused fieldset": {
-                    borderColor: "#D4AF37",
-                  },
-                },
-              }}
-            />
           </Grid>
 
           {/* Online Status Filter */}
@@ -1032,9 +1032,9 @@ export default function Explore({ user }) {
                                   key={`${userData.id}-img-${index}`}
                                   component="img"
                                   src={image}
-                    loading="lazy"
-                    decoding="async"
-                    fetchpriority="low"
+                                  loading="lazy"
+                                  decoding="async"
+                                  fetchpriority="low"
                                   alt={getDisplayName(userData, {
                                     fallback: "Member",
                                   })}
