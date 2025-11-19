@@ -273,6 +273,7 @@ export default function UpgradeDialog({ open, onClose }) {
             <Star sx={{ color: "#D4AF37" }} />
             <Typography
               variant="h6"
+              component="div"
               sx={{ fontWeight: 600, ...(isSmallScreen ? smallFonts.h6 : {}) }}
             >
               Upgrade to Premium
@@ -299,6 +300,7 @@ export default function UpgradeDialog({ open, onClose }) {
             </Typography>
             <Typography
               variant="h6"
+              component="div"
               sx={{
                 fontWeight: 700,
                 color: "#D4AF37",

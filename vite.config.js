@@ -11,7 +11,8 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       devOptions: {
-        enabled: true, // so updates work during dev too
+        enabled: false, // Disable PWA in dev to suppress Workbox logs
+        type: "module",
       },
       workbox: {
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB limit
@@ -24,8 +25,15 @@ export default defineConfig({
             // All API routes go directly to network - no precaching
             urlPattern: ({ url }) => url.pathname.startsWith("/api"),
             handler: "NetworkOnly",
+            options: {
+              cacheName: "api-cache",
+            },
           },
         ],
+        // Suppress Workbox verbose logs
+        // Note: Workbox logs are controlled by the service worker itself
+        // We'll suppress them via a custom script injection
+        additionalManifestEntries: [],
       },
       includeAssets: ["favicon.ico"],
       manifest: {

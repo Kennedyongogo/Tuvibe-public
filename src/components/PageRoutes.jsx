@@ -25,28 +25,7 @@ import Market from "../pages/Market";
 import Reports from "../pages/Reports";
 import SuspensionGate from "./Suspension/SuspensionGate";
 import SuspensionAppealModal from "./Suspension/SuspensionAppealModal";
-
-const hasUserChanged = (prevUser, nextUser) => {
-  if (!prevUser || !nextUser) {
-    return prevUser !== nextUser;
-  }
-
-  const prevKeys = Object.keys(prevUser);
-  const nextKeys = Object.keys(nextUser);
-
-  if (prevKeys.length !== nextKeys.length) {
-    return true;
-  }
-
-  for (let i = 0; i < prevKeys.length; i += 1) {
-    const key = prevKeys[i];
-    if (prevUser[key] !== nextUser[key]) {
-      return true;
-    }
-  }
-
-  return false;
-};
+import useServerSentEvents from "../hooks/useServerSentEvents";
 
 function PageRoutes() {
   const navigate = useNavigate();
@@ -56,7 +35,7 @@ function PageRoutes() {
   const [loading, setLoading] = useState(true);
   const [suspension, setSuspension] = useState(null);
   const [loadingSuspension, setLoadingSuspension] = useState(false);
-  const [suspensionReady, setSuspensionReady] = useState(false);
+  const [suspensionReady, setSuspensionReady] = useState(true); // Start as true to not block UI
   const initialSuspensionCheckRef = useRef(true);
   const prevUserIdRef = useRef(null);
   const [appealOpen, setAppealOpen] = useState(false);
@@ -102,8 +81,7 @@ function PageRoutes() {
   }, [navigate]);
 
   const fetchSuspensionStatus = useCallback(
-    async (shouldGate = false, options = {}) => {
-      const { silent = false } = options;
+    async (shouldGate = false) => {
       const token = localStorage.getItem("token");
       if (!token || !user) {
         setSuspension(null);
@@ -113,10 +91,10 @@ function PageRoutes() {
       }
 
       try {
-        if (!silent) {
-          setLoadingSuspension(true);
-        }
-        if (initialSuspensionCheckRef.current || shouldGate) {
+        setLoadingSuspension(true);
+        // Don't block UI - allow skeleton loaders to show immediately
+        // Only block if we're gating (showing SuspensionGate)
+        if (shouldGate) {
           setSuspensionReady(false);
         }
         const response = await fetch("/api/suspensions/me/status", {
@@ -142,9 +120,7 @@ function PageRoutes() {
       } catch (error) {
         console.error("[PageRoutes] fetchSuspensionStatus error:", error);
       } finally {
-        if (!silent) {
-          setLoadingSuspension(false);
-        }
+        setLoadingSuspension(false);
         setSuspensionReady(true);
         initialSuspensionCheckRef.current = false;
       }
@@ -208,18 +184,6 @@ function PageRoutes() {
   }, [navigate]);
 
   const handleSuspensionUpdated = useCallback((updated) => {
-    if (typeof updated === "function") {
-      setSuspension((prev) => {
-        const nextValue = updated(prev);
-        if (!nextValue || nextValue.status === "revoked") {
-          setAppealOpen(false);
-          return null;
-        }
-        return nextValue;
-      });
-      return;
-    }
-
     if (!updated || updated.status === "revoked") {
       setSuspension(null);
       setAppealOpen(false);
@@ -232,6 +196,97 @@ function PageRoutes() {
     }));
   }, []);
 
+  const handleUserUpdated = useCallback(
+    (updatedUserData) => {
+      if (!updatedUserData) return;
+
+      const updatedUser = { ...updatedUserData };
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+      setUser(updatedUser);
+
+      // Also refresh suspension status when user is updated
+      fetchSuspensionStatus(false);
+    },
+    [fetchSuspensionStatus]
+  );
+
+  const suspensionHandlers = useMemo(() => {
+    if (!user) return {};
+
+    return {
+      "suspension:update": (payload) => {
+        if (payload?.public_user_id !== user.id) return;
+        handleSuspensionUpdated(payload);
+      },
+      "suspension:revoked": (payload) => {
+        if (payload?.public_user_id !== user.id) return;
+        handleSuspensionUpdated(null);
+      },
+      "suspension:message:new": (payload) => {
+        const suspensionId =
+          payload?.suspensionId || payload?.message?.suspension_id;
+        if (!suspensionId || suspensionId !== suspension?.id) return;
+        if (appealOpen) return;
+
+        const unread =
+          payload?.unreadCounts?.user ??
+          (typeof payload?.unreadCounts === "number"
+            ? payload.unreadCounts
+            : undefined);
+
+        handleSuspensionUpdated({
+          ...(suspension || {}),
+          unreadCount:
+            unread !== undefined ? unread : suspension?.unreadCount || 0,
+        });
+      },
+      "suspension:messages:read": (payload) => {
+        if (payload?.suspensionId !== suspension?.id) return;
+        const unread =
+          payload?.unreadCounts?.user ??
+          (typeof payload?.unreadCounts === "number"
+            ? payload.unreadCounts
+            : 0);
+
+        handleSuspensionUpdated({
+          ...(suspension || {}),
+          unreadCount: unread,
+        });
+      },
+      "user:update": (payload) => {
+        if (payload?.id !== user.id) return;
+        handleUserUpdated(payload);
+      },
+      "user:status": (payload) => {
+        if (payload?.id !== user.id) return;
+        handleUserUpdated(payload);
+      },
+    };
+  }, [
+    user,
+    suspension,
+    handleSuspensionUpdated,
+    appealOpen,
+    handleUserUpdated,
+  ]);
+
+  // Get SSE endpoint URL - memoize to prevent unnecessary reconnections
+  const sseUrl = useMemo(() => {
+    const isDev = import.meta.env.DEV;
+    const protocol = window.location.protocol;
+    const host = window.location.hostname;
+    const apiPort = isDev ? "4000" : window.location.port || "";
+    return isDev
+      ? `${protocol}//${host}:${apiPort}/api/sse/events`
+      : `${protocol}//${host}${apiPort ? `:${apiPort}` : ""}/api/sse/events`;
+  }, []); // Only calculate once on mount
+
+  const sseConnection = useServerSentEvents({
+    url: sseUrl,
+    token: authToken,
+    enabled: Boolean(user && authToken),
+    eventHandlers: suspensionHandlers,
+  });
 
   useEffect(() => {
     checkAuthentication();
@@ -244,11 +299,9 @@ function PageRoutes() {
         initialSuspensionCheckRef.current = true;
         prevUserIdRef.current = user.id;
       }
-      if (isNewUser) {
-        fetchSuspensionStatus(true);
-      } else {
-        fetchSuspensionStatus(false, { silent: true });
-      }
+      // Fetch suspension status in background - don't block UI
+      // Only block if we detect a suspension (shouldGate = false)
+      fetchSuspensionStatus(false);
     } else {
       setSuspension(null);
       setAppealOpen(false);
@@ -290,11 +343,13 @@ function PageRoutes() {
     };
   }, [navigate]);
 
+  // Initial fetch on mount/login - SSE will handle subsequent updates
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token || !user) return;
 
-    const refreshOnlineStatus = async () => {
+    // Only fetch once on initial load - SSE will handle real-time updates
+    const fetchInitialStatus = async () => {
       try {
         const response = await fetch("/api/public/me", {
           headers: {
@@ -307,50 +362,30 @@ function PageRoutes() {
           const data = await response.json();
           if (data.success && data.data) {
             const updatedUser = { ...data.data };
-            let savedUser = null;
-            const savedUserRaw = localStorage.getItem("user");
-            if (savedUserRaw) {
-              try {
-                savedUser = JSON.parse(savedUserRaw);
-              } catch (parseError) {
-                console.error("Failed to parse saved user from storage:", parseError);
-                savedUser = null;
-              }
-            }
-            if (hasUserChanged(savedUser, updatedUser)) {
-              localStorage.setItem("user", JSON.stringify(updatedUser));
-            }
-
-            setUser((prevUser) => {
-              if (!hasUserChanged(prevUser, updatedUser)) {
-                return prevUser;
-              }
-              return updatedUser;
-            });
-            await fetchSuspensionStatus(false, { silent: true });
+            localStorage.setItem("user", JSON.stringify(updatedUser));
+            setUser(updatedUser);
+            // Suspension check already happens in useEffect when user changes
+            // No need to call it again here
           }
         }
       } catch (error) {
-        console.error("Failed to refresh online status:", error);
+        console.error("Failed to fetch initial user status:", error);
       }
     };
 
-    refreshOnlineStatus();
-    const heartbeatInterval = setInterval(refreshOnlineStatus, 2 * 60 * 1000);
-    return () => clearInterval(heartbeatInterval);
-  }, [user, fetchSuspensionStatus]);
-
-  useEffect(() => {
-    if (!user || !authToken) {
-      return undefined;
+    // Only fetch if this is the first time or user changed
+    if (prevUserIdRef.current !== user.id) {
+      fetchInitialStatus();
     }
+    // Removed polling interval - SSE handles real-time updates
+  }, [user?.id, fetchSuspensionStatus]);
 
-    const intervalId = setInterval(() => {
-      fetchSuspensionStatus(false, { silent: true });
-    }, 10000);
-
-    return () => clearInterval(intervalId);
-  }, [user, authToken, fetchSuspensionStatus]);
+  // SSE handles filtering on the server side based on the authenticated user
+  // No need for explicit room joining (unlike WebSockets)
+  useEffect(() => {
+    // SSE connection is managed by useServerSentEvents hook
+    // Events are automatically filtered by user ID on the server side
+  }, [suspension?.id, sseConnection?.isConnected]);
 
   useEffect(() => {
     if (!suspension) {
@@ -358,11 +393,29 @@ function PageRoutes() {
     }
   }, [suspension]);
 
-  // Only block the whole app when we don't yet know the user.
-  // If user exists, render immediately and let suspension gate handle its own loading.
-  const showGlobalLoader = loading && !user;
+  // Only show global loader if we're still checking authentication
+  // Don't block UI for suspension check - let skeleton loaders show
+  const showGlobalLoader = loading;
 
   if (showGlobalLoader) {
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          minHeight: "100vh",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "#FAFAFA",
+        }}
+      >
+        <CircularProgress sx={{ color: "#D4AF37" }} />
+      </Box>
+    );
+  }
+
+  // If suspension check is still loading and we don't have user yet, show loader
+  // Otherwise, show UI immediately with skeleton loaders
+  if (!user) {
     return (
       <Box
         sx={{
@@ -397,7 +450,9 @@ function PageRoutes() {
           minHeight: "100vh",
         }}
       >
-        {suspension ? (
+        {/* Show SuspensionGate if suspension exists, otherwise show routes immediately */}
+        {/* Suspension check happens in background - don't block UI */}
+        {suspension && suspensionReady ? (
           <SuspensionGate
             user={user}
             suspension={suspension}
@@ -432,6 +487,7 @@ function PageRoutes() {
         onClose={() => setAppealOpen(false)}
         suspension={suspension}
         token={authToken}
+        sseConnection={sseConnection}
         onSuspensionUpdated={handleSuspensionUpdated}
       />
     </Box>

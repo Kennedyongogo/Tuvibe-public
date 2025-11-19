@@ -57,6 +57,7 @@ export default function SuspensionAppealModal({
   suspension,
   token,
   onSuspensionUpdated,
+  sseConnection,
 }) {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -81,56 +82,59 @@ export default function SuspensionAppealModal({
     });
   }, []);
 
-  const fetchThread = useCallback(async (silent = false) => {
-    if (!open || !suspensionId || !token) return;
-    try {
-      if (!silent) {
-        setLoading(true);
-      }
-      setError("");
+  const fetchThread = useCallback(
+    async (silent = false) => {
+      if (!open || !suspensionId || !token) return;
+      try {
+        if (!silent) {
+          setLoading(true);
+        }
+        setError("");
 
-      const response = await fetch(
-        `/api/suspensions/me/${suspensionId}/messages`,
-        {
-          method: "GET",
+        const response = await fetch(
+          `/api/suspensions/me/${suspensionId}/messages`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        const payload = await response.json();
+        if (!response.ok || !payload.success) {
+          throw new Error(payload.message || "Failed to load appeal messages.");
+        }
+
+        setMessages(payload.data?.messages || []);
+
+        await fetch(`/api/suspensions/me/${suspensionId}/messages/read`, {
+          method: "PATCH",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-        }
-      );
-      const payload = await response.json();
-      if (!response.ok || !payload.success) {
-        throw new Error(payload.message || "Failed to load appeal messages.");
-      }
-
-      setMessages(payload.data?.messages || []);
-
-      await fetch(`/api/suspensions/me/${suspensionId}/messages/read`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (typeof onSuspensionUpdated === "function") {
-        onSuspensionUpdated({
-          id: suspensionId,
-          unreadCount: 0,
         });
+
+        if (typeof onSuspensionUpdated === "function") {
+          onSuspensionUpdated({
+            id: suspensionId,
+            unreadCount: 0,
+          });
+        }
+      } catch (err) {
+        console.error("[SuspensionAppealModal] fetchThread error:", err);
+        if (!silent) {
+          setError(err.message || "Failed to load appeal messages.");
+        }
+      } finally {
+        if (!silent) {
+          setLoading(false);
+        }
       }
-    } catch (err) {
-      console.error("[SuspensionAppealModal] fetchThread error:", err);
-      if (!silent) {
-        setError(err.message || "Failed to load appeal messages.");
-      }
-    } finally {
-      if (!silent) {
-        setLoading(false);
-      }
-    }
-  }, [open, suspensionId, token, onSuspensionUpdated]);
+    },
+    [open, suspensionId, token, onSuspensionUpdated]
+  );
 
   useEffect(() => {
     if (open && suspensionId) {
@@ -142,17 +146,65 @@ export default function SuspensionAppealModal({
     }
   }, [open, suspensionId, fetchThread]);
 
+  // Listen for real-time message updates via SSE instead of polling
   useEffect(() => {
-    if (!open || !suspensionId) {
-      return undefined;
+    if (!open || !suspensionId || !sseConnection?.eventSource) {
+      return;
     }
 
-    const intervalId = setInterval(() => {
-      fetchThread(true);
-    }, 5000);
+    const eventSource = sseConnection.eventSource;
 
-    return () => clearInterval(intervalId);
-  }, [open, suspensionId, fetchThread]);
+    const handleNewMessage = (payload) => {
+      const messageSuspensionId =
+        payload?.suspensionId || payload?.message?.suspension_id;
+
+      // Only process messages for this suspension
+      if (messageSuspensionId === suspensionId && payload?.message) {
+        appendMessage(payload.message);
+
+        // Mark as read when new message arrives
+        if (token) {
+          fetch(`/api/suspensions/me/${suspensionId}/messages/read`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }).catch((err) => {
+            console.error("Failed to mark messages as read:", err);
+          });
+        }
+
+        // Update suspension unread count
+        if (typeof onSuspensionUpdated === "function") {
+          onSuspensionUpdated({
+            ...suspension,
+            unreadCount: 0,
+          });
+        }
+      }
+    };
+
+    // Listen for suspension message events
+    eventSource.addEventListener("suspension:message:new", (event) => {
+      try {
+        const payload = event.data ? JSON.parse(event.data) : {};
+        handleNewMessage(payload);
+      } catch (err) {
+        console.error("Error parsing SSE message event:", err);
+      }
+    });
+
+    // Cleanup is handled by the SSE hook
+  }, [
+    open,
+    suspensionId,
+    sseConnection?.eventSource,
+    appendMessage,
+    token,
+    onSuspensionUpdated,
+    suspension,
+  ]);
 
   const handleSendMessage = useCallback(async () => {
     if (!messageInput.trim() || !suspensionId || !token) return;

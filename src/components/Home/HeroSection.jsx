@@ -1182,6 +1182,8 @@ export default function HeroSection() {
 
         {/* Animated Connection Lines */}
         <svg
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
           style={{
             position: "absolute",
             top: 0,
@@ -1207,7 +1209,7 @@ export default function HeroSection() {
             </linearGradient>
           </defs>
           <path
-            d="M 15% 25% Q 30% 35%, 50% 30% T 85% 25%"
+            d="M 15 25 Q 30 35, 50 30 T 85 25"
             stroke="url(#lineGradient)"
             strokeWidth="2"
             fill="none"
@@ -1217,7 +1219,7 @@ export default function HeroSection() {
             }}
           />
           <path
-            d="M 10% 60% Q 35% 50%, 60% 55% T 90% 60%"
+            d="M 10 60 Q 35 50, 60 55 T 90 60"
             stroke="url(#lineGradient)"
             strokeWidth="2"
             fill="none"
@@ -1227,7 +1229,7 @@ export default function HeroSection() {
             }}
           />
           <path
-            d="M 20% 75% Q 40% 65%, 50% 70% T 80% 75%"
+            d="M 20 75 Q 40 65, 50 70 T 80 75"
             stroke="url(#lineGradient)"
             strokeWidth="2"
             fill="none"

@@ -321,12 +321,11 @@ export default function PublicHeader() {
                     "linear-gradient(45deg, #D4AF37, #B8941F)";
                 }
               },
+              willClose: () => {
+                // Navigate immediately when SweetAlert closes
+                navigate("/home");
+              },
             });
-
-            setTimeout(() => {
-              // Redirect to home
-              navigate("/home");
-            }, 1500);
           } else {
             const errorMessage =
               data.message || "Invalid email or password. Please try again.";

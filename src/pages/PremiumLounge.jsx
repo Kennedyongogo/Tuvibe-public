@@ -25,7 +25,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
   List,
   ListItem,
   ListItemIcon,
@@ -60,29 +59,18 @@ export default function PremiumLounge({ user }) {
   const [favoriting, setFavoriting] = useState({});
   const [favorites, setFavorites] = useState({});
   const [selectedTab, setSelectedTab] = useState(0);
+  const [tokenCost, setTokenCost] = useState(0);
   const [viewProfileOpen, setViewProfileOpen] = useState(false);
   const [viewingUserId, setViewingUserId] = useState(null);
   const [lookingForPosts, setLookingForPosts] = useState({}); // Map of userId -> post
   const [lookingForDialogOpen, setLookingForDialogOpen] = useState(false);
   const [selectedLookingForPost, setSelectedLookingForPost] = useState(null);
-  const [createPostDialogOpen, setCreatePostDialogOpen] = useState(false);
-  const [createPostContent, setCreatePostContent] = useState("");
-  const [creatingPost, setCreatingPost] = useState(false);
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const [benefitsDialogOpen, setBenefitsDialogOpen] = useState(false);
   const fetchingRef = useRef(false); // Track if we're currently fetching
   const lastFetchedRef = useRef({ category: null, tab: null }); // Track what we last fetched
 
   const isRegularUser = user?.category === "Regular";
-  const premiumCategories = useMemo(
-    () => ["Sugar Mummy", "Sponsor", "Ben 10", "Urban Chics"],
-    []
-  );
-  const isPremiumCategory = useMemo(
-    () => premiumCategories.includes(user?.category ?? ""),
-    [premiumCategories, user?.category]
-  );
-  const isVerifiedPremium = isPremiumCategory && Boolean(user?.isVerified);
   const isSmallScreen = useMediaQuery("(max-width:600px)");
 
   // Handle regular user - automatically open upgrade dialog
@@ -93,14 +81,12 @@ export default function PremiumLounge({ user }) {
     }
   }, [isRegularUser]);
 
-  const categories = useMemo(
-    () =>
-      premiumCategories.map((value) => ({
-        label: value,
-        value,
-      })),
-    [premiumCategories]
-  );
+  const categories = [
+    { label: "Sugar Mummy", value: "Sugar Mummy" },
+    { label: "Sponsor", value: "Sponsor" },
+    { label: "Ben 10", value: "Ben 10" },
+    { label: "Urban Chics", value: "Urban Chics" },
+  ];
 
   const buildImageUrl = (imageUrl) => {
     if (!imageUrl) return "";
@@ -166,6 +152,7 @@ export default function PremiumLounge({ user }) {
       if (data.success) {
         const fetchedUsers = data.data.users || [];
         setUsers(fetchedUsers);
+        setTokenCost(data.data.cost || 0);
 
         // Update last fetched reference
         lastFetchedRef.current = {
@@ -320,127 +307,6 @@ export default function PremiumLounge({ user }) {
     fetchingRef.current = false;
   };
 
-  const currentUserPost = useMemo(() => {
-    if (!user?.id) return null;
-    return lookingForPosts[user.id] || null;
-  }, [lookingForPosts, user?.id]);
-
-  const handleOpenCreatePostDialog = () => {
-    if (!isVerifiedPremium) {
-      Swal.fire({
-        icon: "info",
-        title: "Verification Required",
-        text: "Only verified premium members can create 'Looking For' posts. Complete verification from your profile to proceed.",
-        confirmButtonColor: "#D4AF37",
-      });
-      return;
-    }
-
-    if (!user?.id) {
-      Swal.fire({
-        icon: "warning",
-        title: "Profile Incomplete",
-        text: "We need your profile details before you can create a post. Please update your profile and try again.",
-        confirmButtonColor: "#D4AF37",
-      });
-      return;
-    }
-
-    if (currentUserPost) {
-      Swal.fire({
-        icon: "info",
-        title: "Post Already Created",
-        text: "You already have a 'Looking For' post. Manage it from your profile page where you can edit or delete it.",
-        confirmButtonColor: "#D4AF37",
-      });
-      return;
-    }
-
-    setCreatePostContent("");
-    setCreatePostDialogOpen(true);
-  };
-
-  const handleSubmitCreatePost = async () => {
-    const trimmedContent = createPostContent.trim();
-    if (!trimmedContent) {
-      Swal.fire({
-        icon: "warning",
-        title: "Content Required",
-        text: "Tell members what you're looking for before posting.",
-        confirmButtonColor: "#D4AF37",
-      });
-      return;
-    }
-
-    if (currentUserPost) {
-      Swal.fire({
-        icon: "info",
-        title: "Post Already Created",
-        text: "You already have a 'Looking For' post. Edit or delete it from your profile page instead.",
-        confirmButtonColor: "#D4AF37",
-      });
-      setCreatePostDialogOpen(false);
-      return;
-    }
-
-    const token = localStorage.getItem("token");
-    if (!token) {
-      Swal.fire({
-        icon: "warning",
-        title: "Login Required",
-        text: "Please login again to create a 'Looking For' post.",
-        confirmButtonColor: "#D4AF37",
-      });
-      return;
-    }
-
-    try {
-      setCreatingPost(true);
-      const response = await fetch("/api/posts", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ content: trimmedContent }),
-      });
-
-      const data = await response.json();
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || "Failed to create post");
-      }
-
-      if (user?.id) {
-        setLookingForPosts((prev) => ({
-          ...prev,
-          [user.id]: data.data,
-        }));
-      }
-
-      setCreatePostDialogOpen(false);
-      setCreatePostContent("");
-
-      Swal.fire({
-        icon: "success",
-        title: "Post Created",
-        text: "Your 'Looking For' post is now live. You can edit or delete it from your profile page.",
-        confirmButtonColor: "#D4AF37",
-      });
-    } catch (error) {
-      console.error("Create Looking For post error:", error);
-      Swal.fire({
-        icon: "error",
-        title: "Failed to Post",
-        text:
-          error.message ||
-          "We couldn't create your post right now. Please try again shortly.",
-        confirmButtonColor: "#D4AF37",
-      });
-    } finally {
-      setCreatingPost(false);
-    }
-  };
-
   const handleWhatsAppUnlock = async (targetUserId, targetUserName) => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -471,11 +337,10 @@ export default function PremiumLounge({ user }) {
         throw new Error(costData.message || "Failed to get chat cost");
       }
 
-      const cost = Number(costData.data.cost || 0);
-      const isFreeUnlock = cost === 0;
+      const cost = costData.data.cost;
       const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
 
-      if (!isFreeUnlock && Number(currentUser.token_balance || 0) < cost) {
+      if (Number(currentUser.token_balance || 0) < cost) {
         Swal.fire({
           icon: "warning",
           title: "Insufficient Tokens",
@@ -495,11 +360,9 @@ export default function PremiumLounge({ user }) {
       const confirmResult = await Swal.fire({
         icon: "question",
         title: "Unlock WhatsApp Contact?",
-        html: isFreeUnlock
-          ? `<p><strong>Premium perk!</strong> Unlocking this contact is free.</p>`
-          : `<p>This will cost you <strong>${cost} tokens</strong> (${formatKshFromTokens(cost)})</p><p>Your balance: ${currentUser.token_balance || 0} tokens</p>`,
+        html: `<p>This will cost you <strong>${cost} tokens</strong> (${formatKshFromTokens(cost)})</p><p>Your balance: ${currentUser.token_balance || 0} tokens</p>`,
         showCancelButton: true,
-        confirmButtonText: isFreeUnlock ? "Unlock for Free" : "Unlock",
+        confirmButtonText: "Unlock",
         cancelButtonText: "Cancel",
         confirmButtonColor: "#D4AF37",
       });
@@ -522,15 +385,13 @@ export default function PremiumLounge({ user }) {
       }
 
       if (unlockData.success && unlockData.data) {
-        if (!isFreeUnlock) {
-          const updatedUser = {
-            ...currentUser,
-            token_balance: (
-              Number(currentUser.token_balance || 0) - cost
-            ).toFixed(2),
-          };
-          localStorage.setItem("user", JSON.stringify(updatedUser));
-        }
+        const updatedUser = {
+          ...currentUser,
+          token_balance: (
+            Number(currentUser.token_balance || 0) - cost
+          ).toFixed(2),
+        };
+        localStorage.setItem("user", JSON.stringify(updatedUser));
 
         Swal.fire({
           icon: "success",
@@ -681,6 +542,7 @@ export default function PremiumLounge({ user }) {
         <DialogTitle>
           <Typography
             variant="h6"
+            component="div"
             fontWeight={700}
             sx={isSmallScreen ? { fontSize: "1rem" } : undefined}
           >
@@ -713,8 +575,8 @@ export default function PremiumLounge({ user }) {
                 secondaryTypographyProps={
                   isSmallScreen ? { fontSize: "0.8rem" } : {}
                 }
-                primary="See Who Favorited You"
-                secondary="Know which members added you to their favorites so you only engage with people already interested."
+                primary="Exclusive Access"
+                secondary="Only premium users can enter the private Premium Lounge with verified profiles, curated tabs, and premium-only matchmaking tools."
               />
             </ListItem>
             <ListItem
@@ -731,8 +593,8 @@ export default function PremiumLounge({ user }) {
                 secondaryTypographyProps={
                   isSmallScreen ? { fontSize: "0.8rem" } : {}
                 }
-                primary="Unlimited WhatsApp Unlocks"
-                secondary="Message anyone instantly—no tokens deducted for premium users."
+                primary="Instant Verification & Visibility"
+                secondary="Upgrading makes you instantly verified and boosts your profile’s visibility across Explore, Featured, and search."
               />
             </ListItem>
             <ListItem
@@ -749,8 +611,8 @@ export default function PremiumLounge({ user }) {
                 secondaryTypographyProps={
                   isSmallScreen ? { fontSize: "0.8rem" } : {}
                 }
-                primary="See Who Viewed You"
-                secondary="Find out who’s eyeing your profile and follow up while the interest is fresh."
+                primary="Premium “Looking For” Posts"
+                secondary="Post exclusive “Looking For” ads in the Premium Lounge to attract matches directly."
               />
             </ListItem>
             <ListItem
@@ -767,8 +629,8 @@ export default function PremiumLounge({ user }) {
                 secondaryTypographyProps={
                   isSmallScreen ? { fontSize: "0.8rem" } : {}
                 }
-                primary="Private Account Mode"
-                secondary="Turn on privacy to decide exactly who can see your profile—ideal for discreet connections."
+                primary="Lower Chat Unlock Costs"
+                secondary="Premium-to-premium WhatsApp unlocks cost 90% less (2.5 KES vs 25 KES), helping you save tokens."
               />
             </ListItem>
             <ListItem
@@ -785,62 +647,8 @@ export default function PremiumLounge({ user }) {
                 secondaryTypographyProps={
                   isSmallScreen ? { fontSize: "0.8rem" } : {}
                 }
-                primary="Verified Badge"
-                secondary="Showcase authenticity with a gold checkmark that builds instant trust."
-              />
-            </ListItem>
-            <ListItem
-              alignItems="flex-start"
-              sx={{ px: 0, ...(isSmallScreen ? { py: 0.5 } : {}) }}
-            >
-              <ListItemIcon sx={{ minWidth: 36, color: "#D4AF37" }}>
-                <CheckCircle />
-              </ListItemIcon>
-              <ListItemText
-                primaryTypographyProps={
-                  isSmallScreen ? { fontSize: "0.95rem", fontWeight: 600 } : {}
-                }
-                secondaryTypographyProps={
-                  isSmallScreen ? { fontSize: "0.8rem" } : {}
-                }
-                primary="All Features Unlocked"
-                secondary="Enjoy the entire TuVibe experience with zero feature gates or token limits."
-              />
-            </ListItem>
-            <ListItem
-              alignItems="flex-start"
-              sx={{ px: 0, ...(isSmallScreen ? { py: 0.5 } : {}) }}
-            >
-              <ListItemIcon sx={{ minWidth: 36, color: "#D4AF37" }}>
-                <CheckCircle />
-              </ListItemIcon>
-              <ListItemText
-                primaryTypographyProps={
-                  isSmallScreen ? { fontSize: "0.95rem", fontWeight: 600 } : {}
-                }
-                secondaryTypographyProps={
-                  isSmallScreen ? { fontSize: "0.8rem" } : {}
-                }
-                primary="Incognito Browsing"
-                secondary="View other profiles anonymously without leaving a trail."
-              />
-            </ListItem>
-            <ListItem
-              alignItems="flex-start"
-              sx={{ px: 0, ...(isSmallScreen ? { py: 0.5 } : {}) }}
-            >
-              <ListItemIcon sx={{ minWidth: 36, color: "#D4AF37" }}>
-                <CheckCircle />
-              </ListItemIcon>
-              <ListItemText
-                primaryTypographyProps={
-                  isSmallScreen ? { fontSize: "0.95rem", fontWeight: 600 } : {}
-                }
-                secondaryTypographyProps={
-                  isSmallScreen ? { fontSize: "0.8rem" } : {}
-                }
-                primary="Better Match Visibility"
-                secondary="Premium profiles surface higher in search and featured spots, attracting more quality matches."
+                primary="Faster Premium Matchmaking"
+                secondary="Premium members are routed to other verified users for quicker, smoother connections."
               />
             </ListItem>
           </List>
@@ -894,70 +702,101 @@ export default function PremiumLounge({ user }) {
             <Box
               sx={{
                 display: "flex",
-                flexDirection: isSmallScreen ? "column" : "row",
-                alignItems: isSmallScreen ? "flex-start" : "center",
-                justifyContent: "space-between",
+                alignItems: "center",
                 gap: 2,
                 mb: 2,
               }}
             >
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 2,
-                  width: isSmallScreen ? "100%" : "auto",
-                }}
-              >
-                <Star sx={{ fontSize: 40, color: "#D4AF37" }} />
-                <Box>
-                  <Typography
-                    variant="h4"
-                    sx={{
-                      fontWeight: 800,
-                      background: "linear-gradient(45deg, #D4AF37, #B8941F)",
-                      backgroundClip: "text",
-                      WebkitBackgroundClip: "text",
-                      WebkitTextFillColor: "transparent",
-                      fontSize: { xs: "1.75rem", sm: "2.125rem" },
-                    }}
-                  >
-                    Premium Lounge
-                  </Typography>
-                  <Typography
-                    variant="body1"
-                    sx={{
-                      color: "rgba(26, 26, 26, 0.7)",
-                      mt: 0.5,
-                    }}
-                  >
-                    Exclusive verified premium profiles
-                  </Typography>
-                </Box>
+              <Star sx={{ fontSize: 40, color: "#D4AF37" }} />
+              <Box>
+                <Typography
+                  variant="h4"
+                  sx={{
+                    fontWeight: 800,
+                    background: "linear-gradient(45deg, #D4AF37, #B8941F)",
+                    backgroundClip: "text",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    fontSize: { xs: "1.75rem", sm: "2.125rem" },
+                  }}
+                >
+                  Premium Lounge
+                </Typography>
+                <Typography
+                  variant="body1"
+                  sx={{
+                    color: "rgba(26, 26, 26, 0.7)",
+                    mt: 0.5,
+                  }}
+                >
+                  Exclusive verified premium profiles
+                </Typography>
               </Box>
-              <Button
-                variant="outlined"
-                fullWidth={isSmallScreen}
-                onClick={handleOpenCreatePostDialog}
+            </Box>
+
+            {/* Token Cost Banner */}
+            {tokenCost > 0 && (
+              <Card
                 sx={{
-                  borderColor: "#D4AF37",
-                  color: "#D4AF37",
-                  fontWeight: 600,
-                  textTransform: "none",
+                  p: 2,
+                  mb: 3,
                   borderRadius: "12px",
-                  px: isSmallScreen ? 2 : 4,
-                  py: 1,
-                  alignSelf: isSmallScreen ? "stretch" : "center",
-                  "&:hover": {
-                    borderColor: "#B8941F",
-                    color: "#B8941F",
-                    backgroundColor: "rgba(212, 175, 55, 0.08)",
-                  },
+                  background:
+                    "linear-gradient(135deg, rgba(212, 175, 55, 0.15) 0%, rgba(184, 148, 31, 0.1) 100%)",
+                  border: "1px solid rgba(212, 175, 55, 0.3)",
                 }}
               >
-                Looking For
-              </Button>
-            </Box>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    flexWrap: "wrap",
+                    gap: 2,
+                  }}
+                >
+                  <Box>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: "rgba(26, 26, 26, 0.7)",
+                        mb: 0.5,
+                        fontSize: "0.875rem",
+                      }}
+                    >
+                      Token Cost per Chat
+                    </Typography>
+                    <Typography
+                      variant="h6"
+                      sx={{
+                        fontWeight: 700,
+                        color: "#D4AF37",
+                        fontSize: { xs: "1.25rem", sm: "1.5rem" },
+                      }}
+                    >
+                      {tokenCost} Tokens ({formatKshFromTokens(tokenCost)})
+                    </Typography>
+                  </Box>
+                  <Button
+                    variant="contained"
+                    onClick={() => navigate("/wallet")}
+                    sx={{
+                      background: "linear-gradient(135deg, #D4AF37, #B8941F)",
+                      color: "#1a1a1a",
+                      fontWeight: 600,
+                      textTransform: "none",
+                      borderRadius: "12px",
+                      px: 3,
+                      "&:hover": {
+                        background: "linear-gradient(135deg, #B8941F, #D4AF37)",
+                      },
+                    }}
+                  >
+                    Buy Tokens
+                  </Button>
+                </Box>
+              </Card>
+            )}
 
             {/* Category Tabs */}
             <Card
@@ -1110,9 +949,6 @@ export default function PremiumLounge({ user }) {
                         <Box
                           component="img"
                           src={buildImageUrl(userData.photo)}
-                          loading="lazy"
-                          decoding="async"
-                          fetchpriority="low"
                           alt={getDisplayName(userData, { fallback: "Member" })}
                           sx={{
                             width: "100%",
@@ -1440,7 +1276,7 @@ export default function PremiumLounge({ user }) {
                         >
                           {unlocking[userData.id]
                             ? "Unlocking..."
-                            : "Unlock for Free"}
+                            : `Chat (${tokenCost} tokens | ${formatKshFromTokens(tokenCost)})`}
                         </Button>
                       </Tooltip>
                     </Stack>
@@ -1449,91 +1285,6 @@ export default function PremiumLounge({ user }) {
               ))}
             </Box>
           )}
-
-          {/* Create "Looking For" Post Dialog */}
-          <Dialog
-            open={createPostDialogOpen}
-            onClose={() => {
-              if (!creatingPost) {
-                setCreatePostDialogOpen(false);
-                setCreatePostContent("");
-              }
-            }}
-            maxWidth="sm"
-            fullWidth
-            sx={{
-              "& .MuiDialog-paper": {
-                borderRadius: "16px",
-                background: "#FFFFFF",
-                border: "1px solid rgba(212, 175, 55, 0.3)",
-              },
-            }}
-          >
-            <DialogTitle
-              sx={{
-                background: "linear-gradient(135deg, #D4AF37, #B8941F)",
-                color: "#1a1a1a",
-                fontWeight: 700,
-              }}
-            >
-              Share What You're Looking For
-            </DialogTitle>
-            <DialogContent sx={{ pt: 3 }}>
-              <Typography
-                variant="body2"
-                sx={{
-                  color: "rgba(26, 26, 26, 0.7)",
-                  mb: 2,
-                }}
-              >
-                Tell premium members what you're searching for. Keep it classy—your post will appear on your profile and inside the Premium Lounge.
-              </Typography>
-              <TextField
-                fullWidth
-                multiline
-                minRows={4}
-                placeholder="e.g. Looking for a confident, fun partner to explore Nairobi with..."
-                value={createPostContent}
-                onChange={(event) => setCreatePostContent(event.target.value)}
-              />
-            </DialogContent>
-            <DialogActions sx={{ px: 3, pb: 3 }}>
-              <Button
-                onClick={() => {
-                  if (!creatingPost) {
-                    setCreatePostDialogOpen(false);
-                    setCreatePostContent("");
-                  }
-                }}
-                sx={{ color: "rgba(26, 26, 26, 0.7)" }}
-                disabled={creatingPost}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="contained"
-                onClick={handleSubmitCreatePost}
-                disabled={creatingPost || !createPostContent.trim()}
-                sx={{
-                  background: "linear-gradient(135deg, #D4AF37, #B8941F)",
-                  color: "#1a1a1a",
-                  fontWeight: 600,
-                  textTransform: "none",
-                  borderRadius: "12px",
-                  px: 3,
-                  "&:hover": {
-                    background: "linear-gradient(135deg, #B8941F, #D4AF37)",
-                  },
-                }}
-              >
-                {creatingPost ? (
-                  <CircularProgress size={18} color="inherit" />
-                ) : (
-                  "Post"
-                )}
-              </Button>
-            </DialogActions>
-          </Dialog>
 
           {/* View Profile Dialog */}
           <ViewProfile
