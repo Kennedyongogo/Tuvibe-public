@@ -65,6 +65,10 @@ import {
 } from "../utils/pricing";
 import { KENYA_COUNTIES, normalizeCountyName } from "../data/kenyaCounties";
 import GeoTargetPicker from "../components/Boost/GeoTargetPicker";
+import StoriesFeed from "../components/Stories/StoriesFeed";
+import StoryViewer from "../components/Stories/StoryViewer";
+import StoryCreator from "../components/Stories/StoryCreator";
+import ErrorBoundary from "../components/ErrorBoundary";
 
 const goldShine = keyframes`
   0% {
@@ -165,6 +169,11 @@ export default function Dashboard({ user, setUser }) {
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState("");
   const [statsData, setStatsData] = useState(null);
+  const [storyViewerOpen, setStoryViewerOpen] = useState(false);
+  const [selectedStoryGroup, setSelectedStoryGroup] = useState(null);
+  const [storyGroups, setStoryGroups] = useState([]);
+  const [storyCreatorOpen, setStoryCreatorOpen] = useState(false);
+  const storiesFeedRefreshRef = React.useRef(null);
   const normalizedTargetCounty = useMemo(() => {
     if (!boostArea) return "";
     const normalized = normalizeCountyName(boostArea);
@@ -1732,6 +1741,51 @@ export default function Dashboard({ user, setUser }) {
           </Box>
         </Box>
       </Box>
+
+      {/* Stories Section */}
+      <Card
+        key="stories-card"
+        sx={{
+          p: { xs: 2, sm: 2.5 },
+          pb: { xs: 2, sm: 2.5 },
+          mb: 4,
+          borderRadius: "16px",
+          background:
+            "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
+          border: "1px solid rgba(212, 175, 55, 0.2)",
+          boxShadow: "0 4px 20px rgba(212, 175, 55, 0.1)",
+        }}
+      >
+        {user && (
+          <ErrorBoundary
+            fallbackMessage="Unable to load stories. Please refresh the page."
+            onReset={() => {
+              // Reset any relevant state if needed
+            }}
+          >
+            <StoriesFeed
+              key={`stories-feed-${user?.id || 'default'}`}
+              user={user}
+              onStoryClick={(storyGroup) => {
+                if (storyGroup) {
+                  setSelectedStoryGroup(storyGroup);
+                  setStoryViewerOpen(true);
+                }
+              }}
+              onCreateStory={() => setStoryCreatorOpen(true)}
+              onStoriesLoaded={(groups) => {
+                if (groups && Array.isArray(groups)) {
+                  setStoryGroups(groups);
+                }
+              }}
+              refreshTrigger={storyCreatorOpen}
+              onRefresh={(refreshFn) => {
+                storiesFeedRefreshRef.current = refreshFn;
+              }}
+            />
+          </ErrorBoundary>
+        )}
+      </Card>
 
       {/* Quick Access Cards */}
       <Box
@@ -3778,6 +3832,64 @@ export default function Dashboard({ user, setUser }) {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Story Viewer */}
+      <StoryViewer
+        open={storyViewerOpen}
+        onClose={() => {
+          setStoryViewerOpen(false);
+          setSelectedStoryGroup(null);
+        }}
+        storyGroup={selectedStoryGroup}
+        currentUser={user}
+        onNextGroup={() => {
+          // Find next story group
+          const currentIndex = storyGroups.findIndex(
+            (sg) => sg.user?.id === selectedStoryGroup?.user?.id
+          );
+          if (currentIndex < storyGroups.length - 1) {
+            setSelectedStoryGroup(storyGroups[currentIndex + 1]);
+          } else {
+            setStoryViewerOpen(false);
+            setSelectedStoryGroup(null);
+          }
+        }}
+        onPrevGroup={() => {
+          // Find previous story group
+          const currentIndex = storyGroups.findIndex(
+            (sg) => sg.user?.id === selectedStoryGroup?.user?.id
+          );
+          if (currentIndex > 0) {
+            setSelectedStoryGroup(storyGroups[currentIndex - 1]);
+          } else {
+            setStoryViewerOpen(false);
+            setSelectedStoryGroup(null);
+          }
+        }}
+        onStoryDeleted={(updatedGroup) => {
+          // Update selected story group if provided
+          if (updatedGroup) {
+            setSelectedStoryGroup(updatedGroup);
+          }
+          // Refresh stories feed after deletion
+          if (storiesFeedRefreshRef.current) {
+            setTimeout(() => {
+              storiesFeedRefreshRef.current();
+            }, 300);
+          }
+        }}
+      />
+
+      {/* Story Creator */}
+      <StoryCreator
+        open={storyCreatorOpen}
+        onClose={() => {
+          setStoryCreatorOpen(false);
+        }}
+        onStoryCreated={() => {
+          // Feed will refresh automatically via refreshTrigger prop
+        }}
+      />
     </Box>
   );
 }
