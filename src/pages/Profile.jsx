@@ -47,6 +47,7 @@ import {
   Visibility,
   ChevronLeft,
   ChevronRight,
+  Add,
 } from "@mui/icons-material";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
@@ -2671,7 +2672,8 @@ export default function Profile({ user, setUser }) {
                   variant="body2"
                   sx={{ color: "rgba(26, 26, 26, 0.6)" }}
                 >
-                  No posts yet. Create your first "Looking For" post from the Premium Lounge.
+                  No posts yet. Create your first "Looking For" post from the
+                  Premium Lounge.
                 </Typography>
               </Card>
             ) : (
