@@ -45,9 +45,11 @@ import {
   HowToReg,
   Delete,
   Visibility,
+  VisibilityOff,
   ChevronLeft,
   ChevronRight,
   Add,
+  Warning,
 } from "@mui/icons-material";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
@@ -169,6 +171,7 @@ export default function Profile({ user, setUser }) {
     boost: null,
   });
   const [loadingBoostStatus, setLoadingBoostStatus] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const userAge = useMemo(() => resolveAgeFromUser(user), [user]);
   const birthYearAgePreview = useMemo(
@@ -1427,6 +1430,269 @@ export default function Profile({ user, setUser }) {
       });
     } catch {
       return "N/A";
+    }
+  };
+
+  // Handle delete account
+  const handleDeleteAccount = async () => {
+    // First confirmation dialog
+    const confirmResult = await Swal.fire({
+      icon: "warning",
+      title: "Delete Account?",
+      html: `
+        <div style="text-align: left;">
+          <p style="margin-bottom: 12px;">Are you sure you want to delete your account? This action cannot be undone.</p>
+          <p style="font-size: 0.875rem; color: rgba(26, 26, 26, 0.7); margin: 0;">
+            All your data including profile, photos, posts, and messages will be permanently deleted.
+          </p>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: "Yes, Delete My Account",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#D4AF37",
+      reverseButtons: true,
+      didOpen: () => {
+        const swal = document.querySelector(".swal2-popup");
+        if (swal) {
+          swal.style.borderRadius = "20px";
+          swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
+          swal.style.boxShadow = "0 20px 60px rgba(212, 175, 55, 0.25)";
+          swal.style.background =
+            "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)";
+          swal.style.backdropFilter = "blur(20px)";
+          // Responsive styling
+          const isMobile = window.innerWidth < 600;
+          if (isMobile) {
+            swal.style.width = "90%";
+            swal.style.maxWidth = "90%";
+            swal.style.padding = "1rem";
+          }
+        }
+        const title = document.querySelector(".swal2-title");
+        if (title) {
+          title.style.color = "#1a1a1a";
+          title.style.fontWeight = "700";
+          title.style.fontSize = window.innerWidth < 600 ? "1.25rem" : "1.5rem";
+          title.style.background = "linear-gradient(45deg, #d33, #c62828)";
+          title.style.webkitBackgroundClip = "text";
+          title.style.webkitTextFillColor = "transparent";
+          title.style.backgroundClip = "text";
+        }
+        const htmlContent = document.querySelector(".swal2-html-container");
+        if (htmlContent) {
+          htmlContent.style.fontSize =
+            window.innerWidth < 600 ? "0.875rem" : "1rem";
+          htmlContent.style.padding =
+            window.innerWidth < 600 ? "0.5rem" : "1rem 1.2em";
+        }
+        const confirmButton = document.querySelector(".swal2-confirm");
+        if (confirmButton) {
+          confirmButton.style.fontSize =
+            window.innerWidth < 600 ? "0.875rem" : "1rem";
+          confirmButton.style.padding =
+            window.innerWidth < 600 ? "0.625rem 1rem" : "0.75rem 1.5rem";
+        }
+        const cancelButton = document.querySelector(".swal2-cancel");
+        if (cancelButton) {
+          cancelButton.style.fontSize =
+            window.innerWidth < 600 ? "0.875rem" : "1rem";
+          cancelButton.style.padding =
+            window.innerWidth < 600 ? "0.625rem 1rem" : "0.75rem 1.5rem";
+        }
+      },
+    });
+
+    if (!confirmResult.isConfirmed) {
+      return;
+    }
+
+    // Second confirmation with password
+    const { value: password } = await Swal.fire({
+      title: "Confirm Password",
+      html: `
+        <div style="text-align: left;">
+          <p style="margin-bottom: 12px;">Please enter your password to confirm account deletion:</p>
+        </div>
+      `,
+      input: "password",
+      inputPlaceholder: "Enter your password",
+      inputAttributes: {
+        autocapitalize: "off",
+        autocorrect: "off",
+      },
+      showCancelButton: true,
+      confirmButtonText: "Delete Account",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#D4AF37",
+      reverseButtons: true,
+      inputValidator: (value) => {
+        if (!value) {
+          return "Password is required to delete your account";
+        }
+      },
+      didOpen: () => {
+        const swal = document.querySelector(".swal2-popup");
+        if (swal) {
+          swal.style.borderRadius = "20px";
+          swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
+          swal.style.boxShadow = "0 20px 60px rgba(212, 175, 55, 0.25)";
+          swal.style.background =
+            "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)";
+          swal.style.backdropFilter = "blur(20px)";
+          // Responsive styling
+          const isMobile = window.innerWidth < 600;
+          if (isMobile) {
+            swal.style.width = "90%";
+            swal.style.maxWidth = "90%";
+            swal.style.padding = "1rem";
+          }
+        }
+        const title = document.querySelector(".swal2-title");
+        if (title) {
+          title.style.color = "#1a1a1a";
+          title.style.fontWeight = "700";
+          title.style.fontSize = window.innerWidth < 600 ? "1.25rem" : "1.5rem";
+          title.style.background = "linear-gradient(45deg, #d33, #c62828)";
+          title.style.webkitBackgroundClip = "text";
+          title.style.webkitTextFillColor = "transparent";
+          title.style.backgroundClip = "text";
+        }
+        const htmlContent = document.querySelector(".swal2-html-container");
+        if (htmlContent) {
+          htmlContent.style.fontSize =
+            window.innerWidth < 600 ? "0.875rem" : "1rem";
+          htmlContent.style.padding =
+            window.innerWidth < 600 ? "0.5rem" : "1rem 1.2em";
+        }
+        const input = document.querySelector(".swal2-input");
+        if (input) {
+          input.style.fontSize = window.innerWidth < 600 ? "0.875rem" : "1rem";
+          input.style.padding =
+            window.innerWidth < 600 ? "0.75rem" : "0.875rem 1rem";
+        }
+      },
+    });
+
+    if (!password) {
+      return;
+    }
+
+    setDeletingAccount(true);
+    const token = localStorage.getItem("token");
+
+    try {
+      const response = await fetch("/api/public/me", {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Failed to delete account");
+      }
+
+      // Clear local storage
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+
+      // Show success message
+      await Swal.fire({
+        icon: "success",
+        title: "Account Deleted",
+        text: "Your account has been successfully deleted. You will be redirected to the home page.",
+        confirmButtonColor: "#D4AF37",
+        timer: 3000,
+        didOpen: () => {
+          const swal = document.querySelector(".swal2-popup");
+          if (swal) {
+            swal.style.borderRadius = "20px";
+            swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
+            swal.style.boxShadow = "0 20px 60px rgba(212, 175, 55, 0.25)";
+            swal.style.background =
+              "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)";
+            swal.style.backdropFilter = "blur(20px)";
+            // Responsive styling
+            const isMobile = window.innerWidth < 600;
+            if (isMobile) {
+              swal.style.width = "90%";
+              swal.style.maxWidth = "90%";
+              swal.style.padding = "1rem";
+            }
+          }
+          const title = document.querySelector(".swal2-title");
+          if (title) {
+            title.style.fontSize =
+              window.innerWidth < 600 ? "1.25rem" : "1.5rem";
+          }
+          const textContent = document.querySelector(".swal2-content");
+          if (textContent) {
+            textContent.style.fontSize =
+              window.innerWidth < 600 ? "0.875rem" : "1rem";
+          }
+        },
+      });
+
+      // Reset user state
+      if (setUser) {
+        setUser(null);
+      }
+
+      // Redirect to home page
+      navigate("/");
+    } catch (err) {
+      console.error("Delete account error:", err);
+      Swal.fire({
+        icon: "error",
+        title: "Deletion Failed",
+        text: err.message || "Failed to delete account. Please try again.",
+        confirmButtonColor: "#D4AF37",
+        didOpen: () => {
+          const swal = document.querySelector(".swal2-popup");
+          if (swal) {
+            swal.style.borderRadius = "20px";
+            swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
+            swal.style.boxShadow = "0 20px 60px rgba(212, 175, 55, 0.25)";
+            swal.style.background =
+              "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)";
+            swal.style.backdropFilter = "blur(20px)";
+            // Responsive styling
+            const isMobile = window.innerWidth < 600;
+            if (isMobile) {
+              swal.style.width = "90%";
+              swal.style.maxWidth = "90%";
+              swal.style.padding = "1rem";
+            }
+          }
+          const title = document.querySelector(".swal2-title");
+          if (title) {
+            title.style.color = "#1a1a1a";
+            title.style.fontWeight = "700";
+            title.style.fontSize =
+              window.innerWidth < 600 ? "1.25rem" : "1.5rem";
+            title.style.background = "linear-gradient(45deg, #d33, #c62828)";
+            title.style.webkitBackgroundClip = "text";
+            title.style.webkitTextFillColor = "transparent";
+            title.style.backgroundClip = "text";
+          }
+          const htmlContent = document.querySelector(".swal2-html-container");
+          if (htmlContent) {
+            htmlContent.style.fontSize =
+              window.innerWidth < 600 ? "0.875rem" : "1rem";
+            htmlContent.style.padding =
+              window.innerWidth < 600 ? "0.5rem" : "1rem 1.2em";
+          }
+        },
+      });
+    } finally {
+      setDeletingAccount(false);
     }
   };
 
@@ -3544,6 +3810,100 @@ export default function Profile({ user, setUser }) {
                 </Typography>
               </Box>
             )}
+          </Box>
+        </Card>
+
+        {/* Delete Account Section */}
+        <Card
+          sx={{
+            p: { xs: 2, sm: 3 },
+            borderRadius: "16px",
+            background:
+              "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
+            border: "2px solid rgba(211, 47, 47, 0.3)",
+            boxShadow: "0 4px 20px rgba(211, 47, 47, 0.1)",
+            width: "100%",
+          }}
+        >
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 700,
+              mb: { xs: 2, sm: 3 },
+              color: "#d32f2f",
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              fontSize: { xs: "1rem", sm: "1.25rem" },
+            }}
+          >
+            <Warning sx={{ color: "#d32f2f" }} /> Danger Zone
+          </Typography>
+          <Box
+            sx={{
+              p: { xs: 1.5, sm: 2 },
+              borderRadius: "12px",
+              bgcolor: "rgba(211, 47, 47, 0.05)",
+              border: "1px dashed rgba(211, 47, 47, 0.3)",
+            }}
+          >
+            <Typography
+              variant="subtitle2"
+              sx={{
+                fontWeight: 600,
+                color: "#1a1a1a",
+                mb: { xs: 0.75, sm: 1 },
+                fontSize: { xs: "0.875rem", sm: "1rem" },
+              }}
+            >
+              Delete Account
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "rgba(26, 26, 26, 0.7)",
+                mb: { xs: 1.5, sm: 2 },
+                fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                lineHeight: { xs: 1.4, sm: 1.5 },
+              }}
+            >
+              Once you delete your account, there is no going back. All your
+              data including profile, photos, posts, and messages will be
+              permanently deleted.
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={
+                deletingAccount ? (
+                  <CircularProgress size={16} color="inherit" />
+                ) : (
+                  <Delete sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }} />
+                )
+              }
+              onClick={handleDeleteAccount}
+              disabled={deletingAccount}
+              fullWidth
+              sx={{
+                background: "linear-gradient(135deg, #d32f2f, #c62828)",
+                color: "#fff",
+                fontWeight: 600,
+                textTransform: "none",
+                borderRadius: "12px",
+                py: { xs: 1.25, sm: 1.5 },
+                fontSize: { xs: "0.875rem", sm: "1rem" },
+                "&:hover": {
+                  background: "linear-gradient(135deg, #c62828, #b71c1c)",
+                  transform: "translateY(-2px)",
+                  boxShadow: "0 8px 24px rgba(211, 47, 47, 0.3)",
+                },
+                "&:disabled": {
+                  background: "rgba(211, 47, 47, 0.3)",
+                  color: "rgba(255, 255, 255, 0.5)",
+                },
+              }}
+            >
+              {deletingAccount ? "Deleting Account..." : "Delete My Account"}
+            </Button>
           </Box>
         </Card>
       </Box>
