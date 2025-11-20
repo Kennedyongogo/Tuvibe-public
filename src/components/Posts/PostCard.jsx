@@ -671,15 +671,24 @@ const PostCard = ({
                           </Box>
                         ))}
                     </Box>
-                    {/* Show +X if there are more than 3 */}
-                    {postDetails.emoji_reaction_count > 3 && (
-                      <Typography
-                        variant="body2"
-                        sx={{ fontSize: "0.875rem", ml: 0.5 }}
-                      >
-                        +{postDetails.emoji_reaction_count - 3}
-                      </Typography>
-                    )}
+                    {/* Show +X if there are more emojis than the 3 visible ones */}
+                    {(() => {
+                      const visibleCount = Math.min(
+                        postDetails.recent_emoji_reactions?.length || 0,
+                        3
+                      );
+                      const totalCount = postDetails.emoji_reaction_count || 0;
+                      const remaining = totalCount - visibleCount;
+
+                      return remaining > 0 ? (
+                        <Typography
+                          variant="body2"
+                          sx={{ fontSize: "0.875rem", ml: 0.5 }}
+                        >
+                          +{remaining}
+                        </Typography>
+                      ) : null;
+                    })()}
                   </Box>
                 )}
               </Box>
