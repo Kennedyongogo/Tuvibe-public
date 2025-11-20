@@ -334,7 +334,7 @@ export default function Profile({ user, setUser }) {
 
       try {
         setLoadingPosts(true);
-        const response = await fetch("/api/posts/mine", {
+        const response = await fetch("/api/looking-for-posts/mine", {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
@@ -361,7 +361,7 @@ export default function Profile({ user, setUser }) {
     const token = localStorage.getItem("token");
     try {
       setLoadingPosts(true);
-      const response = await fetch(`/api/posts/${postId}`, {
+      const response = await fetch(`/api/looking-for-posts/${postId}`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -420,7 +420,7 @@ export default function Profile({ user, setUser }) {
     const token = localStorage.getItem("token");
     try {
       setLoadingPosts(true);
-      const response = await fetch(`/api/posts/${postId}`, {
+      const response = await fetch(`/api/looking-for-posts/${postId}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,

@@ -7,10 +7,9 @@ import {
   IconButton,
   Badge,
   Tooltip,
+  Skeleton,
 } from "@mui/material";
-import {
-  Add,
-} from "@mui/icons-material";
+import { Add, TextFields } from "@mui/icons-material";
 
 // Component to handle story preview images with error fallback
 const StoryPreviewImage = ({ src, alt, hasUnviewed, userInitial }) => {
@@ -60,7 +59,14 @@ const StoryPreviewImage = ({ src, alt, hasUnviewed, userInitial }) => {
   );
 };
 
-const StoriesFeed = ({ user, onStoryClick, onCreateStory, onStoriesLoaded, refreshTrigger, onRefresh }) => {
+const StoriesFeed = ({
+  user,
+  onStoryClick,
+  onCreateStory,
+  onStoriesLoaded,
+  refreshTrigger,
+  onRefresh,
+}) => {
   const [storiesFeed, setStoriesFeed] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -78,7 +84,7 @@ const StoriesFeed = ({ user, onStoryClick, onCreateStory, onStoriesLoaded, refre
 
   const fetchStoriesFeed = useCallback(async () => {
     if (!isMountedRef.current) return;
-    
+
     console.log("🔄 [StoriesFeed] Fetching stories feed...");
     setLoading(true);
     setError(null);
@@ -102,7 +108,7 @@ const StoriesFeed = ({ user, onStoryClick, onCreateStory, onStoriesLoaded, refre
       console.log("📡 [StoriesFeed] Fetching from URL:", url);
       const response = await fetch(url, { headers });
       console.log("📥 [StoriesFeed] Response status:", response.status);
-      
+
       const data = await response.json();
       console.log("📦 [StoriesFeed] Response data:", data);
 
@@ -112,7 +118,7 @@ const StoriesFeed = ({ user, onStoryClick, onCreateStory, onStoriesLoaded, refre
         const stories = data.data?.stories || [];
         console.log("✅ [StoriesFeed] Stories fetched successfully:", {
           count: stories.length,
-          stories: stories.map(s => ({
+          stories: stories.map((s) => ({
             id: s.id,
             userId: s.public_user_id,
             mediaUrl: s.media_url,
@@ -164,19 +170,21 @@ const StoriesFeed = ({ user, onStoryClick, onCreateStory, onStoriesLoaded, refre
 
   // Track previous refreshTrigger value to detect when creator closes
   const prevRefreshTriggerRef = useRef(refreshTrigger);
-  
+
   // Refresh feed when story creator closes (after creating a story)
   useEffect(() => {
     if (!isMountedRef.current) return;
-    
+
     console.log("🔄 [StoriesFeed] refreshTrigger changed:", {
       previous: prevRefreshTriggerRef.current,
       current: refreshTrigger,
     });
-    
+
     // If creator was open (true) and now closed (false), refresh the feed
     if (prevRefreshTriggerRef.current === true && refreshTrigger === false) {
-      console.log("🔄 [StoriesFeed] Creator closed, refreshing feed in 500ms...");
+      console.log(
+        "🔄 [StoriesFeed] Creator closed, refreshing feed in 500ms..."
+      );
       // Small delay to ensure backend has processed the new story
       const timer = setTimeout(() => {
         if (!isMountedRef.current) return;
@@ -185,13 +193,13 @@ const StoriesFeed = ({ user, onStoryClick, onCreateStory, onStoriesLoaded, refre
         // Use ref to get latest function without causing re-renders
         fetchStoriesFeedRef.current();
       }, 500);
-      
+
       prevRefreshTriggerRef.current = refreshTrigger;
       return () => {
         clearTimeout(timer);
       };
     }
-    
+
     prevRefreshTriggerRef.current = refreshTrigger;
   }, [refreshTrigger]);
 
@@ -209,8 +217,17 @@ const StoriesFeed = ({ user, onStoryClick, onCreateStory, onStoriesLoaded, refre
   const getStoryPreview = (stories) => {
     if (!stories || stories.length === 0) return null;
     const firstStory = stories[0];
-    if (!firstStory || !firstStory.media_url) return null;
+    if (!firstStory) return null;
+    // For text stories, media_url is null, so return null to show text preview
+    if (firstStory.media_type === "text") return null;
+    if (!firstStory.media_url) return null;
     return getImageUrl(firstStory.media_url);
+  };
+
+  const getStoryType = (stories) => {
+    if (!stories || stories.length === 0) return null;
+    const firstStory = stories[0];
+    return firstStory?.media_type || null;
   };
 
   const hasUnviewedStories = (stories) => {
@@ -261,10 +278,18 @@ const StoriesFeed = ({ user, onStoryClick, onCreateStory, onStoriesLoaded, refre
               justifyContent: "center",
               gap: 1,
               minWidth: 100,
-              height: 120,
+              maxWidth: 100,
             }}
           >
-            <CircularProgress sx={{ color: "#D4AF37" }} size={40} />
+            <Skeleton
+              variant="rectangular"
+              width={100}
+              height={140}
+              sx={{
+                borderRadius: "12px",
+              }}
+            />
+            <Skeleton width={60} height={16} />
           </Box>
         ) : (
           <Box
@@ -335,7 +360,9 @@ const StoriesFeed = ({ user, onStoryClick, onCreateStory, onStoriesLoaded, refre
                     color: "#1a1a1a",
                   }}
                 >
-                  {user?.name?.charAt(0)?.toUpperCase() || user?.username?.charAt(0)?.toUpperCase() || "U"}
+                  {user?.name?.charAt(0)?.toUpperCase() ||
+                    user?.username?.charAt(0)?.toUpperCase() ||
+                    "U"}
                 </Typography>
               )}
               {/* Plus icon overlay */}
@@ -374,25 +401,11 @@ const StoriesFeed = ({ user, onStoryClick, onCreateStory, onStoriesLoaded, refre
           </Box>
         )}
 
-        {/* Story Items */}
-        {storiesFeed && Array.isArray(storiesFeed) && storiesFeed.length > 0 && storiesFeed
-          .filter((storyGroup) => {
-            return storyGroup && 
-                   storyGroup.user && 
-                   storyGroup.user.id &&
-                   storyGroup.stories && 
-                   Array.isArray(storyGroup.stories) &&
-                   storyGroup.stories.length > 0;
-          })
-          .map((storyGroup) => {
-          const preview = getStoryPreview(storyGroup.stories);
-          const hasUnviewed = hasUnviewedStories(storyGroup.stories);
-          const storyCount = storyGroup.stories?.length || 0;
-          const userId = storyGroup.user?.id;
-
-          return (
+        {/* Story Items Skeleton Loading */}
+        {loading &&
+          Array.from({ length: 5 }).map((_, index) => (
             <Box
-              key={`story-group-${userId}`}
+              key={`skeleton-${index}`}
               sx={{
                 display: "flex",
                 flexDirection: "column",
@@ -401,124 +414,224 @@ const StoriesFeed = ({ user, onStoryClick, onCreateStory, onStoriesLoaded, refre
                 gap: 1,
                 minWidth: 100,
                 maxWidth: 100,
-                cursor: "pointer",
-                transition: "all 0.2s ease",
-                "&:hover": {
-                  opacity: 0.9,
-                  "& .story-item-preview": {
-                    transform: "scale(1.02)",
-                  },
-                },
-                "&:active": {
-                  transform: "scale(0.98)",
-                },
               }}
-              onClick={() => onStoryClick(storyGroup)}
             >
-              <Box
-                className="story-item-preview"
+              <Skeleton
+                variant="rectangular"
+                width={100}
+                height={140}
                 sx={{
-                  position: "relative",
-                  width: 100,
-                  height: 140,
                   borderRadius: "12px",
-                  overflow: "hidden",
-                  border: hasUnviewed
-                    ? "2px solid #D4AF37"
-                    : "2px solid rgba(0,0,0,0.2)",
-                  transition: "all 0.2s ease",
-                  boxShadow: hasUnviewed
-                    ? "0 2px 8px rgba(212, 175, 55, 0.3)"
-                    : "0 2px 4px rgba(0,0,0,0.1)",
                 }}
-              >
-                {preview ? (
-                  <StoryPreviewImage
-                    src={preview}
-                    alt={storyGroup.user?.name || "Story"}
-                    hasUnviewed={hasUnviewed}
-                    userInitial={storyGroup.user?.name?.charAt(0)?.toUpperCase() || "U"}
-                  />
-                ) : (
-                  <Box
-                    sx={{
-                      width: "100%",
-                      height: "100%",
-                      bgcolor: hasUnviewed ? "#D4AF37" : "rgba(0,0,0,0.1)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Avatar
-                      src={getImageUrl(storyGroup.user?.photo)}
-                      sx={{
-                        width: 50,
-                        height: 50,
-                        bgcolor: "transparent",
-                      }}
-                    >
-                      {storyGroup.user?.name?.charAt(0)?.toUpperCase() || "U"}
-                    </Avatar>
-                  </Box>
-                )}
-                {/* Story count badge */}
-                {storyCount > 1 && (
-                  <Box
-                    sx={{
-                      position: "absolute",
-                      top: 8,
-                      left: 8,
-                      bgcolor: "#D4AF37",
-                      color: "#1a1a1a",
-                      borderRadius: "12px",
-                      px: 1,
-                      py: 0.25,
-                      fontSize: "0.65rem",
-                      fontWeight: 700,
-                      border: "1px solid white",
-                      boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-                    }}
-                  >
-                    {storyCount}
-                  </Box>
-                )}
-                {/* Unviewed indicator */}
-                {hasUnviewed && (
-                  <Box
-                    sx={{
-                      position: "absolute",
-                      top: 8,
-                      right: 8,
-                      width: 10,
-                      height: 10,
-                      borderRadius: "50%",
-                      bgcolor: "#D4AF37",
-                      border: "2px solid white",
-                      boxShadow: "0 2px 4px rgba(0,0,0,0.3)",
-                    }}
-                  />
-                )}
-              </Box>
-              <Typography
-                variant="caption"
-                sx={{
-                  fontSize: "0.7rem",
-                  color: "rgba(26, 26, 26, 0.8)",
-                  textAlign: "center",
-                  width: "100%",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                  fontWeight: hasUnviewed ? 600 : 400,
-                  mt: 0.5,
-                }}
-              >
-                {storyGroup.user?.name || storyGroup.user?.username || "User"}
-              </Typography>
+              />
+              <Skeleton width={60} height={16} />
             </Box>
-          );
-        })}
+          ))}
+
+        {/* Story Items */}
+        {!loading &&
+          storiesFeed &&
+          Array.isArray(storiesFeed) &&
+          storiesFeed.length > 0 &&
+          storiesFeed
+            .filter((storyGroup) => {
+              return (
+                storyGroup &&
+                storyGroup.user &&
+                storyGroup.user.id &&
+                storyGroup.stories &&
+                Array.isArray(storyGroup.stories) &&
+                storyGroup.stories.length > 0
+              );
+            })
+            .map((storyGroup) => {
+              const preview = getStoryPreview(storyGroup.stories);
+              const storyType = getStoryType(storyGroup.stories);
+              const hasUnviewed = hasUnviewedStories(storyGroup.stories);
+              const storyCount = storyGroup.stories?.length || 0;
+              const userId = storyGroup.user?.id;
+              const isTextStory = storyType === "text";
+
+              return (
+                <Box
+                  key={`story-group-${userId}`}
+                  sx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 1,
+                    minWidth: 100,
+                    maxWidth: 100,
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                    "&:hover": {
+                      opacity: 0.9,
+                      "& .story-item-preview": {
+                        transform: "scale(1.02)",
+                      },
+                    },
+                    "&:active": {
+                      transform: "scale(0.98)",
+                    },
+                  }}
+                  onClick={() => onStoryClick(storyGroup)}
+                >
+                  <Box
+                    className="story-item-preview"
+                    sx={{
+                      position: "relative",
+                      width: 100,
+                      height: 140,
+                      borderRadius: "12px",
+                      overflow: "hidden",
+                      border: hasUnviewed
+                        ? "2px solid #D4AF37"
+                        : "2px solid rgba(0,0,0,0.2)",
+                      transition: "all 0.2s ease",
+                      boxShadow: hasUnviewed
+                        ? "0 2px 8px rgba(212, 175, 55, 0.3)"
+                        : "0 2px 4px rgba(0,0,0,0.1)",
+                    }}
+                  >
+                    {isTextStory ? (
+                      <Box
+                        sx={{
+                          width: "100%",
+                          height: "100%",
+                          background:
+                            (storyGroup.stories?.[0]?.metadata &&
+                              typeof storyGroup.stories[0].metadata ===
+                                "object" &&
+                              storyGroup.stories[0].metadata
+                                .background_color) ||
+                            "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          p: 1,
+                          gap: 0.5,
+                        }}
+                      >
+                        <TextFields
+                          sx={{ fontSize: 32, color: "white", opacity: 0.9 }}
+                        />
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: "white",
+                            fontSize: "0.6rem",
+                            textAlign: "center",
+                            fontWeight: 600,
+                            textShadow: "1px 1px 2px rgba(0,0,0,0.3)",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                            lineHeight: 1.2,
+                          }}
+                        >
+                          {storyGroup.stories?.[0]?.caption?.substring(0, 30) ||
+                            "Text Story"}
+                          {storyGroup.stories?.[0]?.caption?.length > 30
+                            ? "..."
+                            : ""}
+                        </Typography>
+                      </Box>
+                    ) : preview ? (
+                      <StoryPreviewImage
+                        src={preview}
+                        alt={storyGroup.user?.name || "Story"}
+                        hasUnviewed={hasUnviewed}
+                        userInitial={
+                          storyGroup.user?.name?.charAt(0)?.toUpperCase() || "U"
+                        }
+                      />
+                    ) : (
+                      <Box
+                        sx={{
+                          width: "100%",
+                          height: "100%",
+                          bgcolor: hasUnviewed ? "#D4AF37" : "rgba(0,0,0,0.1)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Avatar
+                          src={getImageUrl(storyGroup.user?.photo)}
+                          sx={{
+                            width: 50,
+                            height: 50,
+                            bgcolor: "transparent",
+                          }}
+                        >
+                          {storyGroup.user?.name?.charAt(0)?.toUpperCase() ||
+                            "U"}
+                        </Avatar>
+                      </Box>
+                    )}
+                    {/* Story count badge */}
+                    {storyCount > 1 && (
+                      <Box
+                        sx={{
+                          position: "absolute",
+                          top: 8,
+                          left: 8,
+                          bgcolor: "#D4AF37",
+                          color: "#1a1a1a",
+                          borderRadius: "12px",
+                          px: 1,
+                          py: 0.25,
+                          fontSize: "0.65rem",
+                          fontWeight: 700,
+                          border: "1px solid white",
+                          boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                        }}
+                      >
+                        {storyCount}
+                      </Box>
+                    )}
+                    {/* Unviewed indicator */}
+                    {hasUnviewed && (
+                      <Box
+                        sx={{
+                          position: "absolute",
+                          top: 8,
+                          right: 8,
+                          width: 10,
+                          height: 10,
+                          borderRadius: "50%",
+                          bgcolor: "#D4AF37",
+                          border: "2px solid white",
+                          boxShadow: "0 2px 4px rgba(0,0,0,0.3)",
+                        }}
+                      />
+                    )}
+                  </Box>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      fontSize: "0.7rem",
+                      color: "rgba(26, 26, 26, 0.8)",
+                      textAlign: "center",
+                      width: "100%",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      fontWeight: hasUnviewed ? 600 : 400,
+                      mt: 0.5,
+                    }}
+                  >
+                    {storyGroup.user?.name ||
+                      storyGroup.user?.username ||
+                      "User"}
+                  </Typography>
+                </Box>
+              );
+            })}
       </Box>
     </Box>
   );
@@ -526,4 +639,3 @@ const StoriesFeed = ({ user, onStoryClick, onCreateStory, onStoriesLoaded, refre
 
 // Memoize component to prevent unnecessary re-renders
 export default memo(StoriesFeed);
-

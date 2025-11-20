@@ -26,8 +26,7 @@ import {
 import Swal from "sweetalert2";
 import EmojiPicker from "../EmojiPicker/EmojiPicker";
 
-// Predefined background colors for text stories (similar to Facebook)
-const TEXT_STORY_COLORS = [
+const TEXT_POST_COLORS = [
   {
     name: "Purple",
     gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
@@ -49,14 +48,6 @@ const TEXT_STORY_COLORS = [
     gradient: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
   },
   {
-    name: "Red",
-    gradient: "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
-  },
-  {
-    name: "Teal",
-    gradient: "linear-gradient(135deg, #30cfd0 0%, #330867 100%)",
-  },
-  {
     name: "Gold",
     gradient: "linear-gradient(135deg, #f6d365 0%, #fda085 100%)",
   },
@@ -64,27 +55,15 @@ const TEXT_STORY_COLORS = [
     name: "Dark Blue",
     gradient: "linear-gradient(135deg, #0c3483 0%, #a2b6df 100%)",
   },
-  {
-    name: "Coral",
-    gradient: "linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)",
-  },
-  {
-    name: "Lavender",
-    gradient: "linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)",
-  },
-  {
-    name: "Sunset",
-    gradient: "linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)",
-  },
 ];
 
-const StoryCreator = ({ open, onClose, onStoryCreated }) => {
+const PostCreator = ({ open, onClose, onPostCreated }) => {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [caption, setCaption] = useState("");
-  const [storyType, setStoryType] = useState("media"); // "media" or "text"
+  const [postType, setPostType] = useState("media");
   const [textBackgroundColor, setTextBackgroundColor] = useState(
-    TEXT_STORY_COLORS[0].gradient
+    TEXT_POST_COLORS[0].gradient
   );
   const [locationEnabled, setLocationEnabled] = useState(false);
   const [locationCoords, setLocationCoords] = useState({
@@ -98,16 +77,12 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
   const fileInputRef = useRef(null);
   const emojiButtonRef = useRef(null);
 
-  // Get user's current location when location toggle is enabled
   useEffect(() => {
     let isMounted = true;
 
     if (locationEnabled && !locationCoords.latitude && !gettingLocation) {
       setGettingLocation(true);
-      console.log("📍 [StoryCreator] Requesting user location...");
-
       if (!navigator.geolocation) {
-        console.log("❌ [StoryCreator] Geolocation not supported");
         if (isMounted) {
           Swal.fire({
             icon: "error",
@@ -125,16 +100,11 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
         (position) => {
           if (!isMounted) return;
           const { latitude, longitude } = position.coords;
-          console.log("✅ [StoryCreator] Location obtained:", {
-            latitude,
-            longitude,
-          });
           setLocationCoords({ latitude, longitude });
           setGettingLocation(false);
         },
         (error) => {
           if (!isMounted) return;
-          console.error("❌ [StoryCreator] Location error:", error);
           let errorMessage = "Unable to get your location";
           switch (error.code) {
             case error.PERMISSION_DENIED:
@@ -165,14 +135,12 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
         }
       );
     } else if (!locationEnabled && locationCoords.latitude) {
-      // Reset location when toggle is turned off
       if (isMounted) {
         setLocationCoords({ latitude: null, longitude: null });
         setGettingLocation(false);
       }
     }
 
-    // Cleanup function
     return () => {
       isMounted = false;
     };
@@ -182,7 +150,6 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
 
-    // Validate file type
     const isImage = selectedFile.type.startsWith("image/");
     const isVideo = selectedFile.type.startsWith("video/");
 
@@ -196,7 +163,6 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
       return;
     }
 
-    // Validate file size (50MB max)
     if (selectedFile.size > 50 * 1024 * 1024) {
       Swal.fire({
         icon: "error",
@@ -209,7 +175,6 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
 
     setFile(selectedFile);
 
-    // Create preview
     if (isImage) {
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -231,24 +196,18 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
     }
   };
 
-  const handleCreateStory = async () => {
-    console.log("📸 [StoryCreator] Share Story button clicked");
-
-    // For text stories, caption is required
-    if (storyType === "text" && !caption.trim()) {
-      console.log("❌ [StoryCreator] No text provided for text story");
+  const handleCreatePost = async () => {
+    if (postType === "text" && !caption.trim()) {
       Swal.fire({
         icon: "warning",
         title: "Text Required",
-        text: "Please enter some text for your story",
+        text: "Please enter some text for your post",
         confirmButtonColor: "#D4AF37",
       });
       return;
     }
 
-    // For media stories, file is required
-    if (storyType === "media" && !file) {
-      console.log("❌ [StoryCreator] No file selected");
+    if (postType === "media" && !file) {
       Swal.fire({
         icon: "warning",
         title: "No Media Selected",
@@ -260,46 +219,31 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
 
     const token = localStorage.getItem("token");
     if (!token) {
-      console.log("❌ [StoryCreator] No token found");
       Swal.fire({
         icon: "error",
         title: "Login Required",
-        text: "Please login to create a story",
+        text: "Please login to create a post",
         confirmButtonColor: "#D4AF37",
       });
       return;
     }
 
-    console.log("📤 [StoryCreator] Starting story upload...", {
-      storyType,
-      fileName: file?.name || "N/A (text story)",
-      fileType: file?.type || "text",
-      fileSize: file?.size || 0,
-      hasCaption: !!caption.trim(),
-      locationEnabled,
-      locationCoords,
-    });
-
     setUploading(true);
     try {
       const formData = new FormData();
 
-      // Only append file if it's a media story
-      if (storyType === "media" && file) {
-        formData.append("story_media", file);
+      if (postType === "media" && file) {
+        formData.append("post_media", file);
       }
 
-      // Caption is required for text stories, optional for media
       if (caption.trim()) {
         formData.append("caption", caption.trim());
       }
 
-      // Add background color for text stories
-      if (storyType === "text") {
+      if (postType === "text") {
         formData.append("background_color", textBackgroundColor);
       }
 
-      // Add location coordinates if location toggle is enabled
       if (
         locationEnabled &&
         locationCoords.latitude &&
@@ -307,14 +251,9 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
       ) {
         formData.append("latitude", locationCoords.latitude.toString());
         formData.append("longitude", locationCoords.longitude.toString());
-        console.log("📍 [StoryCreator] Adding location coordinates:", {
-          lat: locationCoords.latitude,
-          lng: locationCoords.longitude,
-        });
       }
 
-      console.log("🚀 [StoryCreator] Sending POST request to /api/stories");
-      const response = await fetch("/api/stories", {
+      const response = await fetch("/api/posts", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -322,43 +261,33 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
         body: formData,
       });
 
-      console.log("📥 [StoryCreator] Response received:", {
-        status: response.status,
-        statusText: response.statusText,
-      });
-
       const data = await response.json();
-      console.log("📦 [StoryCreator] Response data:", data);
 
       if (data.success) {
-        console.log("✅ [StoryCreator] Story created successfully!", data.data);
         Swal.fire({
           icon: "success",
-          title: "Story Created!",
-          text: "Your story will be visible for 24 hours",
+          title: "Post Created!",
+          text: "Your post has been shared",
           confirmButtonColor: "#D4AF37",
           timer: 2000,
         });
         handleClose();
-        if (onStoryCreated) {
-          console.log("🔄 [StoryCreator] Calling onStoryCreated callback");
-          onStoryCreated();
+        if (onPostCreated) {
+          onPostCreated();
         }
       } else {
-        console.error("❌ [StoryCreator] Story creation failed:", data.message);
-        throw new Error(data.message || "Failed to create story");
+        throw new Error(data.message || "Failed to create post");
       }
     } catch (err) {
-      console.error("💥 [StoryCreator] Error creating story:", err);
+      console.error("Error creating post:", err);
       Swal.fire({
         icon: "error",
-        title: "Failed to Create Story",
+        title: "Failed to Create Post",
         text: err.message || "Please try again later",
         confirmButtonColor: "#D4AF37",
       });
     } finally {
       setUploading(false);
-      console.log("🏁 [StoryCreator] Upload process finished");
     }
   };
 
@@ -366,8 +295,8 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
     setFile(null);
     setPreview(null);
     setCaption("");
-    setStoryType("media");
-    setTextBackgroundColor(TEXT_STORY_COLORS[0].gradient);
+    setPostType("media");
+    setTextBackgroundColor(TEXT_POST_COLORS[0].gradient);
     setLocationEnabled(false);
     setLocationCoords({ latitude: null, longitude: null });
     setGettingLocation(false);
@@ -401,29 +330,29 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
           justifyContent: "space-between",
         }}
       >
-        Create Story
+        Create Post
         <IconButton onClick={handleClose} size="small">
           <Close />
         </IconButton>
       </DialogTitle>
 
       <DialogContent sx={{ pt: 3 }}>
-        {!preview && storyType === "media" ? (
+        {!preview && postType === "media" ? (
           <Box>
             <Box sx={{ display: "flex", gap: 2, mb: 3, mt: 2 }}>
               <Button
-                variant={storyType === "media" ? "contained" : "outlined"}
-                onClick={() => setStoryType("media")}
+                variant={postType === "media" ? "contained" : "outlined"}
+                onClick={() => setPostType("media")}
                 startIcon={<CameraAlt />}
                 sx={{
                   flex: 1,
-                  bgcolor: storyType === "media" ? "#D4AF37" : "transparent",
-                  color: storyType === "media" ? "#1a1a1a" : "#D4AF37",
+                  bgcolor: postType === "media" ? "#D4AF37" : "transparent",
+                  color: postType === "media" ? "#1a1a1a" : "#D4AF37",
                   borderColor: "#D4AF37",
                   fontWeight: 600,
                   "&:hover": {
                     bgcolor:
-                      storyType === "media"
+                      postType === "media"
                         ? "#B8941F"
                         : "rgba(212, 175, 55, 0.1)",
                   },
@@ -432,9 +361,9 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
                 Photo/Video
               </Button>
               <Button
-                variant={storyType === "text" ? "contained" : "outlined"}
+                variant={postType === "text" ? "contained" : "outlined"}
                 onClick={() => {
-                  setStoryType("text");
+                  setPostType("text");
                   setFile(null);
                   setPreview(null);
                   if (fileInputRef.current) {
@@ -444,19 +373,19 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
                 startIcon={<TextFields />}
                 sx={{
                   flex: 1,
-                  bgcolor: storyType === "text" ? "#D4AF37" : "transparent",
-                  color: storyType === "text" ? "#1a1a1a" : "#D4AF37",
+                  bgcolor: postType === "text" ? "#D4AF37" : "transparent",
+                  color: postType === "text" ? "#1a1a1a" : "#D4AF37",
                   borderColor: "#D4AF37",
                   fontWeight: 600,
                   "&:hover": {
                     bgcolor:
-                      storyType === "text"
+                      postType === "text"
                         ? "#B8941F"
                         : "rgba(212, 175, 55, 0.1)",
                   },
                 }}
               >
-                Text Story
+                Text Post
               </Button>
             </Box>
             <Box
@@ -480,7 +409,7 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
                 variant="body2"
                 sx={{ color: "rgba(26,26,26,0.6)", mb: 2 }}
               >
-                Choose a photo or video to share as your story
+                Choose a photo or video to share
               </Typography>
               <Button
                 variant="contained"
@@ -489,7 +418,6 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
                   bgcolor: "#D4AF37",
                   color: "#1a1a1a",
                   fontWeight: 600,
-                  mr: 1,
                   "&:hover": {
                     bgcolor: "#B8941F",
                   },
@@ -506,25 +434,25 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
               />
             </Box>
           </Box>
-        ) : storyType === "text" ? (
+        ) : postType === "text" ? (
           <Box>
             <Box sx={{ display: "flex", gap: 2, mb: 3, mt: 2 }}>
               <Button
-                variant={storyType === "media" ? "contained" : "outlined"}
+                variant={postType === "media" ? "contained" : "outlined"}
                 onClick={() => {
-                  setStoryType("media");
+                  setPostType("media");
                   setCaption("");
                 }}
                 startIcon={<CameraAlt />}
                 sx={{
                   flex: 1,
-                  bgcolor: storyType === "media" ? "#D4AF37" : "transparent",
-                  color: storyType === "media" ? "#1a1a1a" : "#D4AF37",
+                  bgcolor: postType === "media" ? "#D4AF37" : "transparent",
+                  color: postType === "media" ? "#1a1a1a" : "#D4AF37",
                   borderColor: "#D4AF37",
                   fontWeight: 600,
                   "&:hover": {
                     bgcolor:
-                      storyType === "media"
+                      postType === "media"
                         ? "#B8941F"
                         : "rgba(212, 175, 55, 0.1)",
                   },
@@ -533,27 +461,26 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
                 Photo/Video
               </Button>
               <Button
-                variant={storyType === "text" ? "contained" : "outlined"}
-                onClick={() => setStoryType("text")}
+                variant={postType === "text" ? "contained" : "outlined"}
+                onClick={() => setPostType("text")}
                 startIcon={<TextFields />}
                 sx={{
                   flex: 1,
-                  bgcolor: storyType === "text" ? "#D4AF37" : "transparent",
-                  color: storyType === "text" ? "#1a1a1a" : "#D4AF37",
+                  bgcolor: postType === "text" ? "#D4AF37" : "transparent",
+                  color: postType === "text" ? "#1a1a1a" : "#D4AF37",
                   borderColor: "#D4AF37",
                   fontWeight: 600,
                   "&:hover": {
                     bgcolor:
-                      storyType === "text"
+                      postType === "text"
                         ? "#B8941F"
                         : "rgba(212, 175, 55, 0.1)",
                   },
                 }}
               >
-                Text Story
+                Text Post
               </Button>
             </Box>
-            {/* Text Preview with Background */}
             <Box
               sx={{
                 width: "100%",
@@ -576,7 +503,6 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
                   fontWeight: 600,
                   wordWrap: "break-word",
                   textShadow: "2px 2px 4px rgba(0,0,0,0.3)",
-                  fontSize: { xs: "1.2rem", sm: "1.5rem", md: "1.8rem" },
                 }}
               >
                 {caption || "Your text will appear here"}
@@ -586,7 +512,7 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
             <Box sx={{ mb: 2 }}>
               <TextField
                 fullWidth
-                label="Write your story"
+                label="Write your post"
                 value={caption}
                 onChange={(e) => setCaption(e.target.value)}
                 multiline
@@ -610,7 +536,6 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
               </Box>
             </Box>
 
-            {/* Background Color Selector */}
             <Box sx={{ mb: 2 }}>
               <Typography
                 variant="subtitle2"
@@ -625,7 +550,7 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
                   gap: 1.5,
                 }}
               >
-                {TEXT_STORY_COLORS.map((color, index) => (
+                {TEXT_POST_COLORS.map((color, index) => (
                   <Box
                     key={index}
                     onClick={() => setTextBackgroundColor(color.gradient)}
@@ -646,7 +571,6 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
                       transition: "all 0.2s ease",
                       "&:hover": {
                         transform: "scale(1.1)",
-                        boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
                       },
                     }}
                   />
@@ -719,9 +643,9 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
                 onChange={(e) => setCaption(e.target.value)}
                 multiline
                 rows={3}
-                inputProps={{ maxLength: 200 }}
-                helperText={`${caption.length}/200 characters`}
-                placeholder="Add a caption to your story..."
+                inputProps={{ maxLength: 500 }}
+                helperText={`${caption.length}/500 characters`}
+                placeholder="Add a caption..."
               />
               <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
                 <IconButton
@@ -748,14 +672,12 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
                   ? "rgba(212, 175, 55, 0.1)"
                   : "rgba(0,0,0,0.02)",
                 border: `1px solid ${locationEnabled ? "#D4AF37" : "rgba(0,0,0,0.1)"}`,
-                transition: "all 0.3s ease",
               }}
             >
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <LocationOn
                   sx={{
                     color: locationEnabled ? "#D4AF37" : "rgba(0,0,0,0.5)",
-                    transition: "color 0.3s ease",
                   }}
                 />
                 <Box>
@@ -768,11 +690,11 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
                   >
                     {locationEnabled
                       ? locationCoords.latitude
-                        ? "Location will be shared with your story"
+                        ? "Location will be shared"
                         : gettingLocation
                           ? "Getting your location..."
-                          : "Enable to share your current location"
-                      : "Your story will be discoverable by location"}
+                          : "Enable to share location"
+                      : "Add location to your post"}
                   </Typography>
                 </Box>
               </Box>
@@ -801,15 +723,10 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
                 />
               </Box>
             </Box>
-
-            <Alert severity="info" sx={{ borderRadius: "12px" }}>
-              Your story will be visible for 24 hours. Make it count!
-            </Alert>
           </Box>
         )}
       </DialogContent>
 
-      {/* Emoji Picker */}
       <EmojiPicker
         open={emojiPickerOpen}
         anchorEl={emojiPickerAnchor}
@@ -829,9 +746,9 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
         <Button onClick={handleClose} disabled={uploading}>
           Cancel
         </Button>
-        {(preview || (storyType === "text" && caption.trim())) && (
+        {(preview || (postType === "text" && caption.trim())) && (
           <Button
-            onClick={handleCreateStory}
+            onClick={handleCreatePost}
             variant="contained"
             disabled={uploading}
             sx={{
@@ -846,10 +763,10 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
             {uploading ? (
               <>
                 <CircularProgress size={16} sx={{ mr: 1, color: "#1a1a1a" }} />
-                {storyType === "text" ? "Creating..." : "Uploading..."}
+                {postType === "text" ? "Creating..." : "Uploading..."}
               </>
             ) : (
-              "Share Story"
+              "Share Post"
             )}
           </Button>
         )}
@@ -858,4 +775,4 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
   );
 };
 
-export default StoryCreator;
+export default PostCreator;

@@ -12,6 +12,14 @@ import {
   Button,
   Menu,
   MenuItem,
+  DialogTitle,
+  DialogContent,
+  List,
+  ListItem,
+  ListItemAvatar,
+  ListItemText,
+  CircularProgress,
+  Divider,
 } from "@mui/material";
 import {
   Close,
@@ -25,18 +33,44 @@ import {
   Verified,
   Delete,
   MoreVert,
+  EmojiEmotions,
+  Visibility,
 } from "@mui/icons-material";
 import Swal from "sweetalert2";
+import EmojiPicker from "../EmojiPicker/EmojiPicker";
 
-const StoryViewer = ({ open, onClose, storyGroup, onNextGroup, onPrevGroup, currentUser, onStoryDeleted }) => {
+const StoryViewer = ({
+  open,
+  onClose,
+  storyGroup,
+  onNextGroup,
+  onPrevGroup,
+  currentUser,
+  onStoryDeleted,
+}) => {
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [reaction, setReaction] = useState(null);
   const [comment, setComment] = useState("");
   const [sendingComment, setSendingComment] = useState(false);
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+  const [emojiPickerAnchor, setEmojiPickerAnchor] = useState(null);
+  const [viewCount, setViewCount] = useState(0);
+  const [viewersDialogOpen, setViewersDialogOpen] = useState(false);
+  const [viewers, setViewers] = useState([]);
+  const [loadingViewers, setLoadingViewers] = useState(false);
+  const [reactionsDialogOpen, setReactionsDialogOpen] = useState(false);
+  const [commentsDialogOpen, setCommentsDialogOpen] = useState(false);
+  const [storyReactions, setStoryReactions] = useState([]);
+  const [storyComments, setStoryComments] = useState([]);
+  const [loadingReactions, setLoadingReactions] = useState(false);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [queuedReactions, setQueuedReactions] = useState([]); // Queue of reactions to send
+  const [flyingEmojis, setFlyingEmojis] = useState([]); // Emojis currently animating
   const progressIntervalRef = useRef(null);
   const storyTimeoutRef = useRef(null);
+  const emojiButtonRef = useRef(null);
 
   const stories = storyGroup?.stories || [];
   const currentStory = stories[currentStoryIndex];
@@ -44,57 +78,284 @@ const StoryViewer = ({ open, onClose, storyGroup, onNextGroup, onPrevGroup, curr
   const [deleteMenuAnchor, setDeleteMenuAnchor] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Check if current user owns the story (defined early so it can be used in useEffects)
+  const isStoryOwner =
+    currentUser &&
+    currentStory &&
+    (currentUser.id === currentStory.public_user_id ||
+      currentUser.id === user?.id);
+
   useEffect(() => {
     if (open && stories.length > 0) {
+      // Always start with the first story when opening
       setCurrentStoryIndex(0);
       setProgress(0);
-      setIsPaused(false);
-      // Load user's reaction for current story
+      setIsPaused(false); // Ensure not paused when opening
+      // Load user's reaction for current story (only if not the owner)
       const firstStory = stories[0];
-      if (firstStory.user_reaction) {
+      const isOwner =
+        currentUser &&
+        (currentUser.id === firstStory.public_user_id ||
+          currentUser.id === user?.id);
+      if (isOwner) {
+        // Story owners cannot react to their own stories
+        setReaction(null);
+      } else if (firstStory.user_reaction) {
         setReaction(firstStory.user_reaction);
       } else {
         setReaction(null);
       }
-      startProgress();
+    } else if (!open) {
+      // Clear everything when closing
+      clearProgress();
+      setProgress(0);
+      setIsPaused(false);
     }
     return () => {
       clearProgress();
     };
-  }, [open, storyGroup]);
+  }, [open, storyGroup, currentUser, user]);
+
+  // Prevent body scroll when story viewer is open
+  useEffect(() => {
+    if (open) {
+      // Save current overflow style
+      const originalOverflow = document.body.style.overflow;
+      // Prevent scrolling
+      document.body.style.overflow = "hidden";
+      // Also prevent scrolling on html element
+      document.documentElement.style.overflow = "hidden";
+
+      return () => {
+        // Restore original overflow style
+        document.body.style.overflow = originalOverflow;
+        document.documentElement.style.overflow = originalOverflow;
+      };
+    }
+  }, [open]);
 
   useEffect(() => {
     // Update reaction when story changes
+    // Story owners cannot react to their own stories, so clear reaction for owners
     if (currentStory) {
-      if (currentStory.user_reaction) {
+      if (isStoryOwner) {
+        setReaction(null);
+      } else if (currentStory.user_reaction) {
         setReaction(currentStory.user_reaction);
       } else {
         setReaction(null);
       }
+
+      // Update view count from story data
+      setViewCount(currentStory.view_count || 0);
+
+      // Load reactions and comments if story owner
+      if (isStoryOwner && currentStory.id) {
+        // Try to get from current story data first, otherwise fetch
+        if (currentStory.reactions) {
+          setStoryReactions(currentStory.reactions || []);
+        } else {
+          loadStoryReactions(currentStory.id);
+        }
+
+        if (currentStory.comments) {
+          setStoryComments(currentStory.comments || []);
+        } else {
+          loadStoryComments(currentStory.id);
+        }
+      }
     }
-  }, [currentStoryIndex, currentStory]);
+  }, [currentStoryIndex, currentStory, isStoryOwner]);
+
+  // Group reactions by user
+  const groupReactionsByUser = (reactions) => {
+    const grouped = {};
+    reactions.forEach((reaction) => {
+      const userId = reaction.user?.id || reaction.user_id;
+      if (!grouped[userId]) {
+        grouped[userId] = {
+          user: reaction.user,
+          reactions: [],
+        };
+      }
+      grouped[userId].reactions.push(reaction);
+    });
+    return Object.values(grouped);
+  };
+
+  // Group comments by user
+  const groupCommentsByUser = (comments) => {
+    const grouped = {};
+    comments.forEach((comment) => {
+      const userId = comment.user?.id || comment.user_id;
+      if (!grouped[userId]) {
+        grouped[userId] = {
+          user: comment.user,
+          comments: [],
+        };
+      }
+      grouped[userId].comments.push(comment);
+    });
+    return Object.values(grouped);
+  };
+
+  const loadStoryReactions = async (storyId) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      setLoadingReactions(true);
+      const response = await fetch(`/api/stories/${storyId}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data?.story?.reactions) {
+          setStoryReactions(data.data.story.reactions || []);
+        }
+      }
+    } catch (error) {
+      console.error("Error loading reactions:", error);
+    } finally {
+      setLoadingReactions(false);
+    }
+  };
+
+  const loadStoryComments = async (storyId) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      setLoadingComments(true);
+      const response = await fetch(`/api/stories/${storyId}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data?.story?.comments) {
+          setStoryComments(data.data.story.comments || []);
+        }
+      }
+    } catch (error) {
+      console.error("Error loading comments:", error);
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
+  // Track view when story is displayed (only once per story, and only if not the owner)
+  useEffect(() => {
+    if (open && currentStory && !isStoryOwner && currentStory.id) {
+      // Small delay to ensure story is actually being viewed
+      const viewTimer = setTimeout(() => {
+        trackStoryView(currentStory.id);
+      }, 500);
+
+      return () => clearTimeout(viewTimer);
+    }
+  }, [currentStoryIndex, open, currentStory?.id, isStoryOwner]);
+
+  const trackStoryView = async (storyId) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      const response = await fetch(`/api/stories/${storyId}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data?.story) {
+          // Update view count from response (backend increments it)
+          setViewCount(data.data.story.view_count || 0);
+        }
+      }
+    } catch (error) {
+      console.error("Error tracking story view:", error);
+    }
+  };
 
   useEffect(() => {
-    if (open && currentStory && !isPaused) {
-      startProgress();
-    } else {
-      clearProgress();
+    // Reset progress and restart when story index changes
+    if (open && currentStory) {
+      clearProgress(); // Clear any existing progress first
+      setProgress(0); // Reset to 0
+
+      // Always start progress when story changes, even if paused
+      // The pause effect will pause it if needed
+      const startTimer = setTimeout(() => {
+        // Check if still open and current story is still valid
+        if (open && currentStory) {
+          // Start progress - it will be paused by pause effect if isPaused is true
+          startProgress(0);
+
+          // If paused, pause it immediately
+          if (isPaused && progressIntervalRef.current) {
+            clearInterval(progressIntervalRef.current);
+            progressIntervalRef.current = null;
+          }
+        }
+      }, 150);
+
+      return () => {
+        clearTimeout(startTimer);
+        clearProgress();
+      };
     }
     return () => clearProgress();
-  }, [currentStoryIndex, isPaused, open, currentStory]);
+  }, [currentStoryIndex, open, currentStory]); // Removed isPaused from dependencies
 
-  const startProgress = () => {
+  // Separate effect to handle pause/unpause
+  useEffect(() => {
+    if (open && currentStory) {
+      if (isPaused) {
+        // Pause: clear the progress interval but keep progress value
+        if (progressIntervalRef.current) {
+          clearInterval(progressIntervalRef.current);
+          progressIntervalRef.current = null;
+        }
+      } else {
+        // Unpause: start or resume progress if not already running
+        if (!progressIntervalRef.current && progress < 100) {
+          startProgress(progress); // Start from current progress (0 if just opened)
+        }
+      }
+    }
+  }, [isPaused, open, currentStory, progress]);
+
+  const startProgress = (fromProgress = 0) => {
     clearProgress();
     const duration = 5000; // 5 seconds per story
-    const interval = 100; // Update every 100ms
-    let currentProgress = 0;
+    const interval = 16; // Update every ~16ms for smooth 60fps animation
+    const startTime = Date.now() - (fromProgress / 100) * duration; // Adjust start time if resuming
 
     progressIntervalRef.current = setInterval(() => {
-      currentProgress += (interval / duration) * 100;
-      if (currentProgress >= 100) {
-        handleNextStory();
-      } else {
-        setProgress(currentProgress);
+      const elapsed = Date.now() - startTime;
+      const newProgress = Math.min(
+        Math.max((elapsed / duration) * 100, 0),
+        100
+      );
+
+      setProgress(newProgress);
+
+      if (newProgress >= 100) {
+        clearProgress();
+        // Small delay before moving to next story for smooth transition
+        setTimeout(() => {
+          handleNextStory();
+        }, 150);
       }
     }, interval);
   };
@@ -111,18 +372,21 @@ const StoryViewer = ({ open, onClose, storyGroup, onNextGroup, onPrevGroup, curr
   };
 
   const handleNextStory = () => {
+    clearProgress(); // Clear any running progress
     if (currentStoryIndex < stories.length - 1) {
       setCurrentStoryIndex(currentStoryIndex + 1);
-      setProgress(0);
+      setProgress(0); // Reset progress bar
     } else {
       handleNextGroupClick();
     }
   };
 
   const handlePrevStory = () => {
+    clearProgress(); // Clear any running progress
     if (currentStoryIndex > 0) {
+      setProgress(0); // Reset progress bar first
       setCurrentStoryIndex(currentStoryIndex - 1);
-      setProgress(0);
+      // Progress will restart automatically via useEffect when currentStoryIndex changes
     } else {
       handlePrevGroupClick();
     }
@@ -144,36 +408,139 @@ const StoryViewer = ({ open, onClose, storyGroup, onNextGroup, onPrevGroup, curr
     }
   };
 
-  const handleReaction = async () => {
+  // Queue a reaction and trigger animation
+  const handleReaction = (emoji = null, clickPosition = null) => {
     if (!currentStory) return;
-    const token = localStorage.getItem("token");
-    if (!token) return;
+
+    // Prevent story owners from reacting to their own stories
+    if (isStoryOwner) {
+      return;
+    }
+
+    const reactionData = {
+      reaction_type: emoji ? "emoji" : "like",
+      emoji: emoji || null,
+    };
+
+    // Add to queue
+    setQueuedReactions((prev) => [...prev, reactionData]);
+
+    // If emoji and click position provided, trigger flying animation
+    if (emoji && clickPosition && emojiButtonRef.current) {
+      const buttonRect = emojiButtonRef.current.getBoundingClientRect();
+      const targetX = buttonRect.left + buttonRect.width / 2;
+      const targetY = buttonRect.top + buttonRect.height / 2;
+
+      const flyingEmoji = {
+        id: Date.now() + Math.random(),
+        emoji,
+        startX: clickPosition.x,
+        startY: clickPosition.y,
+        targetX,
+        targetY,
+      };
+
+      setFlyingEmojis((prev) => [...prev, flyingEmoji]);
+
+      // Remove flying emoji after animation completes
+      setTimeout(() => {
+        setFlyingEmojis((prev) => prev.filter((e) => e.id !== flyingEmoji.id));
+      }, 600);
+    }
+
+    // Update reaction state to show the most recent reaction
+    if (emoji) {
+      setReaction({ reaction_type: "emoji", emoji });
+    } else {
+      setReaction({ reaction_type: "like" });
+    }
+  };
+
+  // Close emoji picker dialog
+  const handleEmojiPickerClose = () => {
+    setEmojiPickerOpen(false);
+    setEmojiPickerAnchor(null);
+  };
+
+  const handleEmojiPickerOpen = (event) => {
+    setEmojiPickerAnchor(event.currentTarget);
+    setEmojiPickerOpen(true);
+  };
+
+  // Send all queued reactions when dialog closes
+  useEffect(() => {
+    if (!emojiPickerOpen && queuedReactions.length > 0 && currentStory) {
+      // Dialog was closed, send all queued reactions
+      const sendQueuedReactions = async () => {
+        const token = localStorage.getItem("token");
+        if (!token) {
+          setQueuedReactions([]);
+          return;
+        }
+
+        try {
+          const promises = queuedReactions.map((reactionData) =>
+            fetch(`/api/stories/${currentStory.id}/reactions`, {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(reactionData),
+            })
+          );
+
+          await Promise.all(promises);
+          setQueuedReactions([]); // Clear queue
+        } catch (err) {
+          console.error("Error sending queued reactions:", err);
+          setQueuedReactions([]); // Clear queue even on error
+        }
+      };
+
+      sendQueuedReactions();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [emojiPickerOpen]);
+
+  const handleViewersClick = async () => {
+    if (!currentStory || !isStoryOwner) return;
+
+    setViewersDialogOpen(true);
+    setLoadingViewers(true);
 
     try {
-      const reactionType = reaction ? null : "like";
-      const url = `/api/stories/${currentStory.id}/reactions`;
-      const method = reaction ? "DELETE" : "POST";
+      const token = localStorage.getItem("token");
+      if (!token) return;
 
-      const response = await fetch(url, {
-        method,
+      const response = await fetch(`/api/stories/${currentStory.id}/viewers`, {
+        method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
         },
-        body: method === "POST" ? JSON.stringify({ reaction_type: reactionType }) : undefined,
       });
 
-      const data = await response.json();
-      if (data.success) {
-        setReaction(reaction ? null : { reaction_type: reactionType });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data?.viewers) {
+          setViewers(data.data.viewers);
+        }
       }
-    } catch (err) {
-      console.error("Error adding reaction:", err);
+    } catch (error) {
+      console.error("Error fetching viewers:", error);
+    } finally {
+      setLoadingViewers(false);
     }
   };
 
   const handleSendComment = async () => {
     if (!comment.trim() || !currentStory) return;
+
+    // Prevent story owners from commenting on their own stories
+    if (isStoryOwner) {
+      return;
+    }
+
     const token = localStorage.getItem("token");
     if (!token) return;
 
@@ -202,7 +569,7 @@ const StoryViewer = ({ open, onClose, storyGroup, onNextGroup, onPrevGroup, curr
 
   const handleDeleteStory = async () => {
     if (!currentStory) return;
-    
+
     const token = localStorage.getItem("token");
     if (!token) {
       Swal.fire({
@@ -210,6 +577,22 @@ const StoryViewer = ({ open, onClose, storyGroup, onNextGroup, onPrevGroup, curr
         title: "Login Required",
         text: "Please login to delete stories",
         confirmButtonColor: "#D4AF37",
+        zIndex: 9999,
+        customClass: {
+          container: "swal-story-viewer-overlay",
+        },
+        didOpen: () => {
+          const swalContainer = document.querySelector(
+            ".swal-story-viewer-overlay"
+          );
+          const swalBackdrop = document.querySelector(".swal2-backdrop-show");
+          if (swalContainer) {
+            swalContainer.style.zIndex = "9999";
+          }
+          if (swalBackdrop) {
+            swalBackdrop.style.zIndex = "9998";
+          }
+        },
       });
       return;
     }
@@ -223,6 +606,22 @@ const StoryViewer = ({ open, onClose, storyGroup, onNextGroup, onPrevGroup, curr
       cancelButtonText: "Cancel",
       confirmButtonColor: "#d33",
       cancelButtonColor: "#D4AF37",
+      zIndex: 9999,
+      customClass: {
+        container: "swal-story-viewer-overlay",
+      },
+      didOpen: () => {
+        const swalContainer = document.querySelector(
+          ".swal-story-viewer-overlay"
+        );
+        const swalBackdrop = document.querySelector(".swal2-backdrop-show");
+        if (swalContainer) {
+          swalContainer.style.zIndex = "9999";
+        }
+        if (swalBackdrop) {
+          swalBackdrop.style.zIndex = "9998";
+        }
+      },
     });
 
     if (!result.isConfirmed) {
@@ -241,7 +640,7 @@ const StoryViewer = ({ open, onClose, storyGroup, onNextGroup, onPrevGroup, curr
       });
 
       const data = await response.json();
-      
+
       if (response.ok && data.success) {
         Swal.fire({
           icon: "success",
@@ -249,11 +648,29 @@ const StoryViewer = ({ open, onClose, storyGroup, onNextGroup, onPrevGroup, curr
           text: "Your story has been deleted successfully",
           confirmButtonColor: "#D4AF37",
           timer: 2000,
+          zIndex: 9999,
+          customClass: {
+            container: "swal-story-viewer-overlay",
+          },
+          didOpen: () => {
+            const swalContainer = document.querySelector(
+              ".swal-story-viewer-overlay"
+            );
+            const swalBackdrop = document.querySelector(".swal2-backdrop-show");
+            if (swalContainer) {
+              swalContainer.style.zIndex = "9999";
+            }
+            if (swalBackdrop) {
+              swalBackdrop.style.zIndex = "9998";
+            }
+          },
         });
 
         // Remove deleted story from current stories array
-        const remainingStories = stories.filter(s => s.id !== currentStory.id);
-        
+        const remainingStories = stories.filter(
+          (s) => s.id !== currentStory.id
+        );
+
         if (remainingStories.length === 0) {
           // No more stories in this group, close viewer
           if (onStoryDeleted) {
@@ -262,11 +679,12 @@ const StoryViewer = ({ open, onClose, storyGroup, onNextGroup, onPrevGroup, curr
           onClose();
         } else {
           // Move to next story or previous if at the end
-          const newIndex = currentStoryIndex >= remainingStories.length 
-            ? remainingStories.length - 1 
-            : currentStoryIndex;
+          const newIndex =
+            currentStoryIndex >= remainingStories.length
+              ? remainingStories.length - 1
+              : currentStoryIndex;
           setCurrentStoryIndex(newIndex);
-          
+
           // Update the storyGroup prop by calling onStoryDeleted with updated group
           if (onStoryDeleted) {
             onStoryDeleted({
@@ -285,18 +703,28 @@ const StoryViewer = ({ open, onClose, storyGroup, onNextGroup, onPrevGroup, curr
         title: "Delete Failed",
         text: err.message || "Failed to delete story. Please try again.",
         confirmButtonColor: "#D4AF37",
+        zIndex: 9999,
+        customClass: {
+          container: "swal-story-viewer-overlay",
+        },
+        didOpen: () => {
+          const swalContainer = document.querySelector(
+            ".swal-story-viewer-overlay"
+          );
+          const swalBackdrop = document.querySelector(".swal2-backdrop-show");
+          if (swalContainer) {
+            swalContainer.style.zIndex = "9999";
+          }
+          if (swalBackdrop) {
+            swalBackdrop.style.zIndex = "9998";
+          }
+        },
       });
     } finally {
       setDeleting(false);
       setDeleteMenuAnchor(null);
     }
   };
-
-  // Check if current user owns the story
-  const isStoryOwner = currentUser && currentStory && (
-    currentUser.id === currentStory.public_user_id || 
-    currentUser.id === user?.id
-  );
 
   const getImageUrl = (imagePath) => {
     if (!imagePath) return null;
@@ -313,6 +741,7 @@ const StoryViewer = ({ open, onClose, storyGroup, onNextGroup, onPrevGroup, curr
 
   const mediaUrl = getImageUrl(currentStory.media_url);
   const isVideo = currentStory.media_type === "video";
+  const isTextStory = currentStory.media_type === "text";
 
   return (
     <Dialog
@@ -324,16 +753,28 @@ const StoryViewer = ({ open, onClose, storyGroup, onNextGroup, onPrevGroup, curr
           bgcolor: "#000",
           m: 0,
           borderRadius: 0,
+          maxHeight: "100vh",
+          maxWidth: "100vw",
+          overflow: "hidden",
+        },
+      }}
+      sx={{
+        "& .MuiDialog-container": {
+          height: "100vh",
+          overflow: "hidden",
         },
       }}
     >
       <Box
         sx={{
           position: "relative",
-          width: "100%",
-          height: "100%",
+          width: "100vw",
+          height: "100vh",
+          maxHeight: "100vh",
+          maxWidth: "100vw",
           display: "flex",
           flexDirection: "column",
+          overflow: "hidden",
         }}
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
@@ -360,16 +801,24 @@ const StoryViewer = ({ open, onClose, storyGroup, onNextGroup, onPrevGroup, curr
                 bgcolor: "rgba(255,255,255,0.3)",
                 borderRadius: 2,
                 overflow: "hidden",
+                position: "relative",
               }}
             >
               <LinearProgress
                 variant="determinate"
-                value={index < currentStoryIndex ? 100 : index === currentStoryIndex ? progress : 0}
+                value={
+                  index < currentStoryIndex
+                    ? 100
+                    : index === currentStoryIndex
+                      ? progress
+                      : 0
+                }
                 sx={{
                   height: "100%",
-                  bgcolor: "#D4AF37",
+                  backgroundColor: "rgba(255,255,255,0.3)",
                   "& .MuiLinearProgress-bar": {
-                    bgcolor: "#D4AF37",
+                    backgroundColor: "#D4AF37",
+                    transition: "transform 0.1s linear",
                   },
                 }}
               />
@@ -390,7 +839,8 @@ const StoryViewer = ({ open, onClose, storyGroup, onNextGroup, onPrevGroup, curr
             justifyContent: "space-between",
             p: 2,
             pt: 6,
-            background: "linear-gradient(to bottom, rgba(0,0,0,0.6), transparent)",
+            background:
+              "linear-gradient(to bottom, rgba(0,0,0,0.6), transparent)",
           }}
         >
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
@@ -414,7 +864,9 @@ const StoryViewer = ({ open, onClose, storyGroup, onNextGroup, onPrevGroup, curr
               </Box>
               {currentStory.location && (
                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                  <LocationOn sx={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }} />
+                  <LocationOn
+                    sx={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}
+                  />
                   <Typography
                     variant="caption"
                     sx={{ color: "rgba(255,255,255,0.7)" }}
@@ -431,9 +883,9 @@ const StoryViewer = ({ open, onClose, storyGroup, onNextGroup, onPrevGroup, curr
                 <IconButton
                   onClick={(e) => setDeleteMenuAnchor(e.currentTarget)}
                   disabled={deleting}
-                  sx={{ 
+                  sx={{
                     color: "white",
-                    "&:hover": { bgcolor: "rgba(255,255,255,0.1)" }
+                    "&:hover": { bgcolor: "rgba(255,255,255,0.1)" },
                   }}
                 >
                   <MoreVert />
@@ -470,7 +922,7 @@ const StoryViewer = ({ open, onClose, storyGroup, onNextGroup, onPrevGroup, curr
           </Box>
         </Box>
 
-        {/* Media */}
+        {/* Media or Text */}
         <Box
           sx={{
             flex: 1,
@@ -478,9 +930,45 @@ const StoryViewer = ({ open, onClose, storyGroup, onNextGroup, onPrevGroup, curr
             alignItems: "center",
             justifyContent: "center",
             position: "relative",
+            width: "100%",
+            height: "100%",
+            minHeight: 0,
+            overflow: "hidden",
           }}
         >
-          {isVideo ? (
+          {isTextStory ? (
+            <Box
+              sx={{
+                width: "100%",
+                height: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                p: 4,
+                background:
+                  (currentStory.metadata &&
+                    typeof currentStory.metadata === "object" &&
+                    currentStory.metadata.background_color) ||
+                  "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+              }}
+            >
+              <Typography
+                variant="h4"
+                sx={{
+                  color: "white",
+                  textAlign: "center",
+                  fontWeight: 600,
+                  fontSize: { xs: "1.5rem", sm: "2rem", md: "2.5rem" },
+                  lineHeight: 1.4,
+                  maxWidth: "90%",
+                  wordWrap: "break-word",
+                  textShadow: "2px 2px 4px rgba(0,0,0,0.3)",
+                }}
+              >
+                {currentStory.caption}
+              </Typography>
+            </Box>
+          ) : isVideo ? (
             <Box
               component="video"
               src={mediaUrl}
@@ -489,6 +977,8 @@ const StoryViewer = ({ open, onClose, storyGroup, onNextGroup, onPrevGroup, curr
               muted
               playsInline
               sx={{
+                width: "100%",
+                height: "100%",
                 maxWidth: "100%",
                 maxHeight: "100%",
                 objectFit: "contain",
@@ -500,6 +990,8 @@ const StoryViewer = ({ open, onClose, storyGroup, onNextGroup, onPrevGroup, curr
               src={mediaUrl}
               alt="Story"
               sx={{
+                width: "100%",
+                height: "100%",
                 maxWidth: "100%",
                 maxHeight: "100%",
                 objectFit: "contain",
@@ -532,10 +1024,133 @@ const StoryViewer = ({ open, onClose, storyGroup, onNextGroup, onPrevGroup, curr
           >
             <ArrowForwardIos />
           </IconButton>
+
+          {/* Story Owner Actions - Lower Left (only show for story owners) */}
+          {isStoryOwner && (
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{
+                position: "absolute",
+                bottom: 120,
+                left: 16,
+                zIndex: 5,
+              }}
+            >
+              {/* Viewer Count */}
+              <Box
+                onClick={handleViewersClick}
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  bgcolor: "rgba(0,0,0,0.6)",
+                  borderRadius: 2,
+                  px: 1.5,
+                  py: 0.75,
+                  backdropFilter: "blur(10px)",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                  "&:hover": {
+                    bgcolor: "rgba(0,0,0,0.8)",
+                    transform: "scale(1.05)",
+                  },
+                }}
+              >
+                <Visibility sx={{ fontSize: 18, color: "white" }} />
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: "white",
+                    fontWeight: 600,
+                    fontSize: "0.875rem",
+                  }}
+                >
+                  {viewCount}
+                </Typography>
+              </Box>
+
+              {/* Reactions Count - Always visible */}
+              <Box
+                onClick={() => {
+                  setReactionsDialogOpen(true);
+                  setLoadingReactions(true);
+                  loadStoryReactions(currentStory.id);
+                  setTimeout(() => setLoadingReactions(false), 500);
+                }}
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  bgcolor: "rgba(0,0,0,0.6)",
+                  borderRadius: 2,
+                  px: 1.5,
+                  py: 0.75,
+                  backdropFilter: "blur(10px)",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                  "&:hover": {
+                    bgcolor: "rgba(0,0,0,0.8)",
+                    transform: "scale(1.05)",
+                  },
+                }}
+              >
+                <Favorite sx={{ fontSize: 18, color: "#D4AF37" }} />
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: "white",
+                    fontWeight: 600,
+                    fontSize: "0.875rem",
+                  }}
+                >
+                  {currentStory.reaction_count || 0}
+                </Typography>
+              </Box>
+
+              {/* Comments Count - Always visible */}
+              <Box
+                onClick={() => {
+                  setCommentsDialogOpen(true);
+                  setLoadingComments(true);
+                  loadStoryComments(currentStory.id);
+                  setTimeout(() => setLoadingComments(false), 500);
+                }}
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  bgcolor: "rgba(0,0,0,0.6)",
+                  borderRadius: 2,
+                  px: 1.5,
+                  py: 0.75,
+                  backdropFilter: "blur(10px)",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                  "&:hover": {
+                    bgcolor: "rgba(0,0,0,0.8)",
+                    transform: "scale(1.05)",
+                  },
+                }}
+              >
+                <Comment sx={{ fontSize: 18, color: "white" }} />
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: "white",
+                    fontWeight: 600,
+                    fontSize: "0.875rem",
+                  }}
+                >
+                  {currentStory.comment_count || 0}
+                </Typography>
+              </Box>
+            </Stack>
+          )}
         </Box>
 
-        {/* Caption */}
-        {currentStory.caption && (
+        {/* Caption - Only show for non-text stories (text stories display caption as main content) */}
+        {currentStory.caption && !isTextStory && (
           <Box
             sx={{
               position: "absolute",
@@ -543,7 +1158,8 @@ const StoryViewer = ({ open, onClose, storyGroup, onNextGroup, onPrevGroup, curr
               left: 0,
               right: 0,
               p: 2,
-              background: "linear-gradient(to top, rgba(0,0,0,0.6), transparent)",
+              background:
+                "linear-gradient(to top, rgba(0,0,0,0.6), transparent)",
             }}
           >
             <Typography
@@ -555,71 +1171,621 @@ const StoryViewer = ({ open, onClose, storyGroup, onNextGroup, onPrevGroup, curr
           </Box>
         )}
 
-        {/* Actions */}
-        <Box
-          sx={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            p: 2,
-            background: "linear-gradient(to top, rgba(0,0,0,0.8), transparent)",
+        {/* Actions - Only show for non-owners */}
+        {!isStoryOwner && (
+          <Box
+            sx={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              p: 2,
+              background:
+                "linear-gradient(to top, rgba(0,0,0,0.8), transparent)",
+            }}
+          >
+            <Stack direction="row" spacing={2} alignItems="center">
+              <IconButton
+                ref={emojiButtonRef}
+                onClick={handleEmojiPickerOpen}
+                sx={{
+                  color: reaction ? "#D4AF37" : "white",
+                  position: "relative",
+                }}
+              >
+                {reaction?.emoji ? (
+                  <Typography sx={{ fontSize: "1.5rem" }}>
+                    {reaction.emoji}
+                  </Typography>
+                ) : (
+                  <EmojiEmotions />
+                )}
+                {/* Badge showing queued reactions count */}
+                {queuedReactions.length > 0 && (
+                  <Box
+                    sx={{
+                      position: "absolute",
+                      top: 0,
+                      right: 0,
+                      bgcolor: "#D4AF37",
+                      color: "white",
+                      borderRadius: "50%",
+                      width: 20,
+                      height: 20,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "0.75rem",
+                      fontWeight: "bold",
+                      border: "2px solid rgba(0,0,0,0.8)",
+                    }}
+                  >
+                    {queuedReactions.length}
+                  </Box>
+                )}
+              </IconButton>
+              <TextField
+                placeholder="Send a message..."
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendComment();
+                  }
+                }}
+                size="small"
+                sx={{
+                  flex: 1,
+                  "& .MuiOutlinedInput-root": {
+                    bgcolor: "rgba(255,255,255,0.1)",
+                    color: "white",
+                    "& fieldset": {
+                      borderColor: "rgba(255,255,255,0.3)",
+                    },
+                    "&:hover fieldset": {
+                      borderColor: "rgba(255,255,255,0.5)",
+                    },
+                    "&.Mui-focused fieldset": {
+                      borderColor: "#D4AF37",
+                    },
+                  },
+                  "& .MuiInputBase-input": {
+                    color: "white",
+                    "&::placeholder": {
+                      color: "rgba(255,255,255,0.5)",
+                    },
+                  },
+                }}
+              />
+              <IconButton
+                onClick={handleSendComment}
+                disabled={!comment.trim() || sendingComment}
+                sx={{ color: "#D4AF37" }}
+              >
+                <Send />
+              </IconButton>
+            </Stack>
+          </Box>
+        )}
+
+        {/* Emoji Picker */}
+        <EmojiPicker
+          open={emojiPickerOpen}
+          anchorEl={emojiPickerAnchor}
+          onClose={handleEmojiPickerClose}
+          onEmojiSelect={(emoji, clickPosition) =>
+            handleReaction(emoji, clickPosition)
+          }
+          position="top"
+          keepOpenOnSelect={true}
+        />
+
+        {/* Flying Emoji Animations */}
+        {flyingEmojis.map((flyingEmoji) => (
+          <Box
+            key={flyingEmoji.id}
+            sx={{
+              position: "fixed",
+              left: `${flyingEmoji.startX}px`,
+              top: `${flyingEmoji.startY}px`,
+              fontSize: "2rem",
+              pointerEvents: "none",
+              zIndex: 10000,
+              animation: `flyToButton 0.6s ease-out forwards`,
+              "@keyframes flyToButton": {
+                "0%": {
+                  transform: "translate(0, 0) scale(1)",
+                  opacity: 1,
+                },
+                "100%": {
+                  transform: `translate(${flyingEmoji.targetX - flyingEmoji.startX}px, ${flyingEmoji.targetY - flyingEmoji.startY}px) scale(0.3)`,
+                  opacity: 0,
+                },
+              },
+            }}
+          >
+            {flyingEmoji.emoji}
+          </Box>
+        ))}
+
+        {/* Viewers Dialog */}
+        <Dialog
+          open={viewersDialogOpen}
+          onClose={() => setViewersDialogOpen(false)}
+          maxWidth="sm"
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 2,
+              bgcolor: "#1a1a1a",
+              color: "white",
+            },
           }}
         >
-          <Stack direction="row" spacing={2} alignItems="center">
+          <DialogTitle
+            sx={{
+              bgcolor: "#1a1a1a",
+              color: "white",
+              borderBottom: "1px solid rgba(255,255,255,0.1)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Visibility sx={{ color: "#D4AF37" }} />
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                Story Viewers ({viewers.length})
+              </Typography>
+            </Box>
             <IconButton
-              onClick={handleReaction}
-              sx={{ color: reaction ? "#D4AF37" : "white" }}
+              onClick={() => setViewersDialogOpen(false)}
+              sx={{ color: "white" }}
             >
-              {reaction ? <Favorite /> : <FavoriteBorder />}
+              <Close />
             </IconButton>
-            <TextField
-              placeholder="Send a message..."
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendComment();
-                }
-              }}
-              size="small"
-              sx={{
-                flex: 1,
-                "& .MuiOutlinedInput-root": {
-                  bgcolor: "rgba(255,255,255,0.1)",
-                  color: "white",
-                  "& fieldset": {
-                    borderColor: "rgba(255,255,255,0.3)",
-                  },
-                  "&:hover fieldset": {
-                    borderColor: "rgba(255,255,255,0.5)",
-                  },
-                  "&.Mui-focused fieldset": {
-                    borderColor: "#D4AF37",
-                  },
-                },
-                "& .MuiInputBase-input": {
-                  color: "white",
-                  "&::placeholder": {
-                    color: "rgba(255,255,255,0.5)",
-                  },
-                },
-              }}
-            />
+          </DialogTitle>
+          <DialogContent sx={{ bgcolor: "#1a1a1a", p: 0 }}>
+            {loadingViewers ? (
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  py: 4,
+                }}
+              >
+                <CircularProgress sx={{ color: "#D4AF37" }} />
+              </Box>
+            ) : viewers.length === 0 ? (
+              <Box
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  py: 4,
+                  color: "rgba(255,255,255,0.5)",
+                }}
+              >
+                <Visibility sx={{ fontSize: 48, mb: 2, opacity: 0.5 }} />
+                <Typography variant="body1">No viewers yet</Typography>
+              </Box>
+            ) : (
+              <List sx={{ py: 0 }}>
+                {viewers.map((viewer, index) => (
+                  <React.Fragment key={viewer.id}>
+                    <ListItem
+                      sx={{
+                        py: 1.5,
+                        "&:hover": {
+                          bgcolor: "rgba(255,255,255,0.05)",
+                        },
+                      }}
+                    >
+                      <ListItemAvatar>
+                        <Avatar
+                          src={getImageUrl(viewer.photo)}
+                          sx={{
+                            width: 48,
+                            height: 48,
+                            border: "2px solid #D4AF37",
+                          }}
+                        >
+                          {viewer.name?.charAt(0)?.toUpperCase() ||
+                            viewer.username?.charAt(0)?.toUpperCase() ||
+                            "U"}
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 1,
+                            }}
+                          >
+                            <Typography
+                              variant="body1"
+                              sx={{ color: "white", fontWeight: 600 }}
+                            >
+                              {viewer.name || viewer.username}
+                            </Typography>
+                            {viewer.isVerified && (
+                              <Verified
+                                sx={{ fontSize: 16, color: "#D4AF37" }}
+                              />
+                            )}
+                          </Box>
+                        }
+                        secondary={
+                          <Typography
+                            variant="body2"
+                            sx={{ color: "rgba(255,255,255,0.6)" }}
+                          >
+                            @{viewer.username}
+                          </Typography>
+                        }
+                      />
+                    </ListItem>
+                    {index < viewers.length - 1 && (
+                      <Divider sx={{ bgcolor: "rgba(255,255,255,0.1)" }} />
+                    )}
+                  </React.Fragment>
+                ))}
+              </List>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Reactions Dialog */}
+        <Dialog
+          open={reactionsDialogOpen}
+          onClose={() => setReactionsDialogOpen(false)}
+          maxWidth="sm"
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 2,
+              bgcolor: "#1a1a1a",
+              color: "white",
+            },
+          }}
+        >
+          <DialogTitle
+            sx={{
+              bgcolor: "#1a1a1a",
+              color: "white",
+              borderBottom: "1px solid rgba(255,255,255,0.1)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Favorite sx={{ color: "#D4AF37" }} />
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                Reactions ({groupReactionsByUser(storyReactions).length})
+              </Typography>
+            </Box>
             <IconButton
-              onClick={handleSendComment}
-              disabled={!comment.trim() || sendingComment}
-              sx={{ color: "#D4AF37" }}
+              onClick={() => setReactionsDialogOpen(false)}
+              sx={{ color: "white" }}
             >
-              <Send />
+              <Close />
             </IconButton>
-          </Stack>
-        </Box>
+          </DialogTitle>
+          <DialogContent sx={{ bgcolor: "#1a1a1a", p: 0 }}>
+            {loadingReactions ? (
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  py: 4,
+                }}
+              >
+                <CircularProgress sx={{ color: "#D4AF37" }} />
+              </Box>
+            ) : storyReactions.length === 0 ? (
+              <Box
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  py: 4,
+                  color: "rgba(255,255,255,0.5)",
+                }}
+              >
+                <Favorite sx={{ fontSize: 48, mb: 2, opacity: 0.5 }} />
+                <Typography variant="body1">No reactions yet</Typography>
+              </Box>
+            ) : (
+              <List sx={{ py: 0 }}>
+                {groupReactionsByUser(storyReactions).map(
+                  (userGroup, groupIndex) => (
+                    <React.Fragment key={userGroup.user?.id || groupIndex}>
+                      <ListItem
+                        sx={{
+                          py: 1.5,
+                          "&:hover": {
+                            bgcolor: "rgba(255,255,255,0.05)",
+                          },
+                        }}
+                      >
+                        <ListItemAvatar>
+                          <Avatar
+                            src={getImageUrl(userGroup.user?.photo)}
+                            sx={{
+                              width: 48,
+                              height: 48,
+                              border: "2px solid #D4AF37",
+                            }}
+                          >
+                            {userGroup.user?.name?.charAt(0)?.toUpperCase() ||
+                              userGroup.user?.username
+                                ?.charAt(0)
+                                ?.toUpperCase() ||
+                              "U"}
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1,
+                              }}
+                            >
+                              <Typography
+                                variant="body1"
+                                sx={{ color: "white", fontWeight: 600 }}
+                              >
+                                {userGroup.user?.name ||
+                                  userGroup.user?.username}
+                              </Typography>
+                              {userGroup.user?.isVerified && (
+                                <Verified
+                                  sx={{ fontSize: 16, color: "#D4AF37" }}
+                                />
+                              )}
+                            </Box>
+                          }
+                          secondary={
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1,
+                                mt: 0.5,
+                                flexWrap: "wrap",
+                              }}
+                            >
+                              {/* Display all emojis from this user */}
+                              {userGroup.reactions.map((reaction, idx) => (
+                                <Box
+                                  key={reaction.id || idx}
+                                  sx={{ display: "inline-flex", mr: 0.5 }}
+                                >
+                                  {reaction.emoji ? (
+                                    <Typography
+                                      variant="body2"
+                                      sx={{ fontSize: "1.5rem" }}
+                                    >
+                                      {reaction.emoji}
+                                    </Typography>
+                                  ) : (
+                                    <Favorite
+                                      sx={{ fontSize: 16, color: "#D4AF37" }}
+                                    />
+                                  )}
+                                </Box>
+                              ))}
+                              <Typography
+                                variant="body2"
+                                sx={{ color: "rgba(255,255,255,0.6)" }}
+                              >
+                                @{userGroup.user?.username}
+                              </Typography>
+                            </Box>
+                          }
+                        />
+                      </ListItem>
+                      {groupIndex <
+                        groupReactionsByUser(storyReactions).length - 1 && (
+                        <Divider sx={{ bgcolor: "rgba(255,255,255,0.1)" }} />
+                      )}
+                    </React.Fragment>
+                  )
+                )}
+              </List>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Comments Dialog */}
+        <Dialog
+          open={commentsDialogOpen}
+          onClose={() => setCommentsDialogOpen(false)}
+          maxWidth="sm"
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 2,
+              bgcolor: "#1a1a1a",
+              color: "white",
+            },
+          }}
+        >
+          <DialogTitle
+            sx={{
+              bgcolor: "#1a1a1a",
+              color: "white",
+              borderBottom: "1px solid rgba(255,255,255,0.1)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Comment sx={{ color: "#D4AF37" }} />
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                Comments ({groupCommentsByUser(storyComments).length})
+              </Typography>
+            </Box>
+            <IconButton
+              onClick={() => setCommentsDialogOpen(false)}
+              sx={{ color: "white" }}
+            >
+              <Close />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent sx={{ bgcolor: "#1a1a1a", p: 0, maxHeight: 500 }}>
+            {loadingComments ? (
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  py: 4,
+                }}
+              >
+                <CircularProgress sx={{ color: "#D4AF37" }} />
+              </Box>
+            ) : storyComments.length === 0 ? (
+              <Box
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  py: 4,
+                  color: "rgba(255,255,255,0.5)",
+                }}
+              >
+                <Comment sx={{ fontSize: 48, mb: 2, opacity: 0.5 }} />
+                <Typography variant="body1">No comments yet</Typography>
+              </Box>
+            ) : (
+              <List sx={{ py: 0, overflowY: "auto", maxHeight: 500 }}>
+                {groupCommentsByUser(storyComments).map(
+                  (userGroup, groupIndex) => (
+                    <React.Fragment key={userGroup.user?.id || groupIndex}>
+                      <ListItem
+                        sx={{
+                          py: 1.5,
+                          alignItems: "flex-start",
+                          "&:hover": {
+                            bgcolor: "rgba(255,255,255,0.05)",
+                          },
+                        }}
+                      >
+                        <ListItemAvatar>
+                          <Avatar
+                            src={getImageUrl(userGroup.user?.photo)}
+                            sx={{
+                              width: 40,
+                              height: 40,
+                              border: "2px solid #D4AF37",
+                            }}
+                          >
+                            {userGroup.user?.name?.charAt(0)?.toUpperCase() ||
+                              userGroup.user?.username
+                                ?.charAt(0)
+                                ?.toUpperCase() ||
+                              "U"}
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1,
+                                mb: 0.5,
+                              }}
+                            >
+                              <Typography
+                                variant="body2"
+                                sx={{ color: "white", fontWeight: 600 }}
+                              >
+                                {userGroup.user?.name ||
+                                  userGroup.user?.username}
+                              </Typography>
+                              {userGroup.user?.isVerified && (
+                                <Verified
+                                  sx={{ fontSize: 14, color: "#D4AF37" }}
+                                />
+                              )}
+                              <Typography
+                                variant="caption"
+                                sx={{ color: "rgba(255,255,255,0.5)" }}
+                              >
+                                {userGroup.comments.length}{" "}
+                                {userGroup.comments.length === 1
+                                  ? "comment"
+                                  : "comments"}
+                              </Typography>
+                            </Box>
+                          }
+                          secondary={
+                            <Box sx={{ mt: 0.5 }}>
+                              {userGroup.comments.map((comment, idx) => (
+                                <Box
+                                  key={comment.id || idx}
+                                  sx={{
+                                    mb:
+                                      idx < userGroup.comments.length - 1
+                                        ? 1.5
+                                        : 0,
+                                  }}
+                                >
+                                  <Typography
+                                    variant="caption"
+                                    sx={{
+                                      color: "rgba(255,255,255,0.5)",
+                                      display: "block",
+                                      mb: 0.5,
+                                    }}
+                                  >
+                                    {new Date(
+                                      comment.createdAt
+                                    ).toLocaleDateString()}
+                                  </Typography>
+                                  <Typography
+                                    variant="body2"
+                                    sx={{
+                                      color: "rgba(255,255,255,0.8)",
+                                      whiteSpace: "pre-wrap",
+                                    }}
+                                  >
+                                    {comment.content}
+                                  </Typography>
+                                </Box>
+                              ))}
+                            </Box>
+                          }
+                        />
+                      </ListItem>
+                      {groupIndex <
+                        groupCommentsByUser(storyComments).length - 1 && (
+                        <Divider sx={{ bgcolor: "rgba(255,255,255,0.1)" }} />
+                      )}
+                    </React.Fragment>
+                  )
+                )}
+              </List>
+            )}
+          </DialogContent>
+        </Dialog>
       </Box>
     </Dialog>
   );
 };
 
 export default StoryViewer;
-

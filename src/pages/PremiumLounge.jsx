@@ -275,7 +275,7 @@ export default function PremiumLounge({ user }) {
 
     try {
       const response = await fetch(
-        `/api/posts/by-users?user_ids=${userIds.join(",")}`,
+        `/api/looking-for-posts/by-users?user_ids=${userIds.join(",")}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,

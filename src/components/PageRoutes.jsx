@@ -23,6 +23,8 @@ import Wallet from "../pages/Wallet";
 import PremiumLounge from "../pages/PremiumLounge";
 import Market from "../pages/Market";
 import Reports from "../pages/Reports";
+import Notifications from "../pages/Notifications";
+import Timeline from "../pages/Timeline";
 import SuspensionGate from "./Suspension/SuspensionGate";
 import SuspensionAppealModal from "./Suspension/SuspensionAppealModal";
 import useServerSentEvents from "../hooks/useServerSentEvents";
@@ -478,6 +480,11 @@ function PageRoutes() {
               element={<Profile user={user} setUser={setUser} />}
             />
             <Route path="reports" element={<Reports user={user} />} />
+            <Route
+              path="notifications"
+              element={<Notifications user={user} />}
+            />
+            <Route path="timeline" element={<Timeline user={user} />} />
             <Route path="*" element={<Navigate to="/home" replace />} />
           </Routes>
         )}

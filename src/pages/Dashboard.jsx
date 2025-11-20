@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import {
   Box,
   Typography,
@@ -33,9 +39,7 @@ import {
   Skeleton,
 } from "@mui/material";
 import { keyframes } from "@mui/system";
-import Autocomplete, {
-  createFilterOptions,
-} from "@mui/material/Autocomplete";
+import Autocomplete, { createFilterOptions } from "@mui/material/Autocomplete";
 import {
   Explore,
   Store,
@@ -54,6 +58,8 @@ import {
   NotificationsActive,
   MyLocation,
   Insights,
+  GpsFixed,
+  Timeline,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
@@ -140,16 +146,23 @@ export default function Dashboard({ user, setUser }) {
   const [loadingFeaturedUsers, setLoadingFeaturedUsers] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState({}); // Track current image index for each user
   const [currentItemImageIndex, setCurrentItemImageIndex] = useState({}); // Track current image index for each featured item
+  const [failedImages, setFailedImages] = useState(new Set()); // Track failed image URLs to avoid rendering them
   const [userListsTab, setUserListsTab] = useState("favorites");
+  // Refs to track current arrays for interval safety checks
+  const featuredUsersRef = useRef([]);
+  const featuredItemsRef = useRef([]);
+  // Refs to track intervals for proper cleanup
+  const featuredUsersIntervalsRef = useRef({});
+  const featuredItemsIntervalsRef = useRef({});
+  // Ref to track if component is mounted
+  const isMountedRef = useRef(true);
   const [boostDialogOpen, setBoostDialogOpen] = useState(false);
   const [boosting, setBoosting] = useState(false);
   const [boostTimeRemaining, setBoostTimeRemaining] = useState(null);
   const [boostCategory, setBoostCategory] = useState(
     user?.category || "Regular"
   );
-  const [boostArea, setBoostArea] = useState(
-    user?.county || ""
-  );
+  const [boostArea, setBoostArea] = useState(user?.county || "");
   const [boostHours, setBoostHours] = useState(MIN_BOOST_HOURS);
   const sanitizedBoostHours = Math.min(
     MAX_BOOST_HOURS,
@@ -173,7 +186,9 @@ export default function Dashboard({ user, setUser }) {
   const [selectedStoryGroup, setSelectedStoryGroup] = useState(null);
   const [storyGroups, setStoryGroups] = useState([]);
   const [storyCreatorOpen, setStoryCreatorOpen] = useState(false);
+  const [storyCreated, setStoryCreated] = useState(false);
   const storiesFeedRefreshRef = React.useRef(null);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const normalizedTargetCounty = useMemo(() => {
     if (!boostArea) return "";
     const normalized = normalizeCountyName(boostArea);
@@ -295,9 +310,7 @@ export default function Dashboard({ user, setUser }) {
     (boost) => {
       if (!boost) return;
       setSelectedBoostId(boost.id);
-      setBoostCategory(
-        boost.target_category || user?.category || "Regular"
-      );
+      setBoostCategory(boost.target_category || user?.category || "Regular");
       const targetArea =
         (typeof boost.target_area === "string" && boost.target_area.trim()) ||
         normalizeCountyName(boost.target_area) ||
@@ -367,6 +380,28 @@ export default function Dashboard({ user, setUser }) {
     []
   );
 
+  // Fetch unread notification count
+  const fetchUnreadNotificationCount = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      const response = await fetch("/api/notifications/stats", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = await response.json();
+      if (data.success && data.data) {
+        setUnreadNotificationCount(data.data.unread || 0);
+      }
+    } catch (error) {
+      console.error("Error fetching notification count:", error);
+    }
+  }, []);
+
   const fetchPremiumStats = useCallback(async () => {
     setStatsLoading(true);
     setStatsError("");
@@ -421,16 +456,11 @@ export default function Dashboard({ user, setUser }) {
     setBoostArea(initialArea);
     setBoostHours(MIN_BOOST_HOURS);
     setBoostRadiusKm(DEFAULT_BOOST_RADIUS_KM);
-     setBoostLatitude(parseNumericValue(user?.latitude) ?? null);
-     setBoostLongitude(parseNumericValue(user?.longitude) ?? null);
-     setBoostTargetEdited(false);
+    setBoostLatitude(parseNumericValue(user?.latitude) ?? null);
+    setBoostLongitude(parseNumericValue(user?.longitude) ?? null);
+    setBoostTargetEdited(false);
     setLocationError("");
-  }, [
-    user?.category,
-    user?.county,
-    user?.latitude,
-    user?.longitude,
-  ]);
+  }, [user?.category, user?.county, user?.latitude, user?.longitude]);
 
   const openBoostDialog = useCallback(
     (shouldReset = true) => {
@@ -487,8 +517,8 @@ export default function Dashboard({ user, setUser }) {
         const boostsSource = Array.isArray(data.data?.boosts)
           ? data.data.boosts
           : data.data?.boost
-          ? [data.data.boost]
-          : [];
+            ? [data.data.boost]
+            : [];
         const boosts = boostsSource.filter(Boolean);
         setActiveBoosts(boosts);
         setSelectedBoostId((prev) => {
@@ -582,12 +612,7 @@ export default function Dashboard({ user, setUser }) {
     if (!boostTargetEdited) {
       applyBoostContext(selectedBoost);
     }
-  }, [
-    boostDialogOpen,
-    selectedBoost,
-    boostTargetEdited,
-    applyBoostContext,
-  ]);
+  }, [boostDialogOpen, selectedBoost, boostTargetEdited, applyBoostContext]);
 
   useEffect(() => {
     const latFromProfile = parseNumericValue(user?.latitude);
@@ -606,17 +631,65 @@ export default function Dashboard({ user, setUser }) {
 
   const favoritesSectionRef = React.useRef(null);
 
+  // Track component mount status
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   // Fetch featured market items and users
   useEffect(() => {
+    console.log("[Dashboard] Fetching featured items and users");
     fetchFeaturedItems();
     fetchFeaturedUsers();
     // Also fetch current boosts without blocking render
     fetchActiveBoosts();
-  }, []);
+    // Fetch unread notification count
+    fetchUnreadNotificationCount();
+  }, [fetchUnreadNotificationCount]);
+
+  // Poll for unread notification count every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchUnreadNotificationCount();
+    }, 30000); // Poll every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [fetchUnreadNotificationCount]);
 
   // Auto-transition images for each featured user
   useEffect(() => {
-    if (featuredUsers.length === 0) return;
+    console.log("[Dashboard] Featured users effect triggered", {
+      count: featuredUsers.length,
+      userIds: featuredUsers.map((u) => u.id),
+    });
+
+    // Update ref with current users
+    featuredUsersRef.current = featuredUsers;
+
+    // Always clean up previous intervals first
+    console.log("[Dashboard] Cleaning up previous featured users intervals", {
+      intervalCount: Object.keys(featuredUsersIntervalsRef.current).length,
+    });
+    Object.values(featuredUsersIntervalsRef.current).forEach((interval) => {
+      if (interval) clearInterval(interval);
+    });
+    featuredUsersIntervalsRef.current = {};
+
+    if (featuredUsers.length === 0) {
+      // Reset indices when no users
+      setCurrentImageIndex({});
+      return () => {
+        console.log(
+          "[Dashboard] Cleaning up featured users intervals (empty)",
+          {
+            intervalCount: 0,
+          }
+        );
+      };
+    }
 
     const intervals = {};
     // Reset all image indices when users change
@@ -640,28 +713,81 @@ export default function Dashboard({ user, setUser }) {
 
         // Set up interval for this user
         intervals[userId] = setInterval(() => {
+          if (!isMountedRef.current) return;
           setCurrentImageIndex((prev) => {
+            // Safety check: only update if user still exists in current featuredUsers
+            const userStillExists = featuredUsersRef.current.some(
+              (user) => user.id === userId
+            );
+            if (!userStillExists || !isMountedRef.current) {
+              console.log(
+                `[Dashboard] User ${userId} no longer exists or unmounted, skipping update`
+              );
+              return prev;
+            }
             const currentIdx = prev[userId] || 0;
             const nextIdx = (currentIdx + 1) % imageCount;
+            console.log(`[Dashboard] Updating user ${userId} image index`, {
+              currentIdx,
+              nextIdx,
+              imageCount,
+            });
             return { ...prev, [userId]: nextIdx };
           });
         }, 3000); // Change image every 3 seconds
       }
     });
 
+    // Store intervals in ref for cleanup
+    featuredUsersIntervalsRef.current = intervals;
+
     // Set all indices to 0
     setCurrentImageIndex(newIndices);
 
     // Cleanup intervals on unmount or when users change
     return () => {
-      Object.values(intervals).forEach((interval) => clearInterval(interval));
+      console.log("[Dashboard] Cleaning up featured users intervals", {
+        intervalCount: Object.keys(intervals).length,
+        userIds: Object.keys(intervals),
+      });
+      Object.values(intervals).forEach((interval) => {
+        if (interval) clearInterval(interval);
+      });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [featuredUsers]);
 
   // Auto-transition images for each featured market item
   useEffect(() => {
-    if (featuredItems.length === 0) return;
+    console.log("[Dashboard] Featured items effect triggered", {
+      count: featuredItems.length,
+      itemIds: featuredItems.map((i) => i.id),
+    });
+
+    // Update ref with current items
+    featuredItemsRef.current = featuredItems;
+
+    // Always clean up previous intervals first
+    console.log("[Dashboard] Cleaning up previous featured items intervals", {
+      intervalCount: Object.keys(featuredItemsIntervalsRef.current).length,
+    });
+    Object.values(featuredItemsIntervalsRef.current).forEach((interval) => {
+      if (interval) clearInterval(interval);
+    });
+    featuredItemsIntervalsRef.current = {};
+
+    if (featuredItems.length === 0) {
+      // Reset indices when no items
+      setCurrentItemImageIndex({});
+      return () => {
+        console.log(
+          "[Dashboard] Cleaning up featured items intervals (empty)",
+          {
+            intervalCount: 0,
+          }
+        );
+      };
+    }
 
     const intervals = {};
     const newIndices = {};
@@ -684,21 +810,46 @@ export default function Dashboard({ user, setUser }) {
 
         // Set up interval for this item
         intervals[itemId] = setInterval(() => {
+          if (!isMountedRef.current) return;
           setCurrentItemImageIndex((prev) => {
+            // Safety check: only update if item still exists in current featuredItems
+            const itemStillExists = featuredItemsRef.current.some(
+              (item) => item.id === itemId
+            );
+            if (!itemStillExists || !isMountedRef.current) {
+              console.log(
+                `[Dashboard] Item ${itemId} no longer exists or unmounted, skipping update`
+              );
+              return prev;
+            }
             const currentIdx = prev[itemId] || 0;
             const nextIdx = (currentIdx + 1) % imageCount;
+            console.log(`[Dashboard] Updating item ${itemId} image index`, {
+              currentIdx,
+              nextIdx,
+              imageCount,
+            });
             return { ...prev, [itemId]: nextIdx };
           });
         }, 3000); // Change image every 3 seconds
       }
     });
 
+    // Store intervals in ref for cleanup
+    featuredItemsIntervalsRef.current = intervals;
+
     // Set all indices to 0
     setCurrentItemImageIndex(newIndices);
 
     // Cleanup intervals on unmount or when items change
     return () => {
-      Object.values(intervals).forEach((interval) => clearInterval(interval));
+      console.log("[Dashboard] Cleaning up featured items intervals", {
+        intervalCount: Object.keys(intervals).length,
+        itemIds: Object.keys(intervals),
+      });
+      Object.values(intervals).forEach((interval) => {
+        if (interval) clearInterval(interval);
+      });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [featuredItems]);
@@ -756,6 +907,10 @@ export default function Dashboard({ user, setUser }) {
         const featured = (data.data || [])
           .filter((item) => item.is_featured)
           .slice(0, 6);
+        console.log("[Dashboard] Setting featured items", {
+          count: featured.length,
+          itemIds: featured.map((i) => i.id),
+        });
         setFeaturedItems(featured);
       }
     } catch (err) {
@@ -782,7 +937,12 @@ export default function Dashboard({ user, setUser }) {
       const data = await response.json();
 
       if (data.success) {
-        setFeaturedUsers(data.data || []);
+        const users = data.data || [];
+        console.log("[Dashboard] Setting featured users", {
+          count: users.length,
+          userIds: users.map((u) => u.id),
+        });
+        setFeaturedUsers(users);
       }
     } catch (err) {
       console.error("Error fetching featured users:", err);
@@ -938,8 +1098,7 @@ export default function Dashboard({ user, setUser }) {
         Swal.fire({
           icon: "warning",
           title: "Insufficient Tokens",
-          text:
-            data.message || "You do not have enough tokens for this boost.",
+          text: data.message || "You do not have enough tokens for this boost.",
           confirmButtonColor: "#D4AF37",
         });
         programmaticBoostCloseRef.current = false;
@@ -1082,15 +1241,17 @@ export default function Dashboard({ user, setUser }) {
           <div style="display: flex; flex-direction: column; gap: 10px;">
             <div>
               <label style="font-weight: 600; font-size: 0.85rem;">Current radius (km)</label>
-              <input type="number" class="swal2-input" style="margin-top: 4px; height: 36px; font-size: 0.82rem;" value="${Number.isFinite(currentRadius) ? Number(currentRadius).toFixed(
-        1
-      ) : ""}" disabled />
+              <input type="number" class="swal2-input" style="margin-top: 4px; height: 36px; font-size: 0.82rem;" value="${
+                Number.isFinite(currentRadius)
+                  ? Number(currentRadius).toFixed(1)
+                  : ""
+              }" disabled />
             </div>
             <div>
               <label for="extend-radius-input" style="font-weight: 600; font-size: 0.85rem;">New radius (km)</label>
               <input id="extend-radius-input" type="number" class="swal2-input" style="margin-top: 4px; height: 36px; font-size: 0.82rem;" min="${MIN_BOOST_RADIUS_KM}" max="${MAX_BOOST_RADIUS_KM}" step="0.5" value="${defaultRadius.toFixed(
-        1
-      )}" />
+                1
+              )}" />
             </div>
           </div>
           <small style="display:block; margin-top:4px; color: rgba(26,26,26,0.6); font-size: 0.72rem;">
@@ -1263,13 +1424,15 @@ export default function Dashboard({ user, setUser }) {
             } km → <strong>${newRadiusLabel}</strong></p>
             <p style="margin: 0 0 6px 0;"><strong>Current end time:</strong> ${currentEndsText}</p>
             <p style="margin: 0 0 6px 0;"><strong>New end time:</strong> ${previewEndsText}${
-        previewRemainingLabel ? ` (${previewRemainingLabel} from now)` : ""
-      }</p>
+              previewRemainingLabel
+                ? ` (${previewRemainingLabel} from now)`
+                : ""
+            }</p>
             <p style="margin: 0 0 10px 0;"><strong>Extension:</strong> Add ${hours} hour${
-          hours > 1 ? "s" : ""
-        } to this boost for ${totalTokens} tokens (${formatKshFromTokens(
-          totalTokens
-        )}).</p>
+              hours > 1 ? "s" : ""
+            } to this boost for ${totalTokens} tokens (${formatKshFromTokens(
+              totalTokens
+            )}).</p>
             <p style="font-size: 0.82rem; color: #555; margin: 0;">Extending keeps the same target area and audience.</p>
           </div>
         `,
@@ -1404,8 +1567,7 @@ export default function Dashboard({ user, setUser }) {
         icon: "error",
         title: "Extension Failed",
         text:
-          err.message ||
-          "Failed to extend your boost. Please try again later.",
+          err.message || "Failed to extend your boost. Please try again later.",
         confirmButtonColor: "#D4AF37",
       });
     } finally {
@@ -1484,9 +1646,7 @@ export default function Dashboard({ user, setUser }) {
   const fetchTargetedBoosts = useCallback(async () => {
     if (!user?.category) {
       setTargetedBoosts([]);
-      setTargetedBoostsError(
-        "Set your category to see boosts targeting you."
-      );
+      setTargetedBoostsError("Set your category to see boosts targeting you.");
       return;
     }
 
@@ -1545,7 +1705,13 @@ export default function Dashboard({ user, setUser }) {
     } finally {
       setLoadingTargetedBoosts(false);
     }
-  }, [user?.category, user?.latitude, user?.longitude, viewerLatitude, viewerLongitude]);
+  }, [
+    user?.category,
+    user?.latitude,
+    user?.longitude,
+    viewerLatitude,
+    viewerLongitude,
+  ]);
 
   useEffect(() => {
     fetchTargetedBoosts();
@@ -1579,7 +1745,12 @@ export default function Dashboard({ user, setUser }) {
             sx={{
               fontWeight: 700,
               mb: { xs: 1, sm: 0.5 },
-              fontSize: { xs: "1.6rem", sm: "2rem", md: "2.2rem", lg: "2.4rem" },
+              fontSize: {
+                xs: "1.6rem",
+                sm: "2rem",
+                md: "2.2rem",
+                lg: "2.4rem",
+              },
               whiteSpace: { xs: "normal", md: "nowrap" },
               overflow: "hidden",
               textOverflow: "ellipsis",
@@ -1714,8 +1885,52 @@ export default function Dashboard({ user, setUser }) {
                     color="error"
                     overlap="circular"
                   >
+                    <GpsFixed sx={{ color: "#D4AF37" }} />
+                  </Badge>
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Notifications" arrow>
+              <span>
+                <IconButton
+                  onClick={() => navigate("/notifications")}
+                  sx={{
+                    backgroundColor: "rgba(212, 175, 55, 0.12)",
+                    border: "1px solid rgba(212, 175, 55, 0.3)",
+                    "&:hover": {
+                      backgroundColor: "rgba(212, 175, 55, 0.22)",
+                    },
+                    flexShrink: 0,
+                  }}
+                >
+                  <Badge
+                    badgeContent={
+                      unreadNotificationCount > 0
+                        ? unreadNotificationCount
+                        : null
+                    }
+                    color="error"
+                    overlap="circular"
+                  >
                     <NotificationsActive sx={{ color: "#D4AF37" }} />
                   </Badge>
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Timeline" arrow>
+              <span>
+                <IconButton
+                  onClick={() => navigate("/timeline")}
+                  sx={{
+                    backgroundColor: "rgba(212, 175, 55, 0.12)",
+                    border: "1px solid rgba(212, 175, 55, 0.3)",
+                    "&:hover": {
+                      backgroundColor: "rgba(212, 175, 55, 0.22)",
+                    },
+                    flexShrink: 0,
+                  }}
+                >
+                  <Timeline sx={{ color: "#D4AF37" }} />
                 </IconButton>
               </span>
             </Tooltip>
@@ -1764,7 +1979,7 @@ export default function Dashboard({ user, setUser }) {
             }}
           >
             <StoriesFeed
-              key={`stories-feed-${user?.id || 'default'}`}
+              key={`stories-feed-${user?.id || "default"}`}
               user={user}
               onStoryClick={(storyGroup) => {
                 if (storyGroup) {
@@ -1778,7 +1993,7 @@ export default function Dashboard({ user, setUser }) {
                   setStoryGroups(groups);
                 }
               }}
-              refreshTrigger={storyCreatorOpen}
+              refreshTrigger={storyCreated}
               onRefresh={(refreshFn) => {
                 storiesFeedRefreshRef.current = refreshFn;
               }}
@@ -2085,6 +2300,11 @@ export default function Dashboard({ user, setUser }) {
             {featuredUsers.slice(0, 10).map((featuredUser) => {
               const images = getAllImages(featuredUser);
               const currentIdx = currentImageIndex[featuredUser.id] || 0;
+              console.log(`[Dashboard] Rendering featured user card`, {
+                userId: featuredUser.id,
+                imageCount: images.length,
+                currentIdx,
+              });
               const featuredBoostUntil =
                 featuredUser.active_boost_until ??
                 featuredUser.is_featured_until;
@@ -2133,35 +2353,78 @@ export default function Dashboard({ user, setUser }) {
                         height: 200,
                         overflow: "hidden",
                         bgcolor: "rgba(212, 175, 55, 0.1)",
-                            contentVisibility: "auto",
-                            containIntrinsicSize: "300px 200px",
+                        contentVisibility: "auto",
+                        containIntrinsicSize: "300px 200px",
                       }}
                     >
-                      {images.map((image, index) => (
-                        <Box
-                          key={`featured-${featuredUser.id}-img-${index}`}
-                          component="img"
-                          src={image}
+                      {(() => {
+                        // Map original indices to valid images (not failed)
+                        const validImagesWithIndices = images
+                          .map((image, originalIndex) => ({
+                            image,
+                            originalIndex,
+                            isValid: image && !failedImages.has(image),
+                          }))
+                          .filter((img) => img.isValid);
+
+                        console.log(
+                          `[Dashboard] Rendering featured user ${featuredUser.id} images`,
+                          {
+                            totalImages: images.length,
+                            validImages: validImagesWithIndices.length,
+                            currentIdx,
+                            failedImages: Array.from(failedImages).filter(
+                              (url) => images.includes(url)
+                            ),
+                          }
+                        );
+
+                        return validImagesWithIndices.map((imgData) => {
+                          // Use original index for visibility check
+                          const isVisible =
+                            currentIdx === imgData.originalIndex;
+                          return (
+                            <Box
+                              key={`featured-${featuredUser.id}-img-${imgData.originalIndex}`}
+                              component="img"
+                              src={imgData.image}
                               loading="lazy"
                               decoding="async"
                               fetchpriority="low"
-                          alt={featuredUser.name}
-                          sx={{
-                            position: "absolute",
-                            top: 0,
-                            left: 0,
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                            opacity: currentIdx === index ? 1 : 0,
-                            transition: "opacity 1.5s ease-in-out",
-                            zIndex: currentIdx === index ? 1 : 0,
-                          }}
-                          onError={(e) => {
-                            e.target.style.display = "none";
-                          }}
-                        />
-                      ))}
+                              alt={featuredUser.name}
+                              sx={{
+                                position: "absolute",
+                                top: 0,
+                                left: 0,
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                                opacity: isVisible ? 1 : 0,
+                                transition: "opacity 1.5s ease-in-out",
+                                zIndex: isVisible ? 1 : 0,
+                                pointerEvents: isVisible ? "auto" : "none",
+                                visibility: isVisible ? "visible" : "hidden",
+                              }}
+                              onError={() => {
+                                if (!isMountedRef.current) return;
+                                console.log(
+                                  `[Dashboard] Image error for user ${featuredUser.id}`,
+                                  {
+                                    image: imgData.image,
+                                    originalIndex: imgData.originalIndex,
+                                  }
+                                );
+                                // Track failed images in state instead of manipulating DOM
+                                if (imgData.image) {
+                                  setFailedImages((prev) =>
+                                    new Set(prev).add(imgData.image)
+                                  );
+                                }
+                              }}
+                            />
+                          );
+                        });
+                      })()}
                     </Box>
                   ) : (
                     <Box
@@ -2374,6 +2637,7 @@ export default function Dashboard({ user, setUser }) {
           </Box>
         ) : featuredItems.length > 0 ? (
           <Box
+            key="featured-items-container"
             sx={{
               display: "flex",
               gap: 2,
@@ -2381,169 +2645,258 @@ export default function Dashboard({ user, setUser }) {
               flexWrap: "wrap",
             }}
           >
-            {featuredItems.map((item) => (
-              <Card
-                key={item.id}
-                sx={{
-                  flex: {
-                    xs: "0 0 100%",
-                    sm: "0 0 calc(50% - 8px)",
-                    md: "0 0 calc(33.333% - 14px)",
-                  },
-                  display: "flex",
-                  flexDirection: "column",
-                  borderRadius: "12px",
-                  overflow: "hidden",
-                  transition: "all 0.3s ease",
-                  border: "1px solid rgba(212, 175, 55, 0.2)",
-                  "&:hover": {
-                    transform: "translateY(-4px)",
-                    boxShadow: "0 8px 24px rgba(212, 175, 55, 0.3)",
-                  },
-                }}
-              >
-                {item.images && item.images.length > 0 ? (
-                  <Box
-                    sx={{
-                      position: "relative",
-                      width: "100%",
-                      height: 180,
-                      overflow: "hidden",
-                    }}
-                  >
-                    {item.images.map((imagePath, index) => {
-                      const currentIdx = currentItemImageIndex[item.id] || 0;
-                      return (
+            {featuredItems.map((item) => {
+              console.log(`[Dashboard] Rendering featured item card`, {
+                itemId: item.id,
+                imageCount: item.images?.length || 0,
+              });
+              return (
+                <Card
+                  key={item.id}
+                  sx={{
+                    flex: {
+                      xs: "0 0 100%",
+                      sm: "0 0 calc(50% - 8px)",
+                      md: "0 0 calc(33.333% - 14px)",
+                    },
+                    display: "flex",
+                    flexDirection: "column",
+                    borderRadius: "12px",
+                    overflow: "hidden",
+                    transition: "all 0.3s ease",
+                    border: "1px solid rgba(212, 175, 55, 0.2)",
+                    "&:hover": {
+                      transform: "translateY(-4px)",
+                      boxShadow: "0 8px 24px rgba(212, 175, 55, 0.3)",
+                    },
+                  }}
+                >
+                  {item.images && item.images.length > 0 ? (
+                    <Box
+                      sx={{
+                        position: "relative",
+                        width: "100%",
+                        height: 180,
+                        overflow: "hidden",
+                      }}
+                    >
+                      {(() => {
+                        // Map original indices to valid images (not failed)
+                        const validImagesWithIndices = (item.images || [])
+                          .map((imagePath, originalIndex) => {
+                            const imageUrl = getImageUrl(imagePath);
+                            return {
+                              imagePath,
+                              imageUrl,
+                              originalIndex,
+                              isValid: imageUrl && !failedImages.has(imageUrl),
+                            };
+                          })
+                          .filter((img) => img.isValid);
+
+                        console.log(
+                          `[Dashboard] Rendering featured item ${item.id} images`,
+                          {
+                            totalImages: item.images?.length || 0,
+                            validImages: validImagesWithIndices.length,
+                            currentIdx: currentItemImageIndex[item.id] || 0,
+                            failedImages: Array.from(failedImages).filter(
+                              (url) =>
+                                item.images?.some(
+                                  (img) => getImageUrl(img) === url
+                                )
+                            ),
+                          }
+                        );
+
+                        return validImagesWithIndices.map((imgData) => {
+                          const currentIdx =
+                            currentItemImageIndex[item.id] || 0;
+                          // Use original index for visibility check
+                          const isVisible =
+                            currentIdx === imgData.originalIndex;
+                          return (
+                            <Box
+                              key={`${item.id}-img-${imgData.originalIndex}`}
+                              component="img"
+                              src={imgData.imageUrl}
+                              alt={item.title}
+                              sx={{
+                                position: "absolute",
+                                top: 0,
+                                left: 0,
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                                opacity: isVisible ? 1 : 0,
+                                transition: "opacity 1.5s ease-in-out",
+                                zIndex: isVisible ? 1 : 0,
+                                pointerEvents: isVisible ? "auto" : "none",
+                                visibility: isVisible ? "visible" : "hidden",
+                              }}
+                              onError={() => {
+                                if (!isMountedRef.current) return;
+                                console.log(
+                                  `[Dashboard] Image error for item ${item.id}`,
+                                  {
+                                    imageUrl: imgData.imageUrl,
+                                    originalIndex: imgData.originalIndex,
+                                  }
+                                );
+                                // Track failed images in state instead of manipulating DOM
+                                if (imgData.imageUrl) {
+                                  setFailedImages((prev) =>
+                                    new Set(prev).add(imgData.imageUrl)
+                                  );
+                                }
+                              }}
+                            />
+                          );
+                        });
+                      })()}
+                      {item.images.length > 1 && (
                         <Box
-                          key={`${item.id}-img-${index}`}
-                          component="img"
-                          src={getImageUrl(imagePath)}
-                          alt={item.title}
                           sx={{
                             position: "absolute",
-                            top: 0,
-                            left: 0,
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                            opacity: currentIdx === index ? 1 : 0,
-                            transition: "opacity 1.5s ease-in-out",
-                            zIndex: currentIdx === index ? 1 : 0,
+                            top: 8,
+                            left: 8,
+                            backgroundColor: "rgba(0, 0, 0, 0.7)",
+                            color: "white",
+                            px: 1,
+                            py: 0.5,
+                            borderRadius: 1,
+                            fontSize: "0.75rem",
+                            fontWeight: 600,
+                            zIndex: 2,
                           }}
-                          onError={(e) => {
-                            e.target.style.display = "none";
+                        >
+                          +{item.images.length - 1} more
+                        </Box>
+                      )}
+                      {item.tag !== "none" && (
+                        <Box
+                          sx={{
+                            position: "absolute",
+                            top: 8,
+                            right: 8,
+                            zIndex: 3,
                           }}
-                        />
-                      );
-                    })}
-                    {item.images.length > 1 && (
-                      <Box
-                        sx={{
-                          position: "absolute",
-                          top: 8,
-                          left: 8,
-                          backgroundColor: "rgba(0, 0, 0, 0.7)",
-                          color: "white",
-                          px: 1,
-                          py: 0.5,
-                          borderRadius: 1,
-                          fontSize: "0.75rem",
-                          fontWeight: 600,
-                          zIndex: 2,
-                        }}
-                      >
-                        +{item.images.length - 1} more
-                      </Box>
-                    )}
-                  </Box>
-                ) : (
-                  <Box
-                    sx={{
-                      height: 180,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      bgcolor: "rgba(212, 175, 55, 0.1)",
-                    }}
-                  >
-                    <StoreIcon
-                      sx={{ fontSize: 48, color: "#D4AF37", opacity: 0.3 }}
-                    />
-                  </Box>
-                )}
-                {item.tag !== "none" && (
-                  <Box
-                    sx={{
-                      position: "absolute",
-                      top: 8,
-                      right: 8,
-                      zIndex: 3,
-                    }}
-                  >
-                    <Chip
-                      label={item.tag === "hot_deals" ? "🔥 Hot" : "⭐ Weekend"}
-                      size="small"
+                        >
+                          <Chip
+                            label={
+                              item.tag === "hot_deals" ? "🔥 Hot" : "⭐ Weekend"
+                            }
+                            size="small"
+                            sx={{
+                              bgcolor:
+                                item.tag === "hot_deals"
+                                  ? "rgba(255, 107, 107, 0.95)"
+                                  : "rgba(78, 205, 196, 0.95)",
+                              color: "white",
+                              fontWeight: 700,
+                              fontSize: "0.65rem",
+                            }}
+                          />
+                        </Box>
+                      )}
+                    </Box>
+                  ) : (
+                    <Box
                       sx={{
-                        bgcolor:
-                          item.tag === "hot_deals"
-                            ? "rgba(255, 107, 107, 0.95)"
-                            : "rgba(78, 205, 196, 0.95)",
-                        color: "white",
-                        fontWeight: 700,
-                        fontSize: "0.65rem",
+                        position: "relative",
+                        height: 180,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        bgcolor: "rgba(212, 175, 55, 0.1)",
                       }}
-                    />
-                  </Box>
-                )}
-                <CardContent
-                  sx={{ flexGrow: 1, display: "flex", flexDirection: "column" }}
-                >
-                  <Typography
-                    variant="subtitle1"
+                    >
+                      <StoreIcon
+                        sx={{ fontSize: 48, color: "#D4AF37", opacity: 0.3 }}
+                      />
+                      {item.tag !== "none" && (
+                        <Box
+                          sx={{
+                            position: "absolute",
+                            top: 8,
+                            right: 8,
+                            zIndex: 3,
+                          }}
+                        >
+                          <Chip
+                            label={
+                              item.tag === "hot_deals" ? "🔥 Hot" : "⭐ Weekend"
+                            }
+                            size="small"
+                            sx={{
+                              bgcolor:
+                                item.tag === "hot_deals"
+                                  ? "rgba(255, 107, 107, 0.95)"
+                                  : "rgba(78, 205, 196, 0.95)",
+                              color: "white",
+                              fontWeight: 700,
+                              fontSize: "0.65rem",
+                            }}
+                          />
+                        </Box>
+                      )}
+                    </Box>
+                  )}
+                  <CardContent
                     sx={{
-                      fontWeight: 600,
-                      color: "#1a1a1a",
-                      mb: 1,
-                      fontSize: "0.95rem",
-                      display: "-webkit-box",
-                      WebkitLineClamp: 1,
-                      WebkitBoxOrient: "vertical",
-                      overflow: "hidden",
+                      flexGrow: 1,
+                      display: "flex",
+                      flexDirection: "column",
                     }}
                   >
-                    {item.title}
-                  </Typography>
-                  <Typography
-                    variant="h6"
-                    sx={{
-                      fontWeight: 700,
-                      color: "#D4AF37",
-                      mb: 2,
-                    }}
-                  >
-                    KES {parseFloat(item.price).toLocaleString()}
-                  </Typography>
-                  <Button
-                    variant="contained"
-                    size="small"
-                    startIcon={<WhatsAppIcon />}
-                    onClick={() => handleWhatsAppClick(item)}
-                    sx={{
-                      background: "linear-gradient(135deg, #25D366, #128C7E)",
-                      color: "white",
-                      fontWeight: 600,
-                      textTransform: "none",
-                      borderRadius: "8px",
-                      "&:hover": {
-                        background: "linear-gradient(135deg, #128C7E, #25D366)",
-                      },
-                    }}
-                  >
-                    Contact
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
+                    <Typography
+                      variant="subtitle1"
+                      sx={{
+                        fontWeight: 600,
+                        color: "#1a1a1a",
+                        mb: 1,
+                        fontSize: "0.95rem",
+                        display: "-webkit-box",
+                        WebkitLineClamp: 1,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                      }}
+                    >
+                      {item.title}
+                    </Typography>
+                    <Typography
+                      variant="h6"
+                      sx={{
+                        fontWeight: 700,
+                        color: "#D4AF37",
+                        mb: 2,
+                      }}
+                    >
+                      KES {parseFloat(item.price).toLocaleString()}
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      startIcon={<WhatsAppIcon />}
+                      onClick={() => handleWhatsAppClick(item)}
+                      sx={{
+                        background: "linear-gradient(135deg, #25D366, #128C7E)",
+                        color: "white",
+                        fontWeight: 600,
+                        textTransform: "none",
+                        borderRadius: "8px",
+                        "&:hover": {
+                          background:
+                            "linear-gradient(135deg, #128C7E, #25D366)",
+                        },
+                      }}
+                    >
+                      Contact
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </Box>
         ) : (
           <Box
@@ -2771,8 +3124,10 @@ export default function Dashboard({ user, setUser }) {
                     and where they are logging in from.
                   </li>
                   <li>
-                    <strong>Affordable:</strong> Each hour costs {BOOST_PRICE_TOKENS} tokens (
-                    {formatKshFromTokens(BOOST_PRICE_TOKENS)}) — {describeExchangeRate()}.
+                    <strong>Affordable:</strong> Each hour costs{" "}
+                    {BOOST_PRICE_TOKENS} tokens (
+                    {formatKshFromTokens(BOOST_PRICE_TOKENS)}) —{" "}
+                    {describeExchangeRate()}.
                   </li>
                 </Box>
               </Alert>
@@ -2822,8 +3177,7 @@ export default function Dashboard({ user, setUser }) {
                     const endsAt = boost.ends_at
                       ? new Date(boost.ends_at).toLocaleString()
                       : null;
-                    const targetArea =
-                      boost.target_area || "Custom location";
+                    const targetArea = boost.target_area || "Custom location";
 
                     return (
                       <Card
@@ -2836,7 +3190,8 @@ export default function Dashboard({ user, setUser }) {
                             : "rgba(26, 26, 26, 0.08)",
                           borderWidth: isSelected ? 2 : 1,
                           cursor: "pointer",
-                          transition: "border-color 0.2s ease, box-shadow 0.2s ease",
+                          transition:
+                            "border-color 0.2s ease, box-shadow 0.2s ease",
                           "&:hover": {
                             borderColor: "rgba(33, 150, 243, 0.6)",
                             boxShadow: "0 6px 20px rgba(33, 150, 243, 0.12)",
@@ -2918,11 +3273,13 @@ export default function Dashboard({ user, setUser }) {
                               handleExtendBoost(boost);
                             }}
                             sx={{
-                              background: "linear-gradient(135deg, #2196F3, #64B5F6)",
+                              background:
+                                "linear-gradient(135deg, #2196F3, #64B5F6)",
                               color: "#0D1C2C",
                               fontWeight: 600,
                               "&:hover": {
-                                background: "linear-gradient(135deg, #1976D2, #42A5F5)",
+                                background:
+                                  "linear-gradient(135deg, #1976D2, #42A5F5)",
                               },
                             }}
                           >
@@ -2965,20 +3322,26 @@ export default function Dashboard({ user, setUser }) {
                     <strong>{selectedBoost.target_area || "this area"}</strong>{" "}
                     for {boostCategory}.
                   </Typography>
-                  <Typography variant="caption" sx={{ display: "block", mt: 0.5 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{ display: "block", mt: 0.5 }}
+                  >
                     {selectedBoostRemaining
                       ? `Time remaining: ${selectedBoostRemaining}.`
                       : "This boost is active for a little longer."}{" "}
                     {selectedBoostExpiresAt
                       ? `Ends at ${selectedBoostExpiresAt}.`
                       : ""}
-                    Extend to add hours or widen the radius without creating a new boost.
+                    Extend to add hours or widen the radius without creating a
+                    new boost.
                   </Typography>
                 </Alert>
               )}
 
               <FormControl fullWidth>
-                <InputLabel id="boost-category-label">Target category</InputLabel>
+                <InputLabel id="boost-category-label">
+                  Target category
+                </InputLabel>
                 <Select
                   labelId="boost-category-label"
                   value={boostCategory}
@@ -3106,10 +3469,10 @@ export default function Dashboard({ user, setUser }) {
                   Cost preview
                 </Typography>
                 <Typography variant="body2">
-                  {totalBoostTokens.toLocaleString()} tokens ({
-                    formatKshFromTokens(totalBoostTokens)
-                  }) for {sanitizedBoostHours} hour
-                  {sanitizedBoostHours > 1 ? "s" : ""} covering roughly {" "}
+                  {totalBoostTokens.toLocaleString()} tokens (
+                  {formatKshFromTokens(totalBoostTokens)}) for{" "}
+                  {sanitizedBoostHours} hour
+                  {sanitizedBoostHours > 1 ? "s" : ""} covering roughly{" "}
                   {sanitizedBoostRadiusKm.toFixed(1)} km.
                 </Typography>
               </Alert>
@@ -3123,7 +3486,7 @@ export default function Dashboard({ user, setUser }) {
                   }}
                 >
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    Active boost remaining: {boostTimeRemaining.hours}h {" "}
+                    Active boost remaining: {boostTimeRemaining.hours}h{" "}
                     {boostTimeRemaining.minutes}m
                   </Typography>
                   <Typography
@@ -3141,10 +3504,14 @@ export default function Dashboard({ user, setUser }) {
 
               <Alert
                 severity="warning"
-                sx={{ borderRadius: "12px", bgcolor: "rgba(255, 193, 7, 0.12)" }}
+                sx={{
+                  borderRadius: "12px",
+                  bgcolor: "rgba(255, 193, 7, 0.12)",
+                }}
               >
                 <Typography variant="body2">
-                  <strong>Current Balance:</strong> {user?.token_balance || "0.00"} tokens
+                  <strong>Current Balance:</strong>{" "}
+                  {user?.token_balance || "0.00"} tokens
                 </Typography>
               </Alert>
             </Stack>
@@ -3810,23 +4177,20 @@ export default function Dashboard({ user, setUser }) {
               </Box>
             </Stack>
           ) : (
-            <Typography
-              variant="body2"
-              sx={{ color: "rgba(26, 26, 26, 0.6)" }}
-            >
+            <Typography variant="body2" sx={{ color: "rgba(26, 26, 26, 0.6)" }}>
               No statistics available yet. Boost your profile or upgrade to
               premium to start collecting insights.
             </Typography>
           )}
         </DialogContent>
-      <DialogActions
-        sx={{
-          p: 2,
-          justifyContent: "flex-end",
-          gap: 1,
-          flexWrap: "wrap",
-        }}
-      >
+        <DialogActions
+          sx={{
+            p: 2,
+            justifyContent: "flex-end",
+            gap: 1,
+            flexWrap: "wrap",
+          }}
+        >
           <Button onClick={handleCloseStatsDialog} color="inherit">
             Close
           </Button>
@@ -3885,9 +4249,16 @@ export default function Dashboard({ user, setUser }) {
         open={storyCreatorOpen}
         onClose={() => {
           setStoryCreatorOpen(false);
+          // Reset storyCreated flag when dialog closes without creating
+          setStoryCreated(false);
         }}
         onStoryCreated={() => {
-          // Feed will refresh automatically via refreshTrigger prop
+          // Set flag to trigger refresh
+          setStoryCreated(true);
+          // Reset after a short delay so it can trigger again on next creation
+          setTimeout(() => {
+            setStoryCreated(false);
+          }, 1000);
         }}
       />
     </Box>
