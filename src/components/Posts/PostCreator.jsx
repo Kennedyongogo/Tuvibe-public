@@ -279,7 +279,6 @@ const PostCreator = ({ open, onClose, onPostCreated }) => {
         throw new Error(data.message || "Failed to create post");
       }
     } catch (err) {
-      console.error("Error creating post:", err);
       Swal.fire({
         icon: "error",
         title: "Failed to Create Post",

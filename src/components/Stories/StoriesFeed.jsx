@@ -74,6 +74,8 @@ const StoriesFeed = ({
 
   // Track if component is mounted to prevent state updates after unmount
   const isMountedRef = useRef(true);
+  // Track if we're currently fetching to avoid overlapping requests during polling
+  const isFetchingRef = useRef(false);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -82,68 +84,104 @@ const StoriesFeed = ({
     };
   }, []);
 
-  const fetchStoriesFeed = useCallback(async () => {
-    if (!isMountedRef.current) return;
-
-    console.log("🔄 [StoriesFeed] Fetching stories feed...");
-    setLoading(true);
-    setError(null);
-    try {
-      const token = localStorage.getItem("token");
-      const headers = {
-        "Content-Type": "application/json",
-      };
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
-
-      // Get user location if available
-      const userLat = user?.latitude;
-      const userLng = user?.longitude;
-      let url = "/api/stories/feed";
-      if (userLat && userLng) {
-        url += `?latitude=${userLat}&longitude=${userLng}&radius=50`;
-      }
-
-      console.log("📡 [StoriesFeed] Fetching from URL:", url);
-      const response = await fetch(url, { headers });
-      console.log("📥 [StoriesFeed] Response status:", response.status);
-
-      const data = await response.json();
-      console.log("📦 [StoriesFeed] Response data:", data);
-
+  const fetchStoriesFeed = useCallback(
+    async (isBackgroundRefresh = false) => {
       if (!isMountedRef.current) return;
 
-      if (data.success) {
-        const stories = data.data?.stories || [];
-        console.log("✅ [StoriesFeed] Stories fetched successfully:", {
-          count: stories.length,
-          stories: stories.map((s) => ({
-            id: s.id,
-            userId: s.public_user_id,
-            mediaUrl: s.media_url,
-            caption: s.caption,
-          })),
-        });
-        setStoriesFeed(stories);
-        if (onStoriesLoaded && isMountedRef.current) {
-          onStoriesLoaded(stories);
+      // Prevent overlapping requests
+      if (isFetchingRef.current) {
+        console.log("⏸️ [StoriesFeed] Already fetching, skipping...");
+        return;
+      }
+
+      isFetchingRef.current = true;
+      console.log("🔄 [StoriesFeed] Fetching stories feed...", {
+        isBackgroundRefresh,
+      });
+
+      // Only show loading state if it's not a background refresh
+      if (!isBackgroundRefresh) {
+        setLoading(true);
+        setError(null);
+      }
+      try {
+        const token = localStorage.getItem("token");
+        const headers = {
+          "Content-Type": "application/json",
+        };
+        if (token) {
+          headers.Authorization = `Bearer ${token}`;
         }
-      } else {
-        setError(data.message || "Failed to load stories");
-        console.error("❌ [StoriesFeed] Error:", data.message);
+
+        // Get user location if available
+        const userLat = user?.latitude;
+        const userLng = user?.longitude;
+        let url = "/api/stories/feed";
+        if (userLat && userLng) {
+          url += `?latitude=${userLat}&longitude=${userLng}&radius=50`;
+        }
+
+        console.log("📡 [StoriesFeed] Fetching from URL:", url);
+        const response = await fetch(url, { headers });
+        console.log("📥 [StoriesFeed] Response status:", response.status);
+
+        const data = await response.json();
+        console.log("📦 [StoriesFeed] Response data:", data);
+
+        if (!isMountedRef.current) return;
+
+        if (data.success) {
+          const stories = data.data?.stories || [];
+          console.log("✅ [StoriesFeed] Stories fetched successfully:", {
+            count: stories.length,
+            stories: stories.map((s) => ({
+              id: s.id,
+              userId: s.public_user_id,
+              mediaUrl: s.media_url,
+              caption: s.caption,
+            })),
+          });
+
+          // Sort stories so current user's story appears first
+          const sortedStories = [...stories].sort((a, b) => {
+            const aIsCurrentUser = a?.user?.id === user?.id;
+            const bIsCurrentUser = b?.user?.id === user?.id;
+
+            // If one is current user and the other isn't, current user comes first
+            if (aIsCurrentUser && !bIsCurrentUser) return -1;
+            if (!aIsCurrentUser && bIsCurrentUser) return 1;
+
+            // Otherwise maintain original order
+            return 0;
+          });
+
+          setStoriesFeed(sortedStories);
+          if (onStoriesLoaded && isMountedRef.current) {
+            onStoriesLoaded(stories);
+          }
+        } else {
+          setError(data.message || "Failed to load stories");
+          console.error("❌ [StoriesFeed] Error:", data.message);
+        }
+      } catch (err) {
+        if (!isMountedRef.current) return;
+        console.error("💥 [StoriesFeed] Error fetching stories feed:", err);
+        setError("Failed to load stories");
+      } finally {
+        if (isMountedRef.current) {
+          // Only update loading state if it's not a background refresh
+          if (!isBackgroundRefresh) {
+            setLoading(false);
+          }
+          isFetchingRef.current = false;
+          console.log("🏁 [StoriesFeed] Fetch completed");
+        } else {
+          isFetchingRef.current = false;
+        }
       }
-    } catch (err) {
-      if (!isMountedRef.current) return;
-      console.error("💥 [StoriesFeed] Error fetching stories feed:", err);
-      setError("Failed to load stories");
-    } finally {
-      if (isMountedRef.current) {
-        setLoading(false);
-        console.log("🏁 [StoriesFeed] Fetch completed");
-      }
-    }
-  }, [user?.latitude, user?.longitude, onStoriesLoaded]);
+    },
+    [user?.latitude, user?.longitude, user?.id, onStoriesLoaded]
+  );
 
   // Store the latest fetchStoriesFeed in a ref to avoid dependency issues
   const fetchStoriesFeedRef = useRef(fetchStoriesFeed);
@@ -168,6 +206,30 @@ const StoriesFeed = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount
 
+  // Poll for newly approved stories every 30 seconds (background refresh)
+  useEffect(() => {
+    if (!isMountedRef.current) return;
+
+    const pollInterval = setInterval(() => {
+      if (!isMountedRef.current) {
+        clearInterval(pollInterval);
+        return;
+      }
+      // Only refresh if not currently fetching
+      if (!isFetchingRef.current) {
+        console.log(
+          "🔄 [StoriesFeed] Polling for new stories (background refresh)..."
+        );
+        // Pass true to indicate this is a background refresh (no loading state)
+        fetchStoriesFeedRef.current(true);
+      }
+    }, 30000); // Poll every 30 seconds
+
+    return () => {
+      clearInterval(pollInterval);
+    };
+  }, []); // Only set up once on mount
+
   // Track previous refreshTrigger value to detect when creator closes
   const prevRefreshTriggerRef = useRef(refreshTrigger);
 
@@ -189,9 +251,10 @@ const StoriesFeed = ({
       const timer = setTimeout(() => {
         if (!isMountedRef.current) return;
         setUserImageError(false); // Reset image error state
-        console.log("🔄 [StoriesFeed] Executing feed refresh...");
+        console.log("🔄 [StoriesFeed] Executing feed refresh (background)...");
         // Use ref to get latest function without causing re-renders
-        fetchStoriesFeedRef.current();
+        // Pass true for background refresh since user just created the story
+        fetchStoriesFeedRef.current(true);
       }, 500);
 
       prevRefreshTriggerRef.current = refreshTrigger;
@@ -625,9 +688,13 @@ const StoriesFeed = ({
                       mt: 0.5,
                     }}
                   >
-                    {storyGroup.user?.name ||
-                      storyGroup.user?.username ||
-                      "User"}
+                    {storyGroup.user?.id === user?.id
+                      ? storyGroup.user?.name ||
+                        storyGroup.user?.username ||
+                        "You"
+                      : storyGroup.user?.username ||
+                        storyGroup.user?.name ||
+                        "User"}
                   </Typography>
                 </Box>
               );

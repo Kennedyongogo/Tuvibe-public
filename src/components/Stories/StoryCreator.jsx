@@ -95,8 +95,17 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
   const [uploading, setUploading] = useState(false);
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const [emojiPickerAnchor, setEmojiPickerAnchor] = useState(null);
+  const [captionPosition, setCaptionPosition] = useState({ x: 50, y: 50 }); // Position as percentages
+  const [isDraggingCaption, setIsDraggingCaption] = useState(false);
   const fileInputRef = useRef(null);
   const emojiButtonRef = useRef(null);
+  const previewContainerRef = useRef(null);
+  const [mediaDimensions, setMediaDimensions] = useState({
+    width: 0,
+    height: 0,
+    offsetX: 0,
+    offsetY: 0,
+  });
 
   // Get user's current location when location toggle is enabled
   useEffect(() => {
@@ -178,6 +187,54 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
     };
   }, [locationEnabled]);
 
+  // Reset caption position when file changes or dialog closes
+  useEffect(() => {
+    if (!file) {
+      setCaptionPosition({ x: 50, y: 50 });
+    }
+  }, [file]);
+
+  // Reset caption position when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setCaptionPosition({ x: 50, y: 50 });
+      setCaption("");
+      setIsDraggingCaption(false);
+      setMediaDimensions({ width: 0, height: 0, offsetX: 0, offsetY: 0 });
+    }
+  }, [open]);
+
+  // Calculate media dimensions for caption positioning
+  const calculateMediaDimensions = () => {
+    if (previewContainerRef.current && file) {
+      const container = previewContainerRef.current;
+      const mediaElement = container.querySelector("img, video");
+      if (mediaElement) {
+        const containerRect = container.getBoundingClientRect();
+        const mediaRect = mediaElement.getBoundingClientRect();
+        const offsetX = mediaRect.left - containerRect.left;
+        const offsetY = mediaRect.top - containerRect.top;
+        setMediaDimensions({
+          width: mediaRect.width,
+          height: mediaRect.height,
+          offsetX,
+          offsetY,
+        });
+      }
+    }
+  };
+
+  // Recalculate dimensions when preview changes
+  useEffect(() => {
+    if (preview) {
+      // Wait for media to load
+      const timer = setTimeout(() => {
+        calculateMediaDimensions();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [preview, file]);
+
   const handleFileSelect = (e) => {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
@@ -230,6 +287,85 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
       video.src = URL.createObjectURL(selectedFile);
     }
   };
+
+  // Handle caption dragging (mouse and touch)
+  const handleCaptionMouseDown = (e) => {
+    e.preventDefault();
+    setIsDraggingCaption(true);
+  };
+
+  const handleCaptionTouchStart = (e) => {
+    e.preventDefault();
+    setIsDraggingCaption(true);
+  };
+
+  // Add global mouse and touch event listeners for dragging
+  useEffect(() => {
+    if (!isDraggingCaption) return;
+
+    const handleMove = (clientX, clientY) => {
+      if (!previewContainerRef.current) return;
+
+      const container = previewContainerRef.current;
+      const containerRect = container.getBoundingClientRect();
+
+      // Find the actual img or video DOM element (not the Box wrapper)
+      const mediaElement = container.querySelector("img, video");
+
+      if (mediaElement) {
+        const mediaRect = mediaElement.getBoundingClientRect();
+
+        // Calculate position relative to the actual rendered media element
+        const relativeX = clientX - mediaRect.left;
+        const relativeY = clientY - mediaRect.top;
+
+        // Calculate as percentage of media element dimensions
+        const x = (relativeX / mediaRect.width) * 100;
+        const y = (relativeY / mediaRect.height) * 100;
+
+        // Clamp values with margins to keep caption within visible media bounds
+        // Use tighter margins (10%) to ensure caption doesn't go outside
+        setCaptionPosition({
+          x: Math.max(10, Math.min(90, x)),
+          y: Math.max(10, Math.min(90, y)),
+        });
+      } else {
+        // Fallback to container if no media element found
+        const x = ((clientX - containerRect.left) / containerRect.width) * 100;
+        const y = ((clientY - containerRect.top) / containerRect.height) * 100;
+        setCaptionPosition({
+          x: Math.max(10, Math.min(90, x)),
+          y: Math.max(10, Math.min(90, y)),
+        });
+      }
+    };
+
+    const handleMouseMove = (e) => {
+      handleMove(e.clientX, e.clientY);
+    };
+
+    const handleTouchMove = (e) => {
+      if (e.touches.length > 0) {
+        handleMove(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    };
+
+    const handleEnd = () => {
+      setIsDraggingCaption(false);
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleEnd);
+    document.addEventListener("touchmove", handleTouchMove, { passive: false });
+    document.addEventListener("touchend", handleEnd);
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleEnd);
+      document.removeEventListener("touchmove", handleTouchMove);
+      document.removeEventListener("touchend", handleEnd);
+    };
+  }, [isDraggingCaption]);
 
   const handleCreateStory = async () => {
     console.log("📸 [StoryCreator] Share Story button clicked");
@@ -311,6 +447,21 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
           lat: locationCoords.latitude,
           lng: locationCoords.longitude,
         });
+      }
+
+      // Add caption position to metadata if caption exists and it's a media story
+      if (storyType === "media" && caption.trim()) {
+        const metadata = {
+          caption_position: {
+            x: captionPosition.x,
+            y: captionPosition.y,
+          },
+        };
+        formData.append("metadata", JSON.stringify(metadata));
+        console.log(
+          "📍 [StoryCreator] Adding caption position:",
+          captionPosition
+        );
       }
 
       console.log("🚀 [StoryCreator] Sending POST request to /api/stories");
@@ -657,37 +808,102 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
         ) : (
           <Box>
             <Box
+              ref={previewContainerRef}
               sx={{
                 position: "relative",
                 width: "100%",
                 borderRadius: "12px",
                 overflow: "hidden",
                 mb: 2,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                bgcolor: "transparent",
               }}
             >
-              {file?.type.startsWith("video/") ? (
-                <Box
-                  component="video"
-                  src={preview}
-                  controls
-                  sx={{
-                    width: "100%",
-                    maxHeight: 400,
-                    objectFit: "contain",
-                  }}
-                />
-              ) : (
-                <Box
-                  component="img"
-                  src={preview}
-                  alt="Preview"
-                  sx={{
-                    width: "100%",
-                    maxHeight: 400,
-                    objectFit: "contain",
-                  }}
-                />
-              )}
+              <Box
+                sx={{
+                  position: "relative",
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {file?.type.startsWith("video/") ? (
+                  <Box
+                    component="video"
+                    src={preview}
+                    controls
+                    onLoadedMetadata={calculateMediaDimensions}
+                    sx={{
+                      width: "100%",
+                      height: "auto",
+                      maxHeight: { xs: 300, sm: 400 },
+                      objectFit: "contain",
+                      display: "block",
+                    }}
+                  />
+                ) : (
+                  <Box
+                    component="img"
+                    src={preview}
+                    alt="Preview"
+                    onLoad={calculateMediaDimensions}
+                    sx={{
+                      width: "100%",
+                      height: "auto",
+                      maxHeight: { xs: 300, sm: 400 },
+                      objectFit: "contain",
+                      display: "block",
+                    }}
+                  />
+                )}
+
+                {/* Draggable Caption Overlay - positioned relative to media element */}
+                {caption.trim() && mediaDimensions.width > 0 && (
+                  <Box
+                    onMouseDown={handleCaptionMouseDown}
+                    onTouchStart={handleCaptionTouchStart}
+                    sx={{
+                      position: "absolute",
+                      // Use pixel values based on actual media dimensions (same as StoryViewer)
+                      left: `${mediaDimensions.offsetX + (mediaDimensions.width * Math.max(10, Math.min(90, captionPosition.x))) / 100}px`,
+                      top: `${mediaDimensions.offsetY + (mediaDimensions.height * Math.max(10, Math.min(90, captionPosition.y))) / 100}px`,
+                      transform: "translate(-50%, -50%)",
+                      cursor: isDraggingCaption ? "grabbing" : "grab",
+                      userSelect: "none",
+                      p: { xs: 1, sm: 1.5 },
+                      bgcolor: "rgba(0, 0, 0, 0.6)",
+                      borderRadius: 2,
+                      backdropFilter: "blur(10px)",
+                      border: "2px solid rgba(255, 255, 255, 0.3)",
+                      maxWidth: { xs: "85%", sm: "80%" },
+                      maxHeight: "40%",
+                      overflow: "hidden",
+                      zIndex: 10,
+                      "&:hover": {
+                        bgcolor: "rgba(0, 0, 0, 0.7)",
+                        borderColor: "rgba(255, 255, 255, 0.5)",
+                      },
+                    }}
+                  >
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: "white",
+                        fontWeight: 600,
+                        textAlign: "center",
+                        wordBreak: "break-word",
+                        fontSize: { xs: "0.875rem", sm: "1rem" },
+                      }}
+                    >
+                      {caption}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+
               <IconButton
                 onClick={() => {
                   setFile(null);
@@ -702,6 +918,7 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
                   right: 8,
                   bgcolor: "rgba(0,0,0,0.5)",
                   color: "white",
+                  zIndex: 11,
                   "&:hover": {
                     bgcolor: "rgba(0,0,0,0.7)",
                   },
@@ -720,7 +937,11 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
                 multiline
                 rows={3}
                 inputProps={{ maxLength: 200 }}
-                helperText={`${caption.length}/200 characters`}
+                helperText={
+                  caption.trim()
+                    ? `${caption.length}/200 characters - Drag the caption on the preview to position it`
+                    : `${caption.length}/200 characters`
+                }
                 placeholder="Add a caption to your story..."
               />
               <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>

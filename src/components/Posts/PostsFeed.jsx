@@ -32,7 +32,6 @@ const PostsFeed = ({ user, onRefresh }) => {
   const fetchPosts = useCallback(async () => {
     if (!isMountedRef.current) return;
 
-    console.log("🔄 [PostsFeed] Fetching posts feed...");
     setLoading(true);
     setError(null);
     try {
@@ -54,14 +53,11 @@ const PostsFeed = ({ user, onRefresh }) => {
       if (!isMountedRef.current) return;
 
       if (data.success) {
-        console.log("✅ [PostsFeed] Posts fetched:", data.data.posts.length);
         setPosts(data.data.posts || []);
       } else {
-        console.error("❌ [PostsFeed] Failed to fetch posts:", data.message);
         setError(data.message || "Failed to load posts");
       }
     } catch (err) {
-      console.error("💥 [PostsFeed] Error fetching posts:", err);
       if (isMountedRef.current) {
         setError("Failed to load posts. Please try again.");
       }
@@ -89,11 +85,8 @@ const PostsFeed = ({ user, onRefresh }) => {
 
   const handleReaction = async (postId, reactionType, emoji) => {
     // PostCard already made the API call and updated its local state
-    // Just refresh the feed after a short delay to ensure database is updated
-    // This prevents race conditions and ensures counts are accurate
-    setTimeout(() => {
-      fetchPosts();
-    }, 300);
+    // No need to refetch the entire feed - PostCard handles its own state updates
+    // This prevents unnecessary component reloads
   };
 
   const handleRemoveReaction = async (postId, reactionId) => {
@@ -117,7 +110,7 @@ const PostsFeed = ({ user, onRefresh }) => {
         fetchPosts();
       }
     } catch (err) {
-      console.error("Error removing reaction:", err);
+      // Error removing reaction
     }
   };
 
@@ -166,7 +159,6 @@ const PostsFeed = ({ user, onRefresh }) => {
         });
       }
     } catch (err) {
-      console.error("Error deleting post:", err);
       Swal.fire({
         icon: "error",
         title: "Error",

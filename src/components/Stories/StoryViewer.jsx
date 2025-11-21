@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Dialog,
   Box,
@@ -66,15 +66,25 @@ const StoryViewer = ({
   const [storyComments, setStoryComments] = useState([]);
   const [loadingReactions, setLoadingReactions] = useState(false);
   const [loadingComments, setLoadingComments] = useState(false);
-  const [queuedReactions, setQueuedReactions] = useState([]); // Queue of reactions to send
+  const [selectedEmojis, setSelectedEmojis] = useState([]); // Emojis selected but not yet sent
   const [flyingEmojis, setFlyingEmojis] = useState([]); // Emojis currently animating
   const progressIntervalRef = useRef(null);
   const storyTimeoutRef = useRef(null);
   const emojiButtonRef = useRef(null);
+  const mediaContainerRef = useRef(null);
+  const [mediaDimensions, setMediaDimensions] = useState({
+    width: 0,
+    height: 0,
+    offsetX: 0,
+    offsetY: 0,
+  });
 
   const stories = storyGroup?.stories || [];
   const currentStory = stories[currentStoryIndex];
   const user = storyGroup?.user;
+  // Define these early so they can be used in useEffects and callbacks
+  const isTextStory = currentStory?.media_type === "text";
+  const isVideo = currentStory?.media_type === "video";
   const [deleteMenuAnchor, setDeleteMenuAnchor] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -91,6 +101,7 @@ const StoryViewer = ({
       setCurrentStoryIndex(0);
       setProgress(0);
       setIsPaused(false); // Ensure not paused when opening
+      setComment(""); // Clear comment when opening
       // Load user's reaction for current story (only if not the owner)
       const firstStory = stories[0];
       const isOwner =
@@ -110,6 +121,8 @@ const StoryViewer = ({
       clearProgress();
       setProgress(0);
       setIsPaused(false);
+      setSelectedEmojis([]); // Clear selected emojis when closing
+      setComment(""); // Clear comment when closing
     }
     return () => {
       clearProgress();
@@ -145,6 +158,11 @@ const StoryViewer = ({
       } else {
         setReaction(null);
       }
+
+      // Clear selected emojis when story changes
+      setSelectedEmojis([]);
+      // Clear comment when story changes
+      setComment("");
 
       // Update view count from story data
       setViewCount(currentStory.view_count || 0);
@@ -182,6 +200,52 @@ const StoryViewer = ({
     });
     return Object.values(grouped);
   };
+
+  // Helper function to calculate media dimensions for caption positioning
+  const calculateMediaDimensions = useCallback(() => {
+    if (mediaContainerRef.current && !isTextStory) {
+      const container = mediaContainerRef.current;
+      const mediaElement = container.querySelector("img, video");
+      if (mediaElement) {
+        const containerRect = container.getBoundingClientRect();
+        const mediaRect = mediaElement.getBoundingClientRect();
+
+        // Calculate the actual visible media area (accounting for objectFit: contain)
+        const offsetX = mediaRect.left - containerRect.left;
+        const offsetY = mediaRect.top - containerRect.top;
+
+        setMediaDimensions({
+          width: mediaRect.width,
+          height: mediaRect.height,
+          offsetX,
+          offsetY,
+          containerWidth: containerRect.width,
+          containerHeight: containerRect.height,
+        });
+      }
+    }
+  }, [isTextStory]);
+
+  // Calculate media dimensions when story changes or window resizes
+  useEffect(() => {
+    if (!open || isTextStory) return;
+
+    // Calculate on mount and when story changes
+    const timer = setTimeout(() => {
+      calculateMediaDimensions();
+    }, 100);
+
+    // Also recalculate on window resize
+    const handleResize = () => {
+      calculateMediaDimensions();
+    };
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [open, currentStory, calculateMediaDimensions, isTextStory]);
 
   // Group comments by user
   const groupCommentsByUser = (comments) => {
@@ -408,7 +472,7 @@ const StoryViewer = ({
     }
   };
 
-  // Queue a reaction and trigger animation
+  // Add emoji to selection and trigger animation
   const handleReaction = (emoji = null, clickPosition = null) => {
     if (!currentStory) return;
 
@@ -417,42 +481,59 @@ const StoryViewer = ({
       return;
     }
 
-    const reactionData = {
-      reaction_type: emoji ? "emoji" : "like",
-      emoji: emoji || null,
-    };
-
-    // Add to queue
-    setQueuedReactions((prev) => [...prev, reactionData]);
-
-    // If emoji and click position provided, trigger flying animation
-    if (emoji && clickPosition && emojiButtonRef.current) {
-      const buttonRect = emojiButtonRef.current.getBoundingClientRect();
-      const targetX = buttonRect.left + buttonRect.width / 2;
-      const targetY = buttonRect.top + buttonRect.height / 2;
-
-      const flyingEmoji = {
-        id: Date.now() + Math.random(),
-        emoji,
-        startX: clickPosition.x,
-        startY: clickPosition.y,
-        targetX,
-        targetY,
-      };
-
-      setFlyingEmojis((prev) => [...prev, flyingEmoji]);
-
-      // Remove flying emoji after animation completes
-      setTimeout(() => {
-        setFlyingEmojis((prev) => prev.filter((e) => e.id !== flyingEmoji.id));
-      }, 600);
-    }
-
-    // Update reaction state to show the most recent reaction
+    // If emoji provided, add to selected emojis array
     if (emoji) {
+      setSelectedEmojis((prev) => [...prev, emoji]);
+
+      // If click position provided, trigger flying animation
+      if (clickPosition && emojiButtonRef.current) {
+        const buttonRect = emojiButtonRef.current.getBoundingClientRect();
+        const targetX = buttonRect.left + buttonRect.width / 2;
+        const targetY = buttonRect.top + buttonRect.height / 2;
+
+        const flyingEmoji = {
+          id: Date.now() + Math.random(),
+          emoji,
+          startX: clickPosition.x,
+          startY: clickPosition.y,
+          targetX,
+          targetY,
+        };
+
+        setFlyingEmojis((prev) => [...prev, flyingEmoji]);
+
+        // Remove flying emoji after animation completes
+        setTimeout(() => {
+          setFlyingEmojis((prev) =>
+            prev.filter((e) => e.id !== flyingEmoji.id)
+          );
+        }, 600);
+      }
+
+      // Update reaction state to show the most recent emoji
       setReaction({ reaction_type: "emoji", emoji });
     } else {
+      // For like reactions (non-emoji), send immediately
       setReaction({ reaction_type: "like" });
+      // Send like reaction immediately
+      const sendLikeReaction = async () => {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        try {
+          await fetch(`/api/stories/${currentStory.id}/reactions`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ reaction_type: "like" }),
+          });
+        } catch (err) {
+          console.error("Error sending like reaction:", err);
+        }
+      };
+      sendLikeReaction();
     }
   };
 
@@ -467,38 +548,40 @@ const StoryViewer = ({
     setEmojiPickerOpen(true);
   };
 
-  // Send all queued reactions when dialog closes
+  // Send all selected emojis as one reaction when dialog closes
   useEffect(() => {
-    if (!emojiPickerOpen && queuedReactions.length > 0 && currentStory) {
-      // Dialog was closed, send all queued reactions
-      const sendQueuedReactions = async () => {
+    if (!emojiPickerOpen && selectedEmojis.length > 0 && currentStory) {
+      // Dialog was closed, send all selected emojis as one reaction
+      const sendEmojisAsOneReaction = async () => {
         const token = localStorage.getItem("token");
         if (!token) {
-          setQueuedReactions([]);
+          setSelectedEmojis([]);
           return;
         }
 
         try {
-          const promises = queuedReactions.map((reactionData) =>
-            fetch(`/api/stories/${currentStory.id}/reactions`, {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify(reactionData),
-            })
-          );
+          // Send all emojis as one reaction
+          await fetch(`/api/stories/${currentStory.id}/reactions`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              reaction_type: "emoji",
+              emojis: selectedEmojis, // Send as array
+            }),
+          });
 
-          await Promise.all(promises);
-          setQueuedReactions([]); // Clear queue
+          // Clear selected emojis after sending
+          setSelectedEmojis([]);
         } catch (err) {
-          console.error("Error sending queued reactions:", err);
-          setQueuedReactions([]); // Clear queue even on error
+          console.error("Error sending emoji reactions:", err);
+          setSelectedEmojis([]); // Clear even on error
         }
       };
 
-      sendQueuedReactions();
+      sendEmojisAsOneReaction();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [emojiPickerOpen]);
@@ -558,10 +641,100 @@ const StoryViewer = ({
       const data = await response.json();
       if (data.success) {
         setComment("");
-        // Optionally refresh story data
+
+        // Show success notification
+        Swal.fire({
+          icon: "success",
+          title: "Comment sent!",
+          text: "Your message has been sent successfully",
+          timer: 2000,
+          timerProgressBar: true,
+          showConfirmButton: false,
+          toast: true,
+          position: "top-end",
+          width: 300,
+          padding: "1rem",
+          confirmButtonColor: "#D4AF37",
+          customClass: {
+            container: "swal-story-viewer-overlay",
+            popup: "swal-comment-success",
+          },
+          didOpen: () => {
+            const swalContainer = document.querySelector(
+              ".swal-story-viewer-overlay"
+            );
+            const swalBackdrop = document.querySelector(".swal2-backdrop-show");
+            if (swalContainer) {
+              swalContainer.style.zIndex = "9999";
+            }
+            if (swalBackdrop) {
+              swalBackdrop.style.zIndex = "9998";
+            }
+          },
+        });
+      } else {
+        // Show error if comment failed
+        Swal.fire({
+          icon: "error",
+          title: "Failed to send",
+          text:
+            data.message || "Unable to send your comment. Please try again.",
+          timer: 3000,
+          timerProgressBar: true,
+          showConfirmButton: false,
+          toast: true,
+          position: "top-end",
+          width: 300,
+          padding: "1rem",
+          confirmButtonColor: "#D4AF37",
+          customClass: {
+            container: "swal-story-viewer-overlay",
+          },
+          didOpen: () => {
+            const swalContainer = document.querySelector(
+              ".swal-story-viewer-overlay"
+            );
+            const swalBackdrop = document.querySelector(".swal2-backdrop-show");
+            if (swalContainer) {
+              swalContainer.style.zIndex = "9999";
+            }
+            if (swalBackdrop) {
+              swalBackdrop.style.zIndex = "9998";
+            }
+          },
+        });
       }
     } catch (err) {
       console.error("Error sending comment:", err);
+      // Show error notification
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Failed to send your comment. Please try again.",
+        timer: 3000,
+        timerProgressBar: true,
+        showConfirmButton: false,
+        toast: true,
+        position: "top-end",
+        width: 300,
+        padding: "1rem",
+        confirmButtonColor: "#D4AF37",
+        customClass: {
+          container: "swal-story-viewer-overlay",
+        },
+        didOpen: () => {
+          const swalContainer = document.querySelector(
+            ".swal-story-viewer-overlay"
+          );
+          const swalBackdrop = document.querySelector(".swal2-backdrop-show");
+          if (swalContainer) {
+            swalContainer.style.zIndex = "9999";
+          }
+          if (swalBackdrop) {
+            swalBackdrop.style.zIndex = "9998";
+          }
+        },
+      });
     } finally {
       setSendingComment(false);
     }
@@ -740,8 +913,7 @@ const StoryViewer = ({
   if (!open || !currentStory) return null;
 
   const mediaUrl = getImageUrl(currentStory.media_url);
-  const isVideo = currentStory.media_type === "video";
-  const isTextStory = currentStory.media_type === "text";
+  // isTextStory and isVideo are already defined above
 
   return (
     <Dialog
@@ -968,35 +1140,103 @@ const StoryViewer = ({
                 {currentStory.caption}
               </Typography>
             </Box>
-          ) : isVideo ? (
-            <Box
-              component="video"
-              src={mediaUrl}
-              autoPlay
-              loop={false}
-              muted
-              playsInline
-              sx={{
-                width: "100%",
-                height: "100%",
-                maxWidth: "100%",
-                maxHeight: "100%",
-                objectFit: "contain",
-              }}
-            />
           ) : (
             <Box
-              component="img"
-              src={mediaUrl}
-              alt="Story"
+              ref={mediaContainerRef}
               sx={{
+                position: "relative",
                 width: "100%",
                 height: "100%",
-                maxWidth: "100%",
-                maxHeight: "100%",
-                objectFit: "contain",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
               }}
-            />
+            >
+              <Box
+                sx={{
+                  position: "relative",
+                  width: "100%",
+                  height: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  // This wrapper will match the media size due to objectFit: contain
+                }}
+              >
+                {isVideo ? (
+                  <Box
+                    component="video"
+                    src={mediaUrl}
+                    autoPlay
+                    loop={false}
+                    muted
+                    playsInline
+                    onLoadedMetadata={calculateMediaDimensions}
+                    sx={{
+                      width: "100%",
+                      height: "100%",
+                      maxWidth: "100%",
+                      maxHeight: "100%",
+                      objectFit: "contain",
+                    }}
+                  />
+                ) : (
+                  <Box
+                    component="img"
+                    src={mediaUrl}
+                    alt="Story"
+                    onLoad={calculateMediaDimensions}
+                    sx={{
+                      width: "100%",
+                      height: "100%",
+                      maxWidth: "100%",
+                      maxHeight: "100%",
+                      objectFit: "contain",
+                    }}
+                  />
+                )}
+
+                {/* Caption positioned relative to actual media element dimensions */}
+                {currentStory.caption &&
+                  currentStory.metadata?.caption_position &&
+                  mediaDimensions.width > 0 && (
+                    <Box
+                      sx={{
+                        position: "absolute",
+                        // Calculate position based on actual media dimensions
+                        // Position is stored as percentage, convert to pixels relative to media element
+                        left: `${mediaDimensions.offsetX + (mediaDimensions.width * Math.max(10, Math.min(90, currentStory.metadata.caption_position.x))) / 100}px`,
+                        top: `${mediaDimensions.offsetY + (mediaDimensions.height * Math.max(10, Math.min(90, currentStory.metadata.caption_position.y))) / 100}px`,
+                        transform: "translate(-50%, -50%)",
+                        px: { xs: 1.5, sm: 2 },
+                        py: { xs: 1, sm: 1.5 },
+                        background: "rgba(0, 0, 0, 0.6)",
+                        borderRadius: 2,
+                        backdropFilter: "blur(10px)",
+                        border: "2px solid rgba(255, 255, 255, 0.3)",
+                        maxWidth: { xs: "85%", sm: "80%" },
+                        maxHeight: "40%",
+                        overflow: "hidden",
+                        zIndex: 4,
+                      }}
+                    >
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: "white",
+                          textAlign: "center",
+                          fontSize: { xs: "0.875rem", sm: "1rem" },
+                          wordBreak: "break-word",
+                          maxWidth: "100%",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {currentStory.caption}
+                      </Typography>
+                    </Box>
+                  )}
+              </Box>
+            </Box>
           )}
 
           {/* Navigation Arrows */}
@@ -1149,27 +1389,42 @@ const StoryViewer = ({
           )}
         </Box>
 
-        {/* Caption - Only show for non-text stories (text stories display caption as main content) */}
-        {currentStory.caption && !isTextStory && (
-          <Box
-            sx={{
-              position: "absolute",
-              bottom: 120,
-              left: 0,
-              right: 0,
-              p: 2,
-              background:
-                "linear-gradient(to top, rgba(0,0,0,0.6), transparent)",
-            }}
-          >
-            <Typography
-              variant="body2"
-              sx={{ color: "white", textAlign: "center" }}
+        {/* Caption - Only show default caption for non-text stories without custom position */}
+        {currentStory.caption &&
+          !isTextStory &&
+          !currentStory.metadata?.caption_position && (
+            <Box
+              sx={{
+                position: "absolute",
+                bottom: { xs: isStoryOwner ? 200 : 120, sm: 120 },
+                left: { xs: isStoryOwner ? 16 : 0, sm: 0 },
+                right: 0,
+                px: 2,
+                pb: { xs: isStoryOwner ? 0.5 : 2, sm: 2 },
+                pt: 2,
+                background:
+                  "linear-gradient(to top, rgba(0,0,0,0.6), transparent)",
+                zIndex: 4,
+              }}
             >
-              {currentStory.caption}
-            </Typography>
-          </Box>
-        )}
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "white",
+                  textAlign: {
+                    xs: isStoryOwner ? "left" : "center",
+                    sm: "center",
+                  },
+                  fontSize: { xs: "0.875rem", sm: "1rem" },
+                  wordBreak: "break-word",
+                  maxWidth: "100%",
+                  fontWeight: 400,
+                }}
+              >
+                {currentStory.caption}
+              </Typography>
+            </Box>
+          )}
 
         {/* Actions - Only show for non-owners */}
         {!isStoryOwner && (
@@ -1200,8 +1455,8 @@ const StoryViewer = ({
                 ) : (
                   <EmojiEmotions />
                 )}
-                {/* Badge showing queued reactions count */}
-                {queuedReactions.length > 0 && (
+                {/* Badge showing selected emojis count */}
+                {selectedEmojis.length > 0 && (
                   <Box
                     sx={{
                       position: "absolute",
@@ -1220,7 +1475,7 @@ const StoryViewer = ({
                       border: "2px solid rgba(0,0,0,0.8)",
                     }}
                   >
-                    {queuedReactions.length}
+                    {selectedEmojis.length}
                   </Box>
                 )}
               </IconButton>

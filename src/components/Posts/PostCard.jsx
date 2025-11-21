@@ -69,14 +69,6 @@ const PostCard = ({
   });
   const [lastUpdateTime, setLastUpdateTime] = useState(0);
 
-  // Debug: Log initial post data
-  useEffect(() => {
-    console.log("PostCard initialized with post:", {
-      id: post.id,
-      like_count: post.like_count,
-      postDetails_like_count: postDetails.like_count,
-    });
-  }, []);
   const isOwner = currentUser && post.user?.id === currentUser.id;
 
   // Update postDetails when post prop changes
@@ -85,7 +77,6 @@ const PostCard = ({
     const now = Date.now();
     // Only update from prop if we haven't recently updated locally
     if (now - lastUpdateTime < 2000) {
-      console.log("Skipping prop update - recent local update detected");
       return;
     }
 
@@ -98,11 +89,6 @@ const PostCard = ({
       comment_count: Number(post.comment_count || 0),
       recent_emoji_reactions: post.recent_emoji_reactions || [],
     };
-    console.log("Post prop changed, updating postDetails:", {
-      id: post.id,
-      like_count: post.like_count,
-      updated_like_count: updatedDetails.like_count,
-    });
     setPostDetails(updatedDetails);
   }, [post, lastUpdateTime]);
 
@@ -122,15 +108,9 @@ const PostCard = ({
   };
 
   const handleReaction = async (reactionType, emoji) => {
-    console.log("handleReaction called:", {
-      reactionType,
-      emoji,
-      postId: post.id,
-    });
     try {
       const token = localStorage.getItem("token");
       if (!token) {
-        console.log("No token found");
         Swal.fire({
           icon: "error",
           title: "Login Required",
@@ -140,7 +120,6 @@ const PostCard = ({
         return;
       }
 
-      console.log("Making API call to add reaction");
       const response = await fetch(`/api/posts/${post.id}/reactions`, {
         method: "POST",
         headers: {
@@ -153,26 +132,16 @@ const PostCard = ({
         }),
       });
 
-      console.log("API response status:", response.status);
-
       if (!response.ok) {
-        console.error(
-          "API response not OK:",
-          response.status,
-          response.statusText
-        );
         const errorText = await response.text();
-        console.error("Error response body:", errorText);
         return;
       }
 
       const data = await response.json();
-      console.log("Reaction response:", data);
 
       if (data.success) {
         // Update counts immediately from response if available
         if (data.data) {
-          console.log("Updating counts from response:", data.data);
           setPostDetails((prev) => {
             const updates = { ...prev };
 
@@ -182,7 +151,6 @@ const PostCard = ({
               data.data.like_count !== null
             ) {
               updates.like_count = Math.max(0, Number(data.data.like_count));
-              console.log("Updated like_count to:", updates.like_count);
             }
 
             // Update emoji_reaction_count if provided
@@ -214,7 +182,6 @@ const PostCard = ({
               updates.user_reaction = data.data.reaction;
             }
 
-            console.log("Updated postDetails:", updates);
             setLastUpdateTime(Date.now());
             return updates;
           });
@@ -226,11 +193,9 @@ const PostCard = ({
             onReaction(post.id, reactionType, emoji);
           }, 200);
         }
-      } else {
-        console.error("Reaction error:", data.message);
       }
     } catch (err) {
-      console.error("Error adding reaction:", err);
+      // Error adding reaction
     }
   };
 
@@ -245,14 +210,12 @@ const PostCard = ({
   };
 
   const handleLike = () => {
-    console.log("Like button clicked");
     // For likes, backend handles toggle - just call handleReaction
     // Backend will check if user already liked and remove it if so
     handleReaction("like");
   };
 
   const fetchPostDetails = async () => {
-    console.log("fetchPostDetails called for post:", post.id);
     try {
       const token = localStorage.getItem("token");
       const headers = {
@@ -278,16 +241,10 @@ const PostCard = ({
           comment_count: Number(updatedPost.comment_count || 0),
           recent_emoji_reactions: updatedPost.recent_emoji_reactions || [],
         };
-        console.log("Fetched post details from API:", {
-          like_count: updatedPost.like_count,
-          newDetails_like_count: newDetails.like_count,
-        });
         setPostDetails(newDetails);
-      } else {
-        console.error("Failed to fetch post details:", data);
       }
     } catch (err) {
-      console.error("Error fetching post details:", err);
+      // Error fetching post details
     }
   };
 
@@ -350,7 +307,6 @@ const PostCard = ({
         });
       }
     } catch (err) {
-      console.error("Error submitting comment:", err);
       Swal.fire({
         icon: "error",
         title: "Error",
@@ -427,7 +383,7 @@ const PostCard = ({
         }
       }
     } catch (err) {
-      console.error("Error toggling comment reaction:", err);
+      // Error toggling comment reaction
     }
   };
 
@@ -718,10 +674,6 @@ const PostCard = ({
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log(
-                  "Like button clicked, current like_count:",
-                  postDetails.like_count
-                );
                 handleLike();
               }}
               sx={{
