@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Box,
   Typography,
@@ -21,6 +21,9 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  Badge,
+  Tooltip,
+  IconButton,
 } from "@mui/material";
 import {
   AccountBalanceWallet,
@@ -29,8 +32,11 @@ import {
   Cancel,
   TrendingUp,
   Payment,
+  NotificationsActive,
+  Timeline,
 } from "@mui/icons-material";
 import Swal from "sweetalert2";
+import { useNavigate } from "react-router-dom";
 import {
   TOKENS_PER_KSH,
   convertTokensToKsh,
@@ -47,6 +53,7 @@ const formatKsh = (kshValue) =>
   })}`;
 
 export default function Wallet({ user, setUser }) {
+  const navigate = useNavigate();
   const [balance, setBalance] = useState(user?.token_balance || 0);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -55,6 +62,7 @@ export default function Wallet({ user, setUser }) {
   const [customAmountError, setCustomAmountError] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
   const quickBuyOptions = QUICK_TOKEN_PACKS.map((tokens) => ({
     tokens,
@@ -69,9 +77,46 @@ export default function Wallet({ user, setUser }) {
       ? formatKsh(convertTokensToKsh(parsedCustomAmount))
       : null;
 
+  // Fetch unread notification count
+  const fetchUnreadNotificationCount = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      const response = await fetch("/api/notifications/stats", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = await response.json();
+      if (data.success && data.data) {
+        setUnreadNotificationCount(data.data.unread || 0);
+      }
+    } catch (error) {
+      console.error("Error fetching notification count:", error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchWallet();
-  }, []);
+    if (localStorage.getItem("token")) {
+      fetchUnreadNotificationCount();
+    }
+  }, [fetchUnreadNotificationCount]);
+
+  // Poll for unread notification count every 30 seconds
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    const interval = setInterval(() => {
+      fetchUnreadNotificationCount();
+    }, 30000); // Poll every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [fetchUnreadNotificationCount]);
 
   const fetchWallet = async () => {
     setLoading(true);
@@ -408,31 +453,128 @@ export default function Wallet({ user, setUser }) {
     >
       {/* Header */}
       <Box sx={{ mb: { xs: 1.5, sm: 2, md: 3 } }}>
-        <Typography
-          variant="h4"
+        <Box
           sx={{
-            fontWeight: 700,
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: { xs: 1, sm: 2 },
             mb: { xs: 0.5, sm: 1 },
-            fontSize: { xs: "1.25rem", sm: "1.75rem", md: "2.125rem" },
-            background: "linear-gradient(45deg, #D4AF37, #B8941F)",
-            backgroundClip: "text",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            wordBreak: "break-word",
           }}
         >
-          Token Wallet
-        </Typography>
-        <Typography
-          variant="body1"
-          sx={{
-            color: "rgba(26, 26, 26, 0.7)",
-            fontSize: { xs: "0.75rem", sm: "0.875rem", md: "1rem" },
-            wordBreak: "break-word",
-          }}
-        >
-          Manage your tokens and view transaction history
-        </Typography>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 1,
+                mb: 0.5,
+              }}
+            >
+              <Typography
+                variant="h4"
+                sx={{
+                  fontWeight: 700,
+                  fontSize: { xs: "1.25rem", sm: "1.75rem", md: "2.125rem" },
+                  background: "linear-gradient(45deg, #D4AF37, #B8941F)",
+                  backgroundClip: "text",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  wordBreak: "break-word",
+                  lineHeight: 1.2,
+                  flex: 1,
+                  minWidth: 0,
+                }}
+              >
+                Token Wallet
+              </Typography>
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  alignItems: "center",
+                  gap: { xs: 0.75, sm: 1.25 },
+                  flexShrink: 0,
+                }}
+              >
+                <Tooltip title="Notifications" arrow>
+                  <span>
+                    <IconButton
+                      onClick={() => navigate("/notifications")}
+                      sx={{
+                        backgroundColor: "rgba(212, 175, 55, 0.12)",
+                        border: "1px solid rgba(212, 175, 55, 0.3)",
+                        "&:hover": {
+                          backgroundColor: "rgba(212, 175, 55, 0.22)",
+                        },
+                        flexShrink: 0,
+                        width: { xs: "36px", sm: "40px" },
+                        height: { xs: "36px", sm: "40px" },
+                        p: { xs: 0.75, sm: 1 },
+                      }}
+                    >
+                      <Badge
+                        badgeContent={
+                          unreadNotificationCount > 0
+                            ? unreadNotificationCount
+                            : null
+                        }
+                        color="error"
+                        overlap="circular"
+                      >
+                        <NotificationsActive
+                          sx={{
+                            color: "#D4AF37",
+                            fontSize: { xs: "1.25rem", sm: "1.5rem" },
+                          }}
+                        />
+                      </Badge>
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <Tooltip title="Timeline" arrow>
+                  <span>
+                    <IconButton
+                      onClick={() => navigate("/timeline")}
+                      sx={{
+                        backgroundColor: "rgba(212, 175, 55, 0.12)",
+                        border: "1px solid rgba(212, 175, 55, 0.3)",
+                        "&:hover": {
+                          backgroundColor: "rgba(212, 175, 55, 0.22)",
+                        },
+                        flexShrink: 0,
+                        width: { xs: "36px", sm: "40px" },
+                        height: { xs: "36px", sm: "40px" },
+                        p: { xs: 0.75, sm: 1 },
+                      }}
+                    >
+                      <Timeline
+                        sx={{
+                          color: "#D4AF37",
+                          fontSize: { xs: "1.25rem", sm: "1.5rem" },
+                        }}
+                      />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </Box>
+            </Box>
+            <Typography
+              variant="body1"
+              sx={{
+                color: "rgba(26, 26, 26, 0.7)",
+                fontSize: { xs: "0.75rem", sm: "0.875rem", md: "1rem" },
+                wordBreak: "break-word",
+                lineHeight: 1.4,
+              }}
+            >
+              Manage your tokens and view transaction history
+            </Typography>
+          </Box>
+        </Box>
       </Box>
 
       {/* Test Mode Alert */}

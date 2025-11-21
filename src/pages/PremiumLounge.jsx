@@ -30,6 +30,7 @@ import {
   ListItemIcon,
   ListItemText,
   useMediaQuery,
+  Badge,
 } from "@mui/material";
 import {
   LocationOn,
@@ -43,6 +44,8 @@ import {
   AccessTime,
   Visibility,
   CheckCircle,
+  NotificationsActive,
+  Timeline,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
@@ -69,6 +72,7 @@ export default function PremiumLounge({ user }) {
   const [benefitsDialogOpen, setBenefitsDialogOpen] = useState(false);
   const fetchingRef = useRef(false); // Track if we're currently fetching
   const lastFetchedRef = useRef({ category: null, tab: null }); // Track what we last fetched
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
   const isRegularUser = user?.category === "Regular";
   const isSmallScreen = useMediaQuery("(max-width:600px)");
@@ -228,6 +232,28 @@ export default function PremiumLounge({ user }) {
     }
   };
 
+  // Fetch unread notification count
+  const fetchUnreadNotificationCount = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      const response = await fetch("/api/notifications/stats", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = await response.json();
+      if (data.success && data.data) {
+        setUnreadNotificationCount(data.data.unread || 0);
+      }
+    } catch (error) {
+      console.error("Error fetching notification count:", error);
+    }
+  }, []);
+
   useEffect(() => {
     // Check localStorage as fallback if user prop is not available yet
     let userCategory = user?.category;
@@ -249,6 +275,7 @@ export default function PremiumLounge({ user }) {
       fetchPremiumUsers();
       if (localStorage.getItem("token")) {
         fetchFavorites();
+        fetchUnreadNotificationCount();
       }
     } else if (userCategory === "Regular") {
       // Regular user - stop loading, upgrade dialog will show
@@ -264,7 +291,19 @@ export default function PremiumLounge({ user }) {
       }, 1000);
       return () => clearTimeout(timeout);
     }
-  }, [selectedTab, user?.category, fetchPremiumUsers]); // Only depend on category, not entire user object
+  }, [selectedTab, user?.category, fetchPremiumUsers, fetchUnreadNotificationCount]); // Only depend on category, not entire user object
+
+  // Poll for unread notification count every 30 seconds
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    const interval = setInterval(() => {
+      fetchUnreadNotificationCount();
+    }, 30000); // Poll every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [fetchUnreadNotificationCount]);
 
   // Fetch "Looking For" posts for multiple users
   const fetchLookingForPosts = async (userIds) => {
@@ -702,31 +741,129 @@ export default function PremiumLounge({ user }) {
             <Box
               sx={{
                 display: "flex",
-                alignItems: "center",
-                gap: 2,
+                flexDirection: "row",
+                alignItems: "flex-start",
+                justifyContent: "space-between",
+                gap: { xs: 1, sm: 2 },
                 mb: 2,
               }}
             >
-              <Star sx={{ fontSize: 40, color: "#D4AF37" }} />
-              <Box>
-                <Typography
-                  variant="h4"
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Box
                   sx={{
-                    fontWeight: 800,
-                    background: "linear-gradient(45deg, #D4AF37, #B8941F)",
-                    backgroundClip: "text",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                    fontSize: { xs: "1.75rem", sm: "2.125rem" },
+                    display: "flex",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 1,
+                    mb: 0.5,
                   }}
                 >
-                  Premium Lounge
-                </Typography>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 2,
+                      flex: 1,
+                      minWidth: 0,
+                    }}
+                  >
+                    <Star sx={{ fontSize: { xs: 32, sm: 40 }, color: "#D4AF37", flexShrink: 0 }} />
+                    <Typography
+                      variant="h4"
+                      sx={{
+                        fontWeight: 800,
+                        background: "linear-gradient(45deg, #D4AF37, #B8941F)",
+                        backgroundClip: "text",
+                        WebkitBackgroundClip: "text",
+                        WebkitTextFillColor: "transparent",
+                        fontSize: { xs: "1.5rem", sm: "2.125rem" },
+                        lineHeight: 1.2,
+                        flex: 1,
+                        minWidth: 0,
+                      }}
+                    >
+                      Premium Lounge
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "flex-end",
+                      alignItems: "center",
+                      gap: { xs: 0.75, sm: 1.25 },
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Tooltip title="Notifications" arrow>
+                      <span>
+                        <IconButton
+                          onClick={() => navigate("/notifications")}
+                          sx={{
+                            backgroundColor: "rgba(212, 175, 55, 0.12)",
+                            border: "1px solid rgba(212, 175, 55, 0.3)",
+                            "&:hover": {
+                              backgroundColor: "rgba(212, 175, 55, 0.22)",
+                            },
+                            flexShrink: 0,
+                            width: { xs: "36px", sm: "40px" },
+                            height: { xs: "36px", sm: "40px" },
+                            p: { xs: 0.75, sm: 1 },
+                          }}
+                        >
+                          <Badge
+                            badgeContent={
+                              unreadNotificationCount > 0
+                                ? unreadNotificationCount
+                                : null
+                            }
+                            color="error"
+                            overlap="circular"
+                          >
+                            <NotificationsActive
+                              sx={{
+                                color: "#D4AF37",
+                                fontSize: { xs: "1.25rem", sm: "1.5rem" },
+                              }}
+                            />
+                          </Badge>
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                    <Tooltip title="Timeline" arrow>
+                      <span>
+                        <IconButton
+                          onClick={() => navigate("/timeline")}
+                          sx={{
+                            backgroundColor: "rgba(212, 175, 55, 0.12)",
+                            border: "1px solid rgba(212, 175, 55, 0.3)",
+                            "&:hover": {
+                              backgroundColor: "rgba(212, 175, 55, 0.22)",
+                            },
+                            flexShrink: 0,
+                            width: { xs: "36px", sm: "40px" },
+                            height: { xs: "36px", sm: "40px" },
+                            p: { xs: 0.75, sm: 1 },
+                          }}
+                        >
+                          <Timeline
+                            sx={{
+                              color: "#D4AF37",
+                              fontSize: { xs: "1.25rem", sm: "1.5rem" },
+                            }}
+                          />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                  </Box>
+                </Box>
                 <Typography
                   variant="body1"
                   sx={{
                     color: "rgba(26, 26, 26, 0.7)",
                     mt: 0.5,
+                    fontSize: { xs: "0.8125rem", sm: "1rem" },
+                    lineHeight: 1.4,
                   }}
                 >
                   Exclusive verified premium profiles

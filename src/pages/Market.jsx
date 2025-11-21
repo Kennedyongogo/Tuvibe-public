@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Box,
   Typography,
@@ -17,16 +17,22 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Badge,
+  Tooltip,
 } from "@mui/material";
 import {
   Store as StoreIcon,
   WhatsApp as WhatsAppIcon,
   Star as StarIcon,
   LocalOffer as TagIcon,
+  NotificationsActive,
+  Timeline,
 } from "@mui/icons-material";
 import Swal from "sweetalert2";
+import { useNavigate } from "react-router-dom";
 
 const Market = ({ user }) => {
+  const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -35,6 +41,7 @@ const Market = ({ user }) => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState({}); // Track current image index for each item
   const [dialogImageIndex, setDialogImageIndex] = useState(0); // Track current image index in dialog
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
   const tabs = [
     { label: "All Items", value: "all" },
@@ -42,9 +49,46 @@ const Market = ({ user }) => {
     { label: "Weekend Picks", value: "weekend_picks" },
   ];
 
+  // Fetch unread notification count
+  const fetchUnreadNotificationCount = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      const response = await fetch("/api/notifications/stats", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = await response.json();
+      if (data.success && data.data) {
+        setUnreadNotificationCount(data.data.unread || 0);
+      }
+    } catch (error) {
+      console.error("Error fetching notification count:", error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchItems();
-  }, [activeTab]);
+    if (localStorage.getItem("token")) {
+      fetchUnreadNotificationCount();
+    }
+  }, [activeTab, fetchUnreadNotificationCount]);
+
+  // Poll for unread notification count every 30 seconds
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    const interval = setInterval(() => {
+      fetchUnreadNotificationCount();
+    }, 30000); // Poll every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [fetchUnreadNotificationCount]);
 
   // Auto-transition images for each market item
   useEffect(() => {
@@ -200,20 +244,118 @@ const Market = ({ user }) => {
           color: "#1a1a1a",
         }}
       >
-        <Typography
-          variant="h4"
+        <Box
           sx={{
-            fontWeight: 800,
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: { xs: 1, sm: 2 },
             mb: 1,
-            fontSize: { xs: "1.75rem", sm: "2.125rem" },
           }}
         >
-          TuVibe Market
-        </Typography>
-        <Typography variant="body1" sx={{ opacity: 0.9 }}>
-          Browse our curated collection of items. Contact sellers directly via
-          WhatsApp.
-        </Typography>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 1,
+                mb: 0.5,
+              }}
+            >
+              <Typography
+                variant="h4"
+                sx={{
+                  fontWeight: 800,
+                  fontSize: { xs: "1.5rem", sm: "2.125rem" },
+                  lineHeight: 1.2,
+                  flex: 1,
+                  minWidth: 0,
+                }}
+              >
+                TuVibe Market
+              </Typography>
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  alignItems: "center",
+                  gap: { xs: 0.75, sm: 1.25 },
+                  flexShrink: 0,
+                }}
+              >
+                <Tooltip title="Notifications" arrow>
+                  <span>
+                    <IconButton
+                      onClick={() => navigate("/notifications")}
+                      sx={{
+                        backgroundColor: "rgba(26, 26, 26, 0.15)",
+                        border: "1px solid rgba(26, 26, 26, 0.3)",
+                        color: "#1a1a1a",
+                        "&:hover": {
+                          backgroundColor: "rgba(26, 26, 26, 0.25)",
+                        },
+                        flexShrink: 0,
+                        width: { xs: "36px", sm: "40px" },
+                        height: { xs: "36px", sm: "40px" },
+                        p: { xs: 0.75, sm: 1 },
+                      }}
+                    >
+                      <Badge
+                        badgeContent={
+                          unreadNotificationCount > 0
+                            ? unreadNotificationCount
+                            : null
+                        }
+                        color="error"
+                        overlap="circular"
+                      >
+                        <NotificationsActive
+                          sx={{
+                            color: "#1a1a1a",
+                            fontSize: { xs: "1.25rem", sm: "1.5rem" },
+                          }}
+                        />
+                      </Badge>
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <Tooltip title="Timeline" arrow>
+                  <span>
+                    <IconButton
+                      onClick={() => navigate("/timeline")}
+                      sx={{
+                        backgroundColor: "rgba(26, 26, 26, 0.15)",
+                        border: "1px solid rgba(26, 26, 26, 0.3)",
+                        color: "#1a1a1a",
+                        "&:hover": {
+                          backgroundColor: "rgba(26, 26, 26, 0.25)",
+                        },
+                        flexShrink: 0,
+                        width: { xs: "36px", sm: "40px" },
+                        height: { xs: "36px", sm: "40px" },
+                        p: { xs: 0.75, sm: 1 },
+                      }}
+                    >
+                      <Timeline
+                        sx={{
+                          color: "#1a1a1a",
+                          fontSize: { xs: "1.25rem", sm: "1.5rem" },
+                        }}
+                      />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </Box>
+            </Box>
+            <Typography variant="body1" sx={{ opacity: 0.9, fontSize: { xs: "0.8125rem", sm: "1rem" }, lineHeight: 1.4 }}>
+              Browse our curated collection of items. Contact sellers directly via
+              WhatsApp.
+            </Typography>
+          </Box>
+        </Box>
       </Box>
 
       {/* Tabs */}

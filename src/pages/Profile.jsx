@@ -24,6 +24,7 @@ import {
   CircularProgress,
   Tooltip,
   Alert,
+  Badge,
 } from "@mui/material";
 import {
   Edit,
@@ -50,6 +51,8 @@ import {
   ChevronRight,
   Add,
   Warning,
+  NotificationsActive,
+  Timeline,
 } from "@mui/icons-material";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
@@ -172,6 +175,7 @@ export default function Profile({ user, setUser }) {
   });
   const [loadingBoostStatus, setLoadingBoostStatus] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
   const userAge = useMemo(() => resolveAgeFromUser(user), [user]);
   const birthYearAgePreview = useMemo(
@@ -1696,6 +1700,28 @@ export default function Profile({ user, setUser }) {
     }
   };
 
+  // Fetch unread notification count
+  const fetchUnreadNotificationCount = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      const response = await fetch("/api/notifications/stats", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = await response.json();
+      if (data.success && data.data) {
+        setUnreadNotificationCount(data.data.unread || 0);
+      }
+    } catch (error) {
+      console.error("Error fetching notification count:", error);
+    }
+  }, []);
+
   useEffect(() => {
     const fetchBoostStatus = async () => {
       const token = localStorage.getItem("token");
@@ -1726,7 +1752,22 @@ export default function Profile({ user, setUser }) {
     };
 
     fetchBoostStatus();
-  }, [user?.id]);
+    if (localStorage.getItem("token")) {
+      fetchUnreadNotificationCount();
+    }
+  }, [user?.id, fetchUnreadNotificationCount]);
+
+  // Poll for unread notification count every 30 seconds
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    const interval = setInterval(() => {
+      fetchUnreadNotificationCount();
+    }, 30000); // Poll every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [fetchUnreadNotificationCount]);
 
   return (
     <Box>
@@ -1735,26 +1776,132 @@ export default function Profile({ user, setUser }) {
         <Box
           sx={{
             display: "flex",
-            flexDirection: { xs: "column", sm: "row" },
+            flexDirection: "row",
+            alignItems: "flex-start",
             justifyContent: "space-between",
-            alignItems: { xs: "flex-start", sm: "center" },
-            gap: { xs: 2, sm: 0 },
+            gap: { xs: 1, sm: 2 },
             mb: 2,
           }}
         >
-          <Typography
-            variant="h4"
-            sx={{
-              fontWeight: 700,
-              fontSize: { xs: "1.75rem", sm: "2.125rem" },
-              background: "linear-gradient(45deg, #D4AF37, #B8941F)",
-              backgroundClip: "text",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-            }}
-          >
-            My Profile
-          </Typography>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 1,
+                mb: 0.5,
+              }}
+            >
+              <Typography
+                variant="h4"
+                sx={{
+                  fontWeight: 700,
+                  fontSize: { xs: "1.5rem", sm: "2.125rem" },
+                  background: "linear-gradient(45deg, #D4AF37, #B8941F)",
+                  backgroundClip: "text",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  lineHeight: 1.2,
+                  flex: 1,
+                  minWidth: 0,
+                }}
+              >
+                My Profile
+              </Typography>
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  alignItems: "center",
+                  gap: { xs: 0.75, sm: 1.25 },
+                  flexShrink: 0,
+                }}
+              >
+                <Tooltip title="Notifications" arrow>
+                  <span>
+                    <IconButton
+                      onClick={() => navigate("/notifications")}
+                      sx={{
+                        backgroundColor: "rgba(212, 175, 55, 0.12)",
+                        border: "1px solid rgba(212, 175, 55, 0.3)",
+                        "&:hover": {
+                          backgroundColor: "rgba(212, 175, 55, 0.22)",
+                        },
+                        flexShrink: 0,
+                        width: { xs: "36px", sm: "40px" },
+                        height: { xs: "36px", sm: "40px" },
+                        p: { xs: 0.75, sm: 1 },
+                      }}
+                    >
+                      <Badge
+                        badgeContent={
+                          unreadNotificationCount > 0
+                            ? unreadNotificationCount
+                            : null
+                        }
+                        color="error"
+                        overlap="circular"
+                      >
+                        <NotificationsActive
+                          sx={{
+                            color: "#D4AF37",
+                            fontSize: { xs: "1.25rem", sm: "1.5rem" },
+                          }}
+                        />
+                      </Badge>
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <Tooltip title="Timeline" arrow>
+                  <span>
+                    <IconButton
+                      onClick={() => navigate("/timeline")}
+                      sx={{
+                        backgroundColor: "rgba(212, 175, 55, 0.12)",
+                        border: "1px solid rgba(212, 175, 55, 0.3)",
+                        "&:hover": {
+                          backgroundColor: "rgba(212, 175, 55, 0.22)",
+                        },
+                        flexShrink: 0,
+                        width: { xs: "36px", sm: "40px" },
+                        height: { xs: "36px", sm: "40px" },
+                        p: { xs: 0.75, sm: 1 },
+                      }}
+                    >
+                      <Timeline
+                        sx={{
+                          color: "#D4AF37",
+                          fontSize: { xs: "1.25rem", sm: "1.5rem" },
+                        }}
+                      />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </Box>
+            </Box>
+            <Typography
+              variant="body1"
+              sx={{
+                color: "rgba(26, 26, 26, 0.7)",
+                fontSize: { xs: "0.875rem", sm: "1rem" },
+                lineHeight: 1.4,
+              }}
+            >
+              Manage your profile information and preferences
+            </Typography>
+          </Box>
+        </Box>
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: { xs: "column", sm: "row" },
+            justifyContent: "flex-end",
+            alignItems: { xs: "stretch", sm: "center" },
+            gap: { xs: 2, sm: 0 },
+          }}
+        >
           {!isEditing ? (
             <Button
               startIcon={<Edit />}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Box,
   Typography,
@@ -40,6 +40,8 @@ import {
   AccessTime,
   MyLocation,
   Circle,
+  NotificationsActive,
+  Timeline,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
@@ -61,6 +63,7 @@ export default function Explore({ user }) {
   const [viewProfileOpen, setViewProfileOpen] = useState(false);
   const [viewingUserId, setViewingUserId] = useState(null);
   const [currentImageIndex, setCurrentImageIndex] = useState({}); // Track current image index for each user
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
   // Filters
   const [filters, setFilters] = useState({
@@ -205,12 +208,47 @@ export default function Explore({ user }) {
     }
   };
 
+  // Fetch unread notification count
+  const fetchUnreadNotificationCount = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      const response = await fetch("/api/notifications/stats", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = await response.json();
+      if (data.success && data.data) {
+        setUnreadNotificationCount(data.data.unread || 0);
+      }
+    } catch (error) {
+      console.error("Error fetching notification count:", error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchUsers();
     if (localStorage.getItem("token")) {
       fetchFavorites();
+      fetchUnreadNotificationCount();
     }
-  }, [page, filters, nearbyEnabled, radius]);
+  }, [page, filters, nearbyEnabled, radius, fetchUnreadNotificationCount]);
+
+  // Poll for unread notification count every 30 seconds
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    const interval = setInterval(() => {
+      fetchUnreadNotificationCount();
+    }, 30000); // Poll every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [fetchUnreadNotificationCount]);
 
   // Auto-transition images for each user
   useEffect(() => {
@@ -626,29 +664,126 @@ export default function Explore({ user }) {
     <Box>
       {/* Header */}
       <Box sx={{ mb: 4 }}>
-        <Typography
-          variant="h4"
+        <Box
           sx={{
-            fontWeight: 700,
-            fontSize: { xs: "1.75rem", sm: "2.125rem" },
-            background: "linear-gradient(45deg, #D4AF37, #B8941F)",
-            backgroundClip: "text",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: { xs: 1, sm: 2 },
             mb: 1,
           }}
         >
-          Explore Users
-        </Typography>
-        <Typography
-          variant="body1"
-          sx={{
-            color: "rgba(26, 26, 26, 0.7)",
-            fontSize: { xs: "0.875rem", sm: "1rem" },
-          }}
-        >
-          Discover and connect with others
-        </Typography>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 1,
+                mb: 0.5,
+              }}
+            >
+              <Typography
+                variant="h4"
+                sx={{
+                  fontWeight: 700,
+                  fontSize: { xs: "1.5rem", sm: "2.125rem" },
+                  background: "linear-gradient(45deg, #D4AF37, #B8941F)",
+                  backgroundClip: "text",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  lineHeight: 1.2,
+                  flex: 1,
+                  minWidth: 0,
+                }}
+              >
+                Explore Users
+              </Typography>
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  alignItems: "center",
+                  gap: { xs: 0.75, sm: 1.25 },
+                  flexShrink: 0,
+                }}
+              >
+                <Tooltip title="Notifications" arrow>
+                  <span>
+                    <IconButton
+                      onClick={() => navigate("/notifications")}
+                      sx={{
+                        backgroundColor: "rgba(212, 175, 55, 0.12)",
+                        border: "1px solid rgba(212, 175, 55, 0.3)",
+                        "&:hover": {
+                          backgroundColor: "rgba(212, 175, 55, 0.22)",
+                        },
+                        flexShrink: 0,
+                        width: { xs: "36px", sm: "40px" },
+                        height: { xs: "36px", sm: "40px" },
+                        p: { xs: 0.75, sm: 1 },
+                      }}
+                    >
+                      <Badge
+                        badgeContent={
+                          unreadNotificationCount > 0
+                            ? unreadNotificationCount
+                            : null
+                        }
+                        color="error"
+                        overlap="circular"
+                      >
+                        <NotificationsActive
+                          sx={{
+                            color: "#D4AF37",
+                            fontSize: { xs: "1.25rem", sm: "1.5rem" },
+                          }}
+                        />
+                      </Badge>
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <Tooltip title="Timeline" arrow>
+                  <span>
+                    <IconButton
+                      onClick={() => navigate("/timeline")}
+                      sx={{
+                        backgroundColor: "rgba(212, 175, 55, 0.12)",
+                        border: "1px solid rgba(212, 175, 55, 0.3)",
+                        "&:hover": {
+                          backgroundColor: "rgba(212, 175, 55, 0.22)",
+                        },
+                        flexShrink: 0,
+                        width: { xs: "36px", sm: "40px" },
+                        height: { xs: "36px", sm: "40px" },
+                        p: { xs: 0.75, sm: 1 },
+                      }}
+                    >
+                      <Timeline
+                        sx={{
+                          color: "#D4AF37",
+                          fontSize: { xs: "1.25rem", sm: "1.5rem" },
+                        }}
+                      />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </Box>
+            </Box>
+            <Typography
+              variant="body1"
+              sx={{
+                color: "rgba(26, 26, 26, 0.7)",
+                fontSize: { xs: "0.8125rem", sm: "1rem" },
+                lineHeight: 1.4,
+              }}
+            >
+              Discover and connect with others
+            </Typography>
+          </Box>
+        </Box>
       </Box>
 
       {/* Filters */}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Box,
   Typography,
@@ -16,6 +16,8 @@ import {
   CircularProgress,
   Button,
   Paper,
+  Tooltip,
+  Checkbox,
 } from "@mui/material";
 import {
   NotificationsActive,
@@ -25,47 +27,199 @@ import {
   CheckCircle,
   AutoStories,
   Delete,
+  Timeline,
 } from "@mui/icons-material";
+import Swal from "sweetalert2";
+import { useNavigate } from "react-router-dom";
 
 export default function Notifications({ user }) {
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [deletingIds, setDeletingIds] = useState(new Set());
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [selectionMode, setSelectionMode] = useState(false);
   const token = localStorage.getItem("token");
 
-  const fetchNotifications = useCallback(async () => {
-    if (!token) return;
-
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await fetch("/api/notifications", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setNotifications(data.data || []);
-      } else {
-        setError("Failed to load notifications");
-      }
-    } catch (err) {
-      console.error("Error fetching notifications:", err);
-      setError("Failed to load notifications");
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
+  // Refs for background polling
+  const isMountedRef = useRef(true);
+  const isFetchingRef = useRef(false);
+  const fetchNotificationsRef = useRef(null);
 
   useEffect(() => {
-    fetchNotifications();
-    // Refresh notifications every 30 seconds
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const fetchNotifications = useCallback(
+    async (isBackgroundRefresh = false) => {
+      if (!isMountedRef.current) return;
+      if (!token) return;
+
+      // Prevent overlapping requests
+      if (isFetchingRef.current) {
+        console.log("⏸️ [Notifications] Already fetching, skipping...");
+        return;
+      }
+
+      isFetchingRef.current = true;
+      console.log("🔄 [Notifications] Fetching notifications...", {
+        isBackgroundRefresh,
+      });
+
+      // Only show loading state if it's not a background refresh
+      if (!isBackgroundRefresh) {
+        setLoading(true);
+        setError(null);
+      }
+
+      try {
+        const response = await fetch("/api/notifications", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        const data = await response.json();
+        if (!isMountedRef.current) return;
+
+        if (data.success) {
+          const newNotifications = data.data || [];
+          
+          // During background refresh, only update if notifications actually changed
+          if (isBackgroundRefresh) {
+            setNotifications((prevNotifications) => {
+              // Quick check: if count is different, definitely update
+              if (prevNotifications.length !== newNotifications.length) {
+                return newNotifications;
+              }
+              
+              // Check if any notification IDs changed or if any notification content changed
+              const prevIds = new Set(prevNotifications.map((n) => n.id));
+              const newIds = new Set(newNotifications.map((n) => n.id));
+              
+              // If IDs are different, update
+              if (prevIds.size !== newIds.size || 
+                  !Array.from(prevIds).every(id => newIds.has(id))) {
+                return newNotifications;
+              }
+              
+              // Check if any notification properties changed (isRead, message, etc.)
+              const hasChanges = prevNotifications.some((prevNotif) => {
+                const newNotif = newNotifications.find((n) => n.id === prevNotif.id);
+                if (!newNotif) return true; // Notification was removed
+                
+                // Compare key properties that might change
+                return (
+                  prevNotif.isRead !== newNotif.isRead ||
+                  prevNotif.message !== newNotif.message ||
+                  prevNotif.title !== newNotif.title ||
+                  prevNotif.createdAt !== newNotif.createdAt
+                );
+              });
+              
+              // Only update if there are actual changes
+              if (hasChanges) {
+                return newNotifications;
+              }
+              
+              // No changes detected, return previous array to prevent re-render
+              return prevNotifications;
+            });
+            
+            // During background refresh, preserve selections for notifications that still exist
+            setSelectedIds((prevSelected) => {
+              if (prevSelected.size === 0) return prevSelected; // No selections to preserve
+              
+              const newNotificationIds = new Set(newNotifications.map((n) => n.id));
+              const filteredSelected = new Set(
+                Array.from(prevSelected).filter((id) => newNotificationIds.has(id))
+              );
+              
+              // Only update if the size changed (some notifications were removed)
+              // This prevents unnecessary re-renders when all selections are still valid
+              if (filteredSelected.size !== prevSelected.size) {
+                return filteredSelected;
+              }
+              
+              // If all selections are still valid, return the same Set to prevent re-render
+              return prevSelected;
+            });
+            // Keep selection mode active during background refresh if it was already active
+            // Don't change selectionMode state during background refresh
+          } else {
+            // Initial load or manual refresh - always update
+            setNotifications(newNotifications);
+            setSelectedIds(new Set());
+            setSelectionMode(false);
+          }
+        } else {
+          // Only set error if it's not a background refresh
+          if (!isBackgroundRefresh) {
+            setError("Failed to load notifications");
+          }
+        }
+      } catch (err) {
+        if (!isMountedRef.current) return;
+        console.error("Error fetching notifications:", err);
+        // Only set error if it's not a background refresh
+        if (!isBackgroundRefresh) {
+          setError("Failed to load notifications");
+        }
+      } finally {
+        if (isMountedRef.current) {
+          // Only update loading state if it's not a background refresh
+          if (!isBackgroundRefresh) {
+            setLoading(false);
+          }
+          isFetchingRef.current = false;
+          console.log("🏁 [Notifications] Fetch completed");
+        }
+      }
+    },
+    [token]
+  );
+
+  // Store the latest fetchNotifications in a ref to avoid dependency issues
+  useEffect(() => {
+    fetchNotificationsRef.current = fetchNotifications;
   }, [fetchNotifications]);
+
+  // Initial fetch - only run once on mount
+  useEffect(() => {
+    if (isMountedRef.current) {
+      fetchNotifications();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
+
+  // Poll for new notifications every 30 seconds (background refresh)
+  useEffect(() => {
+    if (!isMountedRef.current) return;
+
+    const pollInterval = setInterval(() => {
+      if (!isMountedRef.current) {
+        clearInterval(pollInterval);
+        return;
+      }
+      // Only refresh if not currently fetching
+      if (!isFetchingRef.current) {
+        console.log(
+          "🔄 [Notifications] Polling for new notifications (background refresh)..."
+        );
+        // Pass true to indicate this is a background refresh (no loading state)
+        fetchNotificationsRef.current(true);
+      }
+    }, 30000); // Poll every 30 seconds
+
+    return () => {
+      clearInterval(pollInterval);
+    };
+  }, []); // Only set up once on mount
 
   const markAsRead = async (notificationId) => {
     if (!token) return;
@@ -101,6 +255,344 @@ export default function Notifications({ user }) {
     const unreadNotifications = notifications.filter((n) => !n.isRead);
     const promises = unreadNotifications.map((notif) => markAsRead(notif.id));
     await Promise.all(promises);
+  };
+
+  // Bulk selection functions
+  const toggleSelection = (notificationId) => {
+    setSelectedIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(notificationId)) {
+        newSet.delete(notificationId);
+      } else {
+        newSet.add(notificationId);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAll = () => {
+    setSelectionMode(true);
+    setSelectedIds(new Set(notifications.map((n) => n.id)));
+  };
+
+  const deselectAll = () => {
+    setSelectedIds(new Set());
+    setSelectionMode(false);
+  };
+
+  const toggleSelectionMode = () => {
+    if (selectionMode) {
+      setSelectedIds(new Set());
+      setSelectionMode(false);
+    } else {
+      setSelectionMode(true);
+      setSelectedIds(new Set(notifications.map((n) => n.id)));
+    }
+  };
+
+  const isAllSelected = notifications.length > 0 && selectedIds.size === notifications.length;
+  const isSomeSelected = selectedIds.size > 0 && selectedIds.size < notifications.length;
+  
+  // Check if any selected notifications are unread
+  const hasUnreadSelected = notifications.some(
+    (notif) => selectedIds.has(notif.id) && !notif.isRead
+  );
+
+  // Bulk delete selected notifications
+  const deleteSelected = async () => {
+    if (selectedIds.size === 0) return;
+
+    const count = selectedIds.size;
+    const result = await Swal.fire({
+      title: `Delete ${count} notification${count > 1 ? "s" : ""}?`,
+      text: "This action cannot be undone.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#D4AF37",
+      cancelButtonColor: "#6c757d",
+      confirmButtonText: `Yes, delete ${count}`,
+      cancelButtonText: "Cancel",
+      reverseButtons: true,
+      customClass: {
+        popup: "swal-notification-delete",
+      },
+      didOpen: () => {
+        const swal = document.querySelector(".swal-notification-delete");
+        if (swal) {
+          swal.style.borderRadius = "16px";
+          swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
+          swal.style.boxShadow = "0 20px 60px rgba(212, 175, 55, 0.25)";
+          swal.style.background =
+            "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)";
+        }
+      },
+    });
+
+    if (!result.isConfirmed) return;
+
+    const idsToDelete = Array.from(selectedIds);
+    setDeletingIds(new Set(idsToDelete));
+    
+    // Optimistically remove from UI
+    const notificationsToDelete = notifications.filter((n) =>
+      selectedIds.has(n.id)
+    );
+    setNotifications((prev) => prev.filter((n) => !selectedIds.has(n.id)));
+    setSelectedIds(new Set());
+
+    try {
+      const deletePromises = idsToDelete.map((id) =>
+        fetch(`/api/notifications/${id}`, {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        })
+      );
+
+      const responses = await Promise.all(deletePromises);
+      const results = await Promise.all(
+        responses.map((r) => r.json())
+      );
+
+      const successCount = results.filter((r) => r.success).length;
+      const failedCount = count - successCount;
+
+      if (failedCount === 0) {
+        Swal.fire({
+          icon: "success",
+          title: "Deleted!",
+          text: `${successCount} notification${successCount > 1 ? "s" : ""} deleted successfully.`,
+          timer: 2000,
+          timerProgressBar: true,
+          showConfirmButton: false,
+          toast: true,
+          position: "top-end",
+          width: 300,
+          padding: "1rem",
+          confirmButtonColor: "#D4AF37",
+        });
+      } else {
+        // Revert optimistic update for failed deletions
+        setNotifications((prev) => {
+          const failedIds = idsToDelete.filter(
+            (id, index) => !results[index].success
+          );
+          const failedNotifications = notificationsToDelete.filter((n) =>
+            failedIds.includes(n.id)
+          );
+          return [...prev, ...failedNotifications].sort(
+            (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+          );
+        });
+
+        Swal.fire({
+          icon: "warning",
+          title: "Partial success",
+          text: `${successCount} deleted, ${failedCount} failed.`,
+          timer: 3000,
+          timerProgressBar: true,
+          showConfirmButton: false,
+          toast: true,
+          position: "top-end",
+          width: 300,
+          padding: "1rem",
+          confirmButtonColor: "#D4AF37",
+        });
+      }
+    } catch (err) {
+      console.error("Error deleting notifications:", err);
+      // Revert optimistic update
+      setNotifications((prev) => {
+        return [...prev, ...notificationsToDelete].sort(
+          (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+        );
+      });
+
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Unable to delete notifications. Please try again.",
+        timer: 3000,
+        timerProgressBar: true,
+        showConfirmButton: false,
+        toast: true,
+        position: "top-end",
+        width: 300,
+        padding: "1rem",
+        confirmButtonColor: "#D4AF37",
+      });
+    } finally {
+      setDeletingIds(new Set());
+    }
+  };
+
+  // Bulk mark selected as read
+  const markSelectedAsRead = async () => {
+    if (selectedIds.size === 0) return;
+
+    const idsToMark = Array.from(selectedIds);
+    const promises = idsToMark.map((id) => markAsRead(id));
+    await Promise.all(promises);
+    setSelectedIds(new Set());
+    setSelectionMode(false);
+  };
+
+  const deleteNotification = async (notificationId) => {
+    if (!token) return;
+
+    // Show confirmation dialog
+    const result = await Swal.fire({
+      title: "Delete notification?",
+      text: "This action cannot be undone.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#D4AF37",
+      cancelButtonColor: "#6c757d",
+      confirmButtonText: "Yes, delete it",
+      cancelButtonText: "Cancel",
+      reverseButtons: true,
+      customClass: {
+        popup: "swal-notification-delete",
+        confirmButton: "swal-confirm-button",
+        cancelButton: "swal-cancel-button",
+      },
+      didOpen: () => {
+        const swal = document.querySelector(".swal-notification-delete");
+        if (swal) {
+          swal.style.borderRadius = "16px";
+          swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
+          swal.style.boxShadow = "0 20px 60px rgba(212, 175, 55, 0.25)";
+          swal.style.background =
+            "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)";
+        }
+      },
+    });
+
+    if (!result.isConfirmed) return;
+
+    // Optimistically remove from UI
+    const notificationToDelete = notifications.find(
+      (n) => n.id === notificationId
+    );
+    const originalIndex = notifications.findIndex((n) => n.id === notificationId);
+    
+    setDeletingIds((prev) => new Set(prev).add(notificationId));
+    setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
+    // Remove from selection if it was selected
+    setSelectedIds((prev) => {
+      const newSet = new Set(prev);
+      newSet.delete(notificationId);
+      return newSet;
+    });
+
+    try {
+      const response = await fetch(`/api/notifications/${notificationId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        // Show success toast
+        Swal.fire({
+          icon: "success",
+          title: "Deleted!",
+          text: "Notification has been deleted.",
+          timer: 2000,
+          timerProgressBar: true,
+          showConfirmButton: false,
+          toast: true,
+          position: "top-end",
+          width: 300,
+          padding: "1rem",
+          confirmButtonColor: "#D4AF37",
+          customClass: {
+            popup: "swal-notification-toast",
+          },
+          didOpen: () => {
+            const swal = document.querySelector(".swal-notification-toast");
+            if (swal) {
+              swal.style.borderRadius = "12px";
+              swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
+            }
+          },
+        });
+      } else {
+        // Revert optimistic update on error - restore to original position
+        setNotifications((prev) => {
+          const newList = [...prev];
+          newList.splice(originalIndex, 0, notificationToDelete);
+          return newList;
+        });
+
+        Swal.fire({
+          icon: "error",
+          title: "Failed to delete",
+          text: data.message || "Unable to delete notification. Please try again.",
+          timer: 3000,
+          timerProgressBar: true,
+          showConfirmButton: false,
+          toast: true,
+          position: "top-end",
+          width: 300,
+          padding: "1rem",
+          confirmButtonColor: "#D4AF37",
+          customClass: {
+            popup: "swal-notification-toast",
+          },
+          didOpen: () => {
+            const swal = document.querySelector(".swal-notification-toast");
+            if (swal) {
+              swal.style.borderRadius = "12px";
+              swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
+            }
+          },
+        });
+      }
+    } catch (err) {
+      console.error("Error deleting notification:", err);
+      // Revert optimistic update on error - restore to original position
+      setNotifications((prev) => {
+        const newList = [...prev];
+        newList.splice(originalIndex, 0, notificationToDelete);
+        return newList;
+      });
+
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Unable to delete notification. Please try again.",
+        timer: 3000,
+        timerProgressBar: true,
+        showConfirmButton: false,
+        toast: true,
+        position: "top-end",
+        width: 300,
+        padding: "1rem",
+        confirmButtonColor: "#D4AF37",
+        customClass: {
+          popup: "swal-notification-toast",
+        },
+        didOpen: () => {
+          const swal = document.querySelector(".swal-notification-toast");
+          if (swal) {
+            swal.style.borderRadius = "12px";
+            swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
+          }
+        },
+      });
+    } finally {
+      setDeletingIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(notificationId);
+        return newSet;
+      });
+    }
   };
 
   const getNotificationIcon = (title) => {
@@ -155,8 +647,8 @@ export default function Notifications({ user }) {
     <Box>
       <Card
         sx={{
-          p: { xs: 2, sm: 3, md: 4 },
-          borderRadius: { xs: "12px", sm: "16px" },
+          p: { xs: 2, sm: 3 },
+          borderRadius: "16px",
           background:
             "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
           border: "1px solid rgba(212, 175, 55, 0.2)",
@@ -166,62 +658,243 @@ export default function Notifications({ user }) {
         <Box
           sx={{
             display: "flex",
-            flexDirection: { xs: "column", sm: "row" },
-            alignItems: { xs: "flex-start", sm: "center" },
+            flexDirection: "row",
+            alignItems: "flex-start",
             justifyContent: "space-between",
-            mb: { xs: 2, sm: 3 },
-            gap: { xs: 2, sm: 0 },
+            gap: { xs: 1, sm: 2 },
+            mb: 1,
           }}
         >
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 1,
+                mb: 0.5,
+              }}
+            >
+              <Badge badgeContent={unreadCount} color="error">
+                <NotificationsActive
+                  sx={{
+                    fontSize: { xs: "1.25rem", sm: "1.5rem" },
+                    color: "#D4AF37",
+                  }}
+                />
+              </Badge>
+              <Typography
+                variant="h4"
+                sx={{
+                  fontWeight: 700,
+                  fontSize: { xs: "1.5rem", sm: "2.125rem" },
+                  background: "linear-gradient(45deg, #D4AF37, #B8941F)",
+                  backgroundClip: "text",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  lineHeight: 1.2,
+                  flex: 1,
+                  minWidth: 0,
+                }}
+              >
+                Notifications
+              </Typography>
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  alignItems: "center",
+                  gap: { xs: 0.75, sm: 1.25 },
+                  flexShrink: 0,
+                }}
+              >
+                {notifications.length > 0 && (
+                  <>
+                    {selectionMode ? (
+                      <Checkbox
+                        checked={isAllSelected}
+                        indeterminate={isSomeSelected}
+                        onChange={toggleSelectionMode}
+                        sx={{
+                          color: "#D4AF37",
+                          "&.Mui-checked": {
+                            color: "#D4AF37",
+                          },
+                          "&.MuiCheckbox-indeterminate": {
+                            color: "#D4AF37",
+                          },
+                          "& .MuiSvgIcon-root": {
+                            fontSize: { xs: "1rem", sm: "1.5rem" },
+                          },
+                        }}
+                      />
+                    ) : (
+                      <Button
+                        variant="contained"
+                        size="small"
+                        onClick={() => {
+                          setSelectionMode(true);
+                          selectAll();
+                        }}
+                        sx={{
+                          bgcolor: "#D4AF37",
+                          color: "white",
+                          fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                          px: { xs: 0.5, sm: 2 },
+                          py: { xs: 0.25, sm: 0.75 },
+                          minWidth: { xs: "auto", sm: "64px" },
+                          whiteSpace: "nowrap",
+                          lineHeight: 1.2,
+                          "&:hover": {
+                            bgcolor: "#B8941F",
+                          },
+                        }}
+                      >
+                        Select All
+                      </Button>
+                    )}
+                    {selectionMode && (
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontSize: { xs: "0.625rem", sm: "0.875rem" },
+                          color: "rgba(26, 26, 26, 0.7)",
+                          display: { xs: "none", sm: "block" },
+                        }}
+                      >
+                        {selectedIds.size > 0
+                          ? `${selectedIds.size} selected`
+                          : "Select all"}
+                      </Typography>
+                    )}
+                  </>
+                )}
+                <Tooltip title="Timeline" arrow>
+                  <span>
+                    <IconButton
+                      onClick={() => navigate("/timeline")}
+                      sx={{
+                        backgroundColor: "rgba(212, 175, 55, 0.12)",
+                        border: "1px solid rgba(212, 175, 55, 0.3)",
+                        "&:hover": {
+                          backgroundColor: "rgba(212, 175, 55, 0.22)",
+                        },
+                        flexShrink: 0,
+                        width: { xs: "36px", sm: "40px" },
+                        height: { xs: "36px", sm: "40px" },
+                        p: { xs: 0.75, sm: 1 },
+                      }}
+                    >
+                      <Timeline
+                        sx={{
+                          color: "#D4AF37",
+                          fontSize: { xs: "1.25rem", sm: "1.5rem" },
+                        }}
+                      />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </Box>
+            </Box>
+            <Typography
+              variant="body1"
+              sx={{
+                color: "rgba(26, 26, 26, 0.7)",
+                fontSize: { xs: "0.8125rem", sm: "1rem" },
+                lineHeight: 1.4,
+              }}
+            >
+              Stay updated with your latest activity
+            </Typography>
+          </Box>
+        </Box>
+
+        {/* Action Buttons */}
+        {notifications.length > 0 && (
           <Box
             sx={{
               display: "flex",
-              alignItems: "center",
-              gap: { xs: 1.5, sm: 2 },
+              gap: { xs: 1, sm: 1.5 },
+              flexWrap: "wrap",
+              width: { xs: "100%", sm: "auto" },
             }}
           >
-            <Badge badgeContent={unreadCount} color="error">
-              <NotificationsActive
-                sx={{
-                  fontSize: { xs: 24, sm: 28, md: 32 },
-                  color: "#D4AF37",
-                }}
-              />
-            </Badge>
-            <Typography
-              variant="h4"
-              sx={{
-                fontSize: { xs: "1.5rem", sm: "2rem", md: "2.125rem" },
-                fontWeight: 700,
-                background: "linear-gradient(45deg, #D4AF37, #B8941F)",
-                backgroundClip: "text",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-              }}
-            >
-              Notifications
-            </Typography>
+            {selectedIds.size > 0 ? (
+              <>
+                {hasUnreadSelected && (
+                  <Button
+                    variant="contained"
+                    size="small"
+                    onClick={markSelectedAsRead}
+                    sx={{
+                      bgcolor: "#D4AF37",
+                      color: "white",
+                      fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                      "&:hover": {
+                        bgcolor: "#B8941F",
+                      },
+                    }}
+                  >
+                    Mark Read ({selectedIds.size})
+                  </Button>
+                )}
+                <Button
+                  variant="contained"
+                  size="small"
+                  onClick={deleteSelected}
+                  sx={{
+                    bgcolor: "#D4AF37",
+                    color: "white",
+                    fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                    "&:hover": {
+                      bgcolor: "#B8941F",
+                    },
+                  }}
+                >
+                  Delete ({selectedIds.size})
+                </Button>
+                <Button
+                  variant="contained"
+                  size="small"
+                  onClick={() => {
+                    deselectAll();
+                    setSelectionMode(false);
+                  }}
+                  sx={{
+                    bgcolor: "#D4AF37",
+                    color: "white",
+                    fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                    "&:hover": {
+                      bgcolor: "#B8941F",
+                    },
+                  }}
+                >
+                  Cancel
+                </Button>
+              </>
+            ) : (
+              unreadCount > 0 && (
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={markAllAsRead}
+                  sx={{
+                    borderColor: "#D4AF37",
+                    color: "#D4AF37",
+                    fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                    "&:hover": {
+                      borderColor: "#B8941F",
+                      backgroundColor: "rgba(212, 175, 55, 0.1)",
+                    },
+                  }}
+                >
+                  Mark all as read
+                </Button>
+              )
+            )}
           </Box>
-          {unreadCount > 0 && (
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={markAllAsRead}
-              sx={{
-                borderColor: "#D4AF37",
-                color: "#D4AF37",
-                width: { xs: "100%", sm: "auto" },
-                fontSize: { xs: "0.75rem", sm: "0.875rem" },
-                "&:hover": {
-                  borderColor: "#B8941F",
-                  backgroundColor: "rgba(212, 175, 55, 0.1)",
-                },
-              }}
-            >
-              Mark all as read
-            </Button>
-          )}
-        </Box>
+        )}
 
         {error && (
           <Typography color="error" sx={{ mb: 2 }}>
@@ -271,12 +944,23 @@ export default function Notifications({ user }) {
                   elevation={0}
                   sx={{
                     mb: { xs: 0.5, sm: 1 },
-                    backgroundColor: notification.isRead
+                    backgroundColor: selectedIds.has(notification.id)
+                      ? "rgba(212, 175, 55, 0.15)"
+                      : notification.isRead
                       ? "transparent"
                       : "rgba(212, 175, 55, 0.05)",
-                    transition: "background-color 0.2s",
+                    border: selectedIds.has(notification.id)
+                      ? "2px solid #D4AF37"
+                      : "2px solid transparent",
+                    transition: "all 0.3s ease-in-out",
+                    opacity: deletingIds.has(notification.id) ? 0.5 : 1,
+                    transform: deletingIds.has(notification.id)
+                      ? "scale(0.95)"
+                      : "scale(1)",
                     "&:hover": {
-                      backgroundColor: "rgba(212, 175, 55, 0.1)",
+                      backgroundColor: selectedIds.has(notification.id)
+                        ? "rgba(212, 175, 55, 0.2)"
+                        : "rgba(212, 175, 55, 0.1)",
                     },
                   }}
                 >
@@ -287,21 +971,77 @@ export default function Notifications({ user }) {
                       py: { xs: 1.5, sm: 2 },
                     }}
                     secondaryAction={
-                      !notification.isRead && (
-                        <IconButton
-                          edge="end"
-                          onClick={() => markAsRead(notification.id)}
-                          sx={{
-                            color: "#D4AF37",
-                            p: { xs: 0.75, sm: 1 },
-                          }}
-                          size="small"
-                        >
-                          <CheckCircle fontSize="small" />
-                        </IconButton>
-                      )
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: { xs: 0.5, sm: 1 },
+                        }}
+                      >
+                        {deletingIds.has(notification.id) ? (
+                          <CircularProgress
+                            size={20}
+                            sx={{ color: "#D4AF37", mr: { xs: 0.5, sm: 1 } }}
+                          />
+                        ) : (
+                          <>
+                            {!notification.isRead && (
+                              <Tooltip title="Mark as read" arrow>
+                                <IconButton
+                                  edge="end"
+                                  onClick={() => markAsRead(notification.id)}
+                                  sx={{
+                                    color: "#D4AF37",
+                                    p: { xs: 0.75, sm: 1 },
+                                    "&:hover": {
+                                      backgroundColor: "rgba(212, 175, 55, 0.1)",
+                                    },
+                                  }}
+                                  size="small"
+                                >
+                                  <CheckCircle fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            <Tooltip title="Delete notification" arrow>
+                              <IconButton
+                                edge="end"
+                                onClick={() => deleteNotification(notification.id)}
+                                sx={{
+                                  color: "rgba(26, 26, 26, 0.6)",
+                                  p: { xs: 0.75, sm: 1 },
+                                  transition: "all 0.2s",
+                                  "&:hover": {
+                                    color: "#d32f2f",
+                                    backgroundColor: "rgba(211, 47, 47, 0.1)",
+                                    transform: "scale(1.1)",
+                                  },
+                                }}
+                                size="small"
+                              >
+                                <Delete fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </>
+                        )}
+                      </Box>
                     }
                   >
+                    {selectionMode && (
+                      <Checkbox
+                        checked={selectedIds.has(notification.id)}
+                        onChange={() => toggleSelection(notification.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        sx={{
+                          color: "#D4AF37",
+                          "&.Mui-checked": {
+                            color: "#D4AF37",
+                          },
+                          mr: { xs: 1, sm: 1.5 },
+                          p: 0.5,
+                        }}
+                      />
+                    )}
                     <ListItemAvatar sx={{ minWidth: { xs: 44, sm: 56 } }}>
                       <Avatar
                         sx={{
@@ -321,8 +1061,8 @@ export default function Notifications({ user }) {
                     <ListItemText
                       sx={{
                         pr: {
-                          xs: !notification.isRead ? "44px" : 0,
-                          sm: !notification.isRead ? "48px" : 0,
+                          xs: selectionMode ? "88px" : "48px",
+                          sm: selectionMode ? "96px" : "56px",
                         },
                       }}
                       primary={
@@ -340,7 +1080,9 @@ export default function Notifications({ user }) {
                             sx={{
                               fontSize: { xs: "0.875rem", sm: "1rem" },
                               fontWeight: notification.isRead ? 500 : 700,
-                              color: "rgba(26, 26, 26, 0.9)",
+                              color: notification.isRead
+                                ? "rgba(26, 26, 26, 0.9)"
+                                : "#000000",
                               lineHeight: 1.4,
                             }}
                           >
@@ -366,7 +1108,10 @@ export default function Notifications({ user }) {
                             variant="body2"
                             sx={{
                               fontSize: { xs: "0.8125rem", sm: "0.875rem" },
-                              color: "rgba(26, 26, 26, 0.7)",
+                              fontWeight: notification.isRead ? 400 : 600,
+                              color: notification.isRead
+                                ? "rgba(26, 26, 26, 0.7)"
+                                : "#000000",
                               mb: 0.5,
                               lineHeight: 1.5,
                               wordBreak: "break-word",
