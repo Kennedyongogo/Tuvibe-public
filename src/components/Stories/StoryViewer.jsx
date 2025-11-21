@@ -123,6 +123,8 @@ const StoryViewer = ({
       setIsPaused(false);
       setSelectedEmojis([]); // Clear selected emojis when closing
       setComment(""); // Clear comment when closing
+      setEmojiPickerOpen(false); // Close emoji picker when viewer closes
+      setEmojiPickerAnchor(null);
     }
     return () => {
       clearProgress();
@@ -163,6 +165,9 @@ const StoryViewer = ({
       setSelectedEmojis([]);
       // Clear comment when story changes
       setComment("");
+      // Close emoji picker when story changes
+      setEmojiPickerOpen(false);
+      setEmojiPickerAnchor(null);
 
       // Update view count from story data
       setViewCount(currentStory.view_count || 0);
@@ -541,6 +546,8 @@ const StoryViewer = ({
   const handleEmojiPickerClose = () => {
     setEmojiPickerOpen(false);
     setEmojiPickerAnchor(null);
+    // Note: selectedEmojis are cleared in the useEffect when picker closes
+    // If no emojis were selected, nothing is sent (which is correct behavior)
   };
 
   const handleEmojiPickerOpen = (event) => {
