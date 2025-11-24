@@ -1812,7 +1812,8 @@ export default function Dashboard({ user, setUser }) {
             sx={{
               position: "relative",
               borderRadius: "999px",
-              padding: { xs: "10px 20px", sm: "12px 36px" },
+              padding: { xs: "8px 16px", sm: "10px 28px" },
+              mt: { xs: 2, sm: 2.5, md: 3 },
               background:
                 "linear-gradient(135deg, rgba(255, 220, 128, 1), rgba(212, 175, 55, 1))",
               color: "#1a1a1a",
@@ -2050,7 +2051,8 @@ export default function Dashboard({ user, setUser }) {
           sx={{
             flex: "1 1 0%",
             minWidth: { xs: 160, sm: 220, md: 260 },
-            p: { xs: 1.5, sm: 2 },
+            p: { xs: 1, sm: 1.25, md: 1.5 },
+            ml: { xs: 2, sm: 2.5, md: 3 },
             borderRadius: "16px",
             textTransform: "none",
             cursor: "pointer",
@@ -2115,7 +2117,7 @@ export default function Dashboard({ user, setUser }) {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: { xs: 1.25, sm: 1.5, md: 2 },
+              gap: { xs: 0.75, sm: 1, md: 1.25 },
             }}
           >
             <Favorite
@@ -2147,7 +2149,8 @@ export default function Dashboard({ user, setUser }) {
           sx={{
             flex: "1 1 0%",
             minWidth: { xs: 160, sm: 220, md: 260 },
-            p: { xs: 1.5, sm: 2 },
+            p: { xs: 1, sm: 1.25, md: 1.5 },
+            mr: { xs: 2, sm: 2.5, md: 3 },
             borderRadius: "16px",
             textTransform: "none",
             cursor: "pointer",
@@ -2212,7 +2215,7 @@ export default function Dashboard({ user, setUser }) {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: { xs: 1.25, sm: 1.5, md: 2 },
+              gap: { xs: 0.75, sm: 1, md: 1.25 },
             }}
           >
             <LockOpen
