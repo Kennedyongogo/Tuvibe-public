@@ -65,6 +65,9 @@ export default defineConfig({
       exclude: [],
     },
   },
+  optimizeDeps: {
+    include: ["react-helmet-async"],
+  },
   server: {
     port: 3000,
     host: true,
@@ -83,6 +86,9 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+    },
+    fs: {
+      strict: false,
     },
   },
 });

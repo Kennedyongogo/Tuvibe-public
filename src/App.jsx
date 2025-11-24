@@ -15,7 +15,6 @@ import { theme } from "./theme";
 import "./App.css";
 import React, { useState, useEffect, Suspense, lazy } from "react";
 import { HelmetProvider } from "react-helmet-async";
-import Chatbot from "./components/Chatbot/Chatbot";
 import PageRoutes from "./components/PageRoutes";
 
 // Lazy load components
@@ -61,12 +60,14 @@ function App() {
               {/* Public landing page */}
               <Route path="/" element={<Home />} />
               {/* Post detail page - accessible without auth for sharing */}
-              <Route path="/post/:postId" element={<PostDetail user={null} />} />
+              <Route
+                path="/post/:postId"
+                element={<PostDetail user={null} />}
+              />
               {/* Authenticated routes */}
               <Route path="/*" element={<PageRoutes />} />
             </Routes>
           </Suspense>
-          <Chatbot />
         </Router>
       </ThemeProvider>
     </HelmetProvider>

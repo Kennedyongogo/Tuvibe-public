@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Box,
   Typography,
@@ -20,6 +20,9 @@ import {
   DialogActions,
   Alert,
   Avatar,
+  IconButton,
+  Badge,
+  Tooltip,
 } from "@mui/material";
 import Autocomplete from "@mui/material/Autocomplete";
 import {
@@ -33,7 +36,10 @@ import {
   Message,
   Person,
   Category as CategoryIcon,
+  NotificationsActive,
+  Timeline,
 } from "@mui/icons-material";
+import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import { getDisplayInitial } from "../utils/userDisplay";
 
@@ -46,6 +52,7 @@ const INITIAL_REPORT_FORM = {
 };
 
 export default function Reports({ user }) {
+  const navigate = useNavigate();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -57,6 +64,7 @@ export default function Reports({ user }) {
   const [userSearchTerm, setUserSearchTerm] = useState("");
   const [userSearchOptions, setUserSearchOptions] = useState([]);
   const [loadingUserOptions, setLoadingUserOptions] = useState(false);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const userSearchAbortController = useRef(null);
 
   const categories = React.useMemo(
@@ -98,9 +106,46 @@ export default function Reports({ user }) {
     return `/uploads/${imageUrl.replace(/^uploads\//, "")}`;
   };
 
+  // Fetch unread notification count
+  const fetchUnreadNotificationCount = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      const response = await fetch("/api/notifications/stats", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = await response.json();
+      if (data.success && data.data) {
+        setUnreadNotificationCount(data.data.unread || 0);
+      }
+    } catch (error) {
+      console.error("Error fetching notification count:", error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchReports();
-  }, []);
+    if (localStorage.getItem("token")) {
+      fetchUnreadNotificationCount();
+    }
+  }, [fetchUnreadNotificationCount]);
+
+  // Poll for unread notification count every 30 seconds
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    const interval = setInterval(() => {
+      fetchUnreadNotificationCount();
+    }, 30000); // Poll every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [fetchUnreadNotificationCount]);
 
   useEffect(() => {
     if (!canSelectReportedUser) {
@@ -346,46 +391,201 @@ export default function Reports({ user }) {
       <Box
         sx={{
           display: "flex",
+          flexDirection: "row",
+          alignItems: "flex-start",
           justifyContent: "space-between",
-          alignItems: "center",
+          gap: { xs: 1, sm: 2 },
           mb: 3,
         }}
       >
-        <Typography
-          variant="h4"
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography
+            variant="h4"
+            sx={{
+              fontWeight: 700,
+              fontSize: { xs: "1.5rem", sm: "2.125rem" },
+              background: "linear-gradient(45deg, #D4AF37, #B8941F)",
+              backgroundClip: "text",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              lineHeight: 1.2,
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+            }}
+          >
+            <Report sx={{ color: "#D4AF37" }} />
+            My Reports
+          </Typography>
+        </Box>
+        <Box
           sx={{
-            fontWeight: 700,
-            color: "#1a1a1a",
             display: "flex",
-            alignItems: "center",
-            gap: 1,
-            fontSize: {
-              xs: "1.25rem",
-              sm: "1.5rem",
-              lg: "1.1rem",
-            },
+            flexDirection: { xs: "column", sm: "row" },
+            alignItems: { xs: "flex-end", sm: "center" },
+            gap: { xs: 1, sm: 1.25 },
+            flexShrink: 0,
           }}
         >
-          <Report sx={{ color: "#D4AF37" }} />
-          My Reports
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={() => setCreateDialogOpen(true)}
-          sx={{
-            bgcolor: "#D4AF37",
-            color: "#fff",
-            "&:hover": { bgcolor: "#B8941F" },
-            textTransform: "none",
-            px: { xs: 1.5, sm: 2.5 },
-            py: { xs: 0.5, sm: 0.8 },
-            fontSize: { xs: "0.65rem", sm: "0.85rem" },
-            gap: { xs: 0.5, sm: 1 },
-          }}
-        >
-          New Report
-        </Button>
+          {/* Icons - shown next to title on large screens, below button on small screens */}
+          <Box
+            sx={{
+              display: { xs: "none", sm: "flex" },
+              justifyContent: "flex-end",
+              alignItems: "center",
+              gap: { xs: 0.75, sm: 1.25 },
+            }}
+          >
+            <Tooltip title="Notifications" arrow>
+              <span>
+                <IconButton
+                  onClick={() => navigate("/notifications")}
+                  sx={{
+                    backgroundColor: "rgba(212, 175, 55, 0.12)",
+                    border: "1px solid rgba(212, 175, 55, 0.3)",
+                    "&:hover": {
+                      backgroundColor: "rgba(212, 175, 55, 0.22)",
+                    },
+                    flexShrink: 0,
+                    width: { xs: "36px", sm: "40px" },
+                    height: { xs: "36px", sm: "40px" },
+                    p: { xs: 0.75, sm: 1 },
+                  }}
+                >
+                  <Badge
+                    badgeContent={
+                      unreadNotificationCount > 0
+                        ? unreadNotificationCount
+                        : null
+                    }
+                    color="error"
+                    overlap="circular"
+                  >
+                    <NotificationsActive
+                      sx={{
+                        color: "#D4AF37",
+                        fontSize: { xs: "1.25rem", sm: "1.5rem" },
+                      }}
+                    />
+                  </Badge>
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Timeline" arrow>
+              <span>
+                <IconButton
+                  onClick={() => navigate("/timeline")}
+                  sx={{
+                    backgroundColor: "rgba(212, 175, 55, 0.12)",
+                    border: "1px solid rgba(212, 175, 55, 0.3)",
+                    "&:hover": {
+                      backgroundColor: "rgba(212, 175, 55, 0.22)",
+                    },
+                    flexShrink: 0,
+                    width: { xs: "36px", sm: "40px" },
+                    height: { xs: "36px", sm: "40px" },
+                    p: { xs: 0.75, sm: 1 },
+                  }}
+                >
+                  <Timeline
+                    sx={{
+                      color: "#D4AF37",
+                      fontSize: { xs: "1.25rem", sm: "1.5rem" },
+                    }}
+                  />
+                </IconButton>
+              </span>
+            </Tooltip>
+          </Box>
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={() => setCreateDialogOpen(true)}
+            sx={{
+              bgcolor: "#D4AF37",
+              color: "#fff",
+              "&:hover": { bgcolor: "#B8941F" },
+              textTransform: "none",
+              px: { xs: 1.5, sm: 2.5 },
+              py: { xs: 0.5, sm: 0.8 },
+              fontSize: { xs: "0.65rem", sm: "0.85rem" },
+              gap: { xs: 0.5, sm: 1 },
+              flexShrink: 0,
+            }}
+          >
+            New Report
+          </Button>
+          {/* Icons - shown below button on small screens only */}
+          <Box
+            sx={{
+              display: { xs: "flex", sm: "none" },
+              justifyContent: "flex-end",
+              alignItems: "center",
+              gap: 0.75,
+            }}
+          >
+            <Tooltip title="Notifications" arrow>
+              <span>
+                <IconButton
+                  onClick={() => navigate("/notifications")}
+                  sx={{
+                    backgroundColor: "rgba(212, 175, 55, 0.12)",
+                    border: "1px solid rgba(212, 175, 55, 0.3)",
+                    "&:hover": {
+                      backgroundColor: "rgba(212, 175, 55, 0.22)",
+                    },
+                    flexShrink: 0,
+                    width: "36px",
+                    height: "36px",
+                    p: 0.75,
+                  }}
+                >
+                  <Badge
+                    badgeContent={
+                      unreadNotificationCount > 0
+                        ? unreadNotificationCount
+                        : null
+                    }
+                    color="error"
+                    overlap="circular"
+                  >
+                    <NotificationsActive
+                      sx={{
+                        color: "#D4AF37",
+                        fontSize: "1.25rem",
+                      }}
+                    />
+                  </Badge>
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Timeline" arrow>
+              <span>
+                <IconButton
+                  onClick={() => navigate("/timeline")}
+                  sx={{
+                    backgroundColor: "rgba(212, 175, 55, 0.12)",
+                    border: "1px solid rgba(212, 175, 55, 0.3)",
+                    "&:hover": {
+                      backgroundColor: "rgba(212, 175, 55, 0.22)",
+                    },
+                    flexShrink: 0,
+                    width: "36px",
+                    height: "36px",
+                    p: 0.75,
+                  }}
+                >
+                  <Timeline
+                    sx={{
+                      color: "#D4AF37",
+                      fontSize: "1.25rem",
+                    }}
+                  />
+                </IconButton>
+              </span>
+            </Tooltip>
+          </Box>
+        </Box>
       </Box>
 
       {loading ? (
