@@ -450,6 +450,10 @@ function PageRoutes() {
           pb: { xs: 10, md: 3 },
           backgroundColor: "#FAFAFA",
           minHeight: "100vh",
+          width: "100%",
+          maxWidth: "100%",
+          overflowX: "hidden",
+          boxSizing: "border-box",
         }}
       >
         {/* Show SuspensionGate if suspension exists, otherwise show routes immediately */}

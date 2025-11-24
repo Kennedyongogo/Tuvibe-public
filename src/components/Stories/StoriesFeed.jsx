@@ -80,10 +80,14 @@ const StoriesFeed = ({
   const instanceIdRef = useRef(Math.random().toString(36).substr(2, 9));
 
   useEffect(() => {
-    console.log(`🔵 [StoriesFeed] Component mounted (instance: ${instanceIdRef.current})`);
+    console.log(
+      `🔵 [StoriesFeed] Component mounted (instance: ${instanceIdRef.current})`
+    );
     isMountedRef.current = true;
     return () => {
-      console.log(`🔴 [StoriesFeed] Component unmounting (instance: ${instanceIdRef.current})`);
+      console.log(
+        `🔴 [StoriesFeed] Component unmounting (instance: ${instanceIdRef.current})`
+      );
       isMountedRef.current = false;
       // Reset fetching flag on unmount
       isFetchingRef.current = false;
@@ -102,7 +106,9 @@ const StoriesFeed = ({
 
       // Prevent overlapping requests
       if (isFetchingRef.current) {
-        console.log("⏸️ [StoriesFeed] Already fetching, skipping duplicate request...");
+        console.log(
+          "⏸️ [StoriesFeed] Already fetching, skipping duplicate request..."
+        );
         return;
       }
 
@@ -215,22 +221,34 @@ const StoriesFeed = ({
   // This will cause 2 requests, which is expected and normal behavior
   const hasInitialFetchedRef = useRef(false);
   useEffect(() => {
-    console.log(`🔍 [StoriesFeed] Initial fetch effect running (instance: ${instanceIdRef.current})`, {
-      isMounted: isMountedRef.current,
-      hasFetched: hasInitialFetchedRef.current,
-      isFetching: isFetchingRef.current
-    });
-    
-    if (isMountedRef.current && !hasInitialFetchedRef.current && !isFetchingRef.current) {
-      hasInitialFetchedRef.current = true;
-      console.log(`🚀 [StoriesFeed] Initial mount - fetching stories feed (instance: ${instanceIdRef.current})`);
-      fetchStoriesFeed();
-    } else {
-      console.log(`⏭️ [StoriesFeed] Skipping initial fetch (instance: ${instanceIdRef.current})`, {
+    console.log(
+      `🔍 [StoriesFeed] Initial fetch effect running (instance: ${instanceIdRef.current})`,
+      {
         isMounted: isMountedRef.current,
         hasFetched: hasInitialFetchedRef.current,
-        isFetching: isFetchingRef.current
-      });
+        isFetching: isFetchingRef.current,
+      }
+    );
+
+    if (
+      isMountedRef.current &&
+      !hasInitialFetchedRef.current &&
+      !isFetchingRef.current
+    ) {
+      hasInitialFetchedRef.current = true;
+      console.log(
+        `🚀 [StoriesFeed] Initial mount - fetching stories feed (instance: ${instanceIdRef.current})`
+      );
+      fetchStoriesFeed();
+    } else {
+      console.log(
+        `⏭️ [StoriesFeed] Skipping initial fetch (instance: ${instanceIdRef.current})`,
+        {
+          isMounted: isMountedRef.current,
+          hasFetched: hasInitialFetchedRef.current,
+          isFetching: isFetchingRef.current,
+        }
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount
@@ -261,7 +279,9 @@ const StoriesFeed = ({
 
         // Only refresh if not currently fetching
         if (!isFetchingRef.current) {
-          console.log("🔄 [StoriesFeed] Backup polling - checking for new stories");
+          console.log(
+            "🔄 [StoriesFeed] Backup polling - checking for new stories"
+          );
           fetchStoriesFeedRef.current(true);
         }
       }, 30000); // 30 seconds - shorter interval to catch approved stories quickly
@@ -293,7 +313,10 @@ const StoriesFeed = ({
               fetchStoriesFeedRef.current(true);
             }
           } catch (err) {
-            console.error("❌ [StoriesFeed] Error parsing SSE story event:", err);
+            console.error(
+              "❌ [StoriesFeed] Error parsing SSE story event:",
+              err
+            );
           }
         });
 
@@ -301,18 +324,26 @@ const StoriesFeed = ({
           if (!isMountedRef.current) return;
           try {
             const data = JSON.parse(event.data);
-            console.log("📡 [StoriesFeed] SSE: Story approved event received", data);
+            console.log(
+              "📡 [StoriesFeed] SSE: Story approved event received",
+              data
+            );
             // Refresh feed when story is approved
             if (!isFetchingRef.current) {
               fetchStoriesFeedRef.current(true);
             }
           } catch (err) {
-            console.error("❌ [StoriesFeed] Error parsing SSE approval event:", err);
+            console.error(
+              "❌ [StoriesFeed] Error parsing SSE approval event:",
+              err
+            );
           }
         });
 
         sseEventSource.onopen = () => {
-          console.log("✅ [StoriesFeed] SSE connected - using real-time updates");
+          console.log(
+            "✅ [StoriesFeed] SSE connected - using real-time updates"
+          );
           // Keep polling running as backup even when SSE is connected
           // This ensures we catch approved stories even if SSE events are missed
         };
@@ -328,7 +359,10 @@ const StoriesFeed = ({
 
         return true; // SSE setup successful
       } catch (err) {
-        console.warn("⚠️ [StoriesFeed] SSE not available, using polling fallback:", err);
+        console.warn(
+          "⚠️ [StoriesFeed] SSE not available, using polling fallback:",
+          err
+        );
         return false; // SSE setup failed
       }
     };
@@ -442,6 +476,10 @@ const StoriesFeed = ({
         height: "180px",
         display: "flex",
         alignItems: "flex-start",
+        width: "100%",
+        maxWidth: "100%",
+        overflow: "hidden",
+        boxSizing: "border-box",
       }}
     >
       <Box
@@ -454,6 +492,7 @@ const StoriesFeed = ({
           pt: 0,
           width: "100%",
           alignItems: "flex-start",
+          boxSizing: "border-box",
           scrollbarWidth: "thin",
           "&::-webkit-scrollbar": {
             height: "6px",
@@ -495,8 +534,8 @@ const StoriesFeed = ({
                 flexShrink: 0,
               }}
             />
-            <Skeleton 
-              width={60} 
+            <Skeleton
+              width={60}
               height={16}
               sx={{
                 flexShrink: 0,
@@ -642,8 +681,8 @@ const StoriesFeed = ({
                   flexShrink: 0,
                 }}
               />
-              <Skeleton 
-                width={60} 
+              <Skeleton
+                width={60}
                 height={16}
                 sx={{
                   flexShrink: 0,

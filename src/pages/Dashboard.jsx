@@ -1739,7 +1739,14 @@ export default function Dashboard({ user, setUser }) {
   };
 
   return (
-    <Box>
+    <Box
+      sx={{
+        width: "100%",
+        maxWidth: "100%",
+        overflowX: "hidden",
+        boxSizing: "border-box",
+      }}
+    >
       {/* Welcome Section */}
       <Box
         sx={{
@@ -1766,7 +1773,8 @@ export default function Dashboard({ user, setUser }) {
               whiteSpace: { xs: "normal", md: "nowrap" },
               overflow: "hidden",
               textOverflow: "ellipsis",
-              background: "linear-gradient(90deg, #D4AF37 0%, #f4d03f 25%, #FFD700 50%, #B8941F 75%, #8B6914 100%)",
+              background:
+                "linear-gradient(90deg, #D4AF37 0%, #f4d03f 25%, #FFD700 50%, #B8941F 75%, #8B6914 100%)",
               backgroundSize: "200% 200%",
               backgroundClip: "text",
               WebkitBackgroundClip: "text",
@@ -1988,6 +1996,10 @@ export default function Dashboard({ user, setUser }) {
           height: "220px",
           display: "flex",
           flexDirection: "column",
+          width: "100%",
+          maxWidth: "100%",
+          overflow: "hidden",
+          boxSizing: "border-box",
         }}
       >
         {user && (
