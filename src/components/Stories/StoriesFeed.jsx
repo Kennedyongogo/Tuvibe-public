@@ -76,13 +76,25 @@ const StoriesFeed = ({
   const isMountedRef = useRef(true);
   // Track if we're currently fetching to avoid overlapping requests during polling
   const isFetchingRef = useRef(false);
+  // Track component instance ID for debugging
+  const instanceIdRef = useRef(Math.random().toString(36).substr(2, 9));
 
   useEffect(() => {
+    console.log(`🔵 [StoriesFeed] Component mounted (instance: ${instanceIdRef.current})`);
     isMountedRef.current = true;
     return () => {
+      console.log(`🔴 [StoriesFeed] Component unmounting (instance: ${instanceIdRef.current})`);
       isMountedRef.current = false;
+      // Reset fetching flag on unmount
+      isFetchingRef.current = false;
     };
   }, []);
+
+  // Store onStoriesLoaded in a ref to prevent unnecessary re-renders
+  const onStoriesLoadedRef = useRef(onStoriesLoaded);
+  useEffect(() => {
+    onStoriesLoadedRef.current = onStoriesLoaded;
+  }, [onStoriesLoaded]);
 
   const fetchStoriesFeed = useCallback(
     async (isBackgroundRefresh = false) => {
@@ -90,7 +102,7 @@ const StoriesFeed = ({
 
       // Prevent overlapping requests
       if (isFetchingRef.current) {
-        console.log("⏸️ [StoriesFeed] Already fetching, skipping...");
+        console.log("⏸️ [StoriesFeed] Already fetching, skipping duplicate request...");
         return;
       }
 
@@ -156,8 +168,8 @@ const StoriesFeed = ({
           });
 
           setStoriesFeed(sortedStories);
-          if (onStoriesLoaded && isMountedRef.current) {
-            onStoriesLoaded(stories);
+          if (onStoriesLoadedRef.current && isMountedRef.current) {
+            onStoriesLoadedRef.current(stories);
           }
         } else {
           setError(data.message || "Failed to load stories");
@@ -180,7 +192,7 @@ const StoriesFeed = ({
         }
       }
     },
-    [user?.latitude, user?.longitude, user?.id, onStoriesLoaded]
+    [user?.latitude, user?.longitude, user?.id]
   );
 
   // Store the latest fetchStoriesFeed in a ref to avoid dependency issues
@@ -198,37 +210,158 @@ const StoriesFeed = ({
     }
   }, [onRefresh]);
 
-  // Initial fetch - only run once on mount
+  // Initial fetch - only run once per component instance
+  // Note: In development with StrictMode, React intentionally mounts components twice
+  // This will cause 2 requests, which is expected and normal behavior
+  const hasInitialFetchedRef = useRef(false);
   useEffect(() => {
-    if (isMountedRef.current) {
+    console.log(`🔍 [StoriesFeed] Initial fetch effect running (instance: ${instanceIdRef.current})`, {
+      isMounted: isMountedRef.current,
+      hasFetched: hasInitialFetchedRef.current,
+      isFetching: isFetchingRef.current
+    });
+    
+    if (isMountedRef.current && !hasInitialFetchedRef.current && !isFetchingRef.current) {
+      hasInitialFetchedRef.current = true;
+      console.log(`🚀 [StoriesFeed] Initial mount - fetching stories feed (instance: ${instanceIdRef.current})`);
       fetchStoriesFeed();
+    } else {
+      console.log(`⏭️ [StoriesFeed] Skipping initial fetch (instance: ${instanceIdRef.current})`, {
+        isMounted: isMountedRef.current,
+        hasFetched: hasInitialFetchedRef.current,
+        isFetching: isFetchingRef.current
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount
 
-  // Poll for newly approved stories every 30 seconds (background refresh)
+  // Use SSE for real-time updates with backup polling (scalable for 10k+ users)
+  // Polling runs alongside SSE as backup to ensure approved stories are visible
   useEffect(() => {
-    if (!isMountedRef.current) return;
+    if (!isMountedRef.current || !user?.id) return;
 
-    const pollInterval = setInterval(() => {
-      if (!isMountedRef.current) {
-        clearInterval(pollInterval);
-        return;
+    let pollInterval = null;
+    let sseEventSource = null;
+
+    // Backup polling with shorter interval (30 seconds) - runs alongside SSE as backup
+    const startBackupPolling = () => {
+      if (pollInterval) return; // Already polling
+
+      console.log("🔄 [StoriesFeed] Starting backup polling (30 sec interval)");
+      pollInterval = setInterval(() => {
+        if (!isMountedRef.current) {
+          clearInterval(pollInterval);
+          return;
+        }
+
+        // Only poll if page is visible
+        if (document.hidden) {
+          return;
+        }
+
+        // Only refresh if not currently fetching
+        if (!isFetchingRef.current) {
+          console.log("🔄 [StoriesFeed] Backup polling - checking for new stories");
+          fetchStoriesFeedRef.current(true);
+        }
+      }, 30000); // 30 seconds - shorter interval to catch approved stories quickly
+    };
+
+    // Try to use SSE for real-time updates (much more scalable)
+    const setupSSE = () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) return false;
+
+        const isDev = import.meta.env.DEV;
+        const protocol = window.location.protocol;
+        const host = window.location.hostname;
+        const apiPort = isDev ? "4000" : window.location.port || "";
+        const sseUrl = isDev
+          ? `${protocol}//${host}:${apiPort}/api/sse/events?token=${encodeURIComponent(token)}`
+          : `${protocol}//${host}${apiPort ? `:${apiPort}` : ""}/api/sse/events?token=${encodeURIComponent(token)}`;
+
+        sseEventSource = new EventSource(sseUrl);
+
+        sseEventSource.addEventListener("story:new", (event) => {
+          if (!isMountedRef.current) return;
+          try {
+            const data = JSON.parse(event.data);
+            console.log("📡 [StoriesFeed] SSE: New story event received", data);
+            // Refresh feed when new story is created/approved
+            if (!isFetchingRef.current) {
+              fetchStoriesFeedRef.current(true);
+            }
+          } catch (err) {
+            console.error("❌ [StoriesFeed] Error parsing SSE story event:", err);
+          }
+        });
+
+        sseEventSource.addEventListener("story:approved", (event) => {
+          if (!isMountedRef.current) return;
+          try {
+            const data = JSON.parse(event.data);
+            console.log("📡 [StoriesFeed] SSE: Story approved event received", data);
+            // Refresh feed when story is approved
+            if (!isFetchingRef.current) {
+              fetchStoriesFeedRef.current(true);
+            }
+          } catch (err) {
+            console.error("❌ [StoriesFeed] Error parsing SSE approval event:", err);
+          }
+        });
+
+        sseEventSource.onopen = () => {
+          console.log("✅ [StoriesFeed] SSE connected - using real-time updates");
+          // Keep polling running as backup even when SSE is connected
+          // This ensures we catch approved stories even if SSE events are missed
+        };
+
+        sseEventSource.onerror = (error) => {
+          console.warn("⚠️ [StoriesFeed] SSE error:", error);
+          // Polling should already be running as backup
+          // If it's not, start it
+          if (!pollInterval) {
+            startBackupPolling();
+          }
+        };
+
+        return true; // SSE setup successful
+      } catch (err) {
+        console.warn("⚠️ [StoriesFeed] SSE not available, using polling fallback:", err);
+        return false; // SSE setup failed
       }
-      // Only refresh if not currently fetching
-      if (!isFetchingRef.current) {
-        console.log(
-          "🔄 [StoriesFeed] Polling for new stories (background refresh)..."
-        );
-        // Pass true to indicate this is a background refresh (no loading state)
-        fetchStoriesFeedRef.current(true);
+    };
+
+    // Try SSE first, but always start backup polling as well
+    const sseSuccess = setupSSE();
+    // Always start polling as backup, even if SSE is working
+    // This ensures we catch approved stories even if SSE events are missed
+    startBackupPolling();
+
+    // Handle page visibility for backup polling
+    const handleVisibilityChange = () => {
+      if (document.hidden && pollInterval) {
+        // Page hidden - polling will skip when hidden
+        console.log("⏸️ [StoriesFeed] Page hidden - polling paused");
+      } else if (!document.hidden && pollInterval) {
+        // Page visible - polling will resume on next interval
+        console.log("👁️ [StoriesFeed] Page visible - polling active");
       }
-    }, 30000); // Poll every 30 seconds
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      clearInterval(pollInterval);
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+      if (sseEventSource) {
+        sseEventSource.close();
+      }
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, []); // Only set up once on mount
+  }, [user?.id]); // Re-setup if user changes
 
   // Track previous refreshTrigger value to detect when creator closes
   const prevRefreshTriggerRef = useRef(refreshTrigger);
@@ -304,6 +437,11 @@ const StoriesFeed = ({
       sx={{
         mb: 0,
         px: { xs: 0, sm: 0 },
+        // Fixed height to prevent layout shift during loading
+        minHeight: "180px", // Height of story item (140px) + gap + text + padding
+        height: "180px",
+        display: "flex",
+        alignItems: "flex-start",
       }}
     >
       <Box
@@ -311,9 +449,11 @@ const StoriesFeed = ({
           display: "flex",
           gap: 2,
           overflowX: "auto",
-          overflowY: "visible",
+          overflowY: "hidden", // Prevent vertical overflow
           pb: 1,
           pt: 0,
+          width: "100%",
+          alignItems: "flex-start",
           scrollbarWidth: "thin",
           "&::-webkit-scrollbar": {
             height: "6px",
@@ -338,10 +478,12 @@ const StoriesFeed = ({
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              justifyContent: "center",
+              justifyContent: "flex-start",
               gap: 1,
               minWidth: 100,
               maxWidth: 100,
+              flexShrink: 0,
+              height: "100%",
             }}
           >
             <Skeleton
@@ -350,9 +492,16 @@ const StoriesFeed = ({
               height={140}
               sx={{
                 borderRadius: "12px",
+                flexShrink: 0,
               }}
             />
-            <Skeleton width={60} height={16} />
+            <Skeleton 
+              width={60} 
+              height={16}
+              sx={{
+                flexShrink: 0,
+              }}
+            />
           </Box>
         ) : (
           <Box
@@ -360,10 +509,12 @@ const StoriesFeed = ({
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              justifyContent: "center",
+              justifyContent: "flex-start",
               gap: 1,
               minWidth: 100,
               maxWidth: 100,
+              flexShrink: 0,
+              height: "100%",
               cursor: "pointer",
               transition: "all 0.2s ease",
               position: "relative",
@@ -473,10 +624,13 @@ const StoriesFeed = ({
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                justifyContent: "center",
+                justifyContent: "flex-start",
                 gap: 1,
                 minWidth: 100,
                 maxWidth: 100,
+                flexShrink: 0,
+                // Match exact height of actual story items
+                height: "100%",
               }}
             >
               <Skeleton
@@ -485,9 +639,16 @@ const StoriesFeed = ({
                 height={140}
                 sx={{
                   borderRadius: "12px",
+                  flexShrink: 0,
                 }}
               />
-              <Skeleton width={60} height={16} />
+              <Skeleton 
+                width={60} 
+                height={16}
+                sx={{
+                  flexShrink: 0,
+                }}
+              />
             </Box>
           ))}
 
@@ -522,10 +683,12 @@ const StoriesFeed = ({
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
-                    justifyContent: "center",
+                    justifyContent: "flex-start",
                     gap: 1,
                     minWidth: 100,
                     maxWidth: 100,
+                    flexShrink: 0,
+                    height: "100%",
                     cursor: "pointer",
                     transition: "all 0.2s ease",
                     "&:hover": {

@@ -22,6 +22,7 @@ import {
   DialogActions,
   TextField,
   CircularProgress,
+  Skeleton,
 } from "@mui/material";
 import {
   ThumbUp,
@@ -35,6 +36,12 @@ import {
   EmojiEmotions,
   Send,
   Close,
+  ContentCopy,
+  Facebook,
+  Twitter,
+  WhatsApp,
+  Telegram,
+  Link as LinkIcon,
 } from "@mui/icons-material";
 import EmojiPicker from "../EmojiPicker/EmojiPicker";
 import Swal from "sweetalert2";
@@ -48,11 +55,14 @@ const PostCard = ({
   onDelete,
 }) => {
   const [menuAnchor, setMenuAnchor] = useState(null);
+  const [shareMenuAnchor, setShareMenuAnchor] = useState(null);
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const [emojiAnchor, setEmojiAnchor] = useState(null);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [likesOpen, setLikesOpen] = useState(false);
   const [emojiReactionsOpen, setEmojiReactionsOpen] = useState(false);
+  const [loadingEmojiReactions, setLoadingEmojiReactions] = useState(false);
+  const [loadingComments, setLoadingComments] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
@@ -65,11 +75,17 @@ const PostCard = ({
     like_count: Number(post.like_count || 0),
     emoji_reaction_count: Number(post.emoji_reaction_count || 0),
     comment_count: Number(post.comment_count || 0),
+    share_count: Number(post.share_count || 0),
     recent_emoji_reactions: post.recent_emoji_reactions || [],
   });
   const [lastUpdateTime, setLastUpdateTime] = useState(0);
+  const sseEventSourceRef = React.useRef(null);
+  const [selectedEmojis, setSelectedEmojis] = useState([]); // Emojis selected but not yet sent
+  const [flyingEmojis, setFlyingEmojis] = useState([]); // For animation
+  const emojiButtonRef = React.useRef(null);
 
   const isOwner = currentUser && post.user?.id === currentUser.id;
+  const isApproved = post.moderation_status === "approved";
 
   // Update postDetails when post prop changes
   // But don't overwrite if we just updated locally (within last 2 seconds)
@@ -87,10 +103,180 @@ const PostCard = ({
       like_count: Number(post.like_count || 0),
       emoji_reaction_count: Number(post.emoji_reaction_count || 0),
       comment_count: Number(post.comment_count || 0),
+      share_count: Number(post.share_count || 0),
       recent_emoji_reactions: post.recent_emoji_reactions || [],
     };
     setPostDetails(updatedDetails);
+    
+    // Clear selected emojis when post changes
+    setSelectedEmojis([]);
+    setEmojiPickerOpen(false);
   }, [post, lastUpdateTime]);
+
+  // Set up SSE connection for real-time updates on this specific post
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      const isDev = import.meta.env.DEV;
+      const protocol = window.location.protocol;
+      const host = window.location.hostname;
+      const apiPort = isDev ? "4000" : window.location.port || "";
+      const sseUrl = isDev
+        ? `${protocol}//${host}:${apiPort}/api/sse/events?token=${encodeURIComponent(token)}`
+        : `${protocol}//${host}${apiPort ? `:${apiPort}` : ""}/api/sse/events?token=${encodeURIComponent(token)}`;
+
+      // Only create one SSE connection per component instance
+      if (sseEventSourceRef.current) {
+        return; // Already connected
+      }
+
+      console.log("🔌 [PostCard] Setting up SSE connection for real-time updates");
+      sseEventSourceRef.current = new EventSource(sseUrl);
+
+      // Listen for post reaction updates
+      const handlePostReacted = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          // Only update if it's for this post
+          if (data.postId === post.id) {
+            console.log("📡 [PostCard] SSE: Post reacted event received", data);
+            setPostDetails((prev) => ({
+              ...prev,
+              like_count: data.like_count !== undefined ? data.like_count : prev.like_count,
+              emoji_reaction_count: data.emoji_reaction_count !== undefined ? data.emoji_reaction_count : prev.emoji_reaction_count,
+              reaction_count: data.reaction_count !== undefined ? data.reaction_count : prev.reaction_count,
+              recent_emoji_reactions: data.recent_emoji_reactions !== undefined ? data.recent_emoji_reactions : prev.recent_emoji_reactions,
+            }));
+            setLastUpdateTime(Date.now());
+          }
+        } catch (err) {
+          console.error("❌ [PostCard] Error parsing SSE post reaction event:", err);
+        }
+      };
+
+      // Listen for post comment updates
+      const handlePostCommented = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          // Only update if it's for this post
+          if (data.postId === post.id) {
+            console.log("📡 [PostCard] SSE: Post commented event received", data);
+            // Silently update comment count in state - no component refresh
+            setPostDetails((prev) => ({
+              ...prev,
+              comment_count: data.comment_count !== undefined ? data.comment_count : prev.comment_count,
+            }));
+            setLastUpdateTime(Date.now());
+            
+            // If comments dialog is open and comment was deleted, update comments list
+            // For new comments, user will see them when they interact or we can enhance backend later
+            if (commentsOpen && data.deleted && data.commentId) {
+              // Remove deleted comment from state without fetching
+              setPostDetails((prev) => ({
+                ...prev,
+                comments: prev.comments?.filter((c) => c.id !== data.commentId) || [],
+              }));
+            }
+          }
+        } catch (err) {
+          console.error("❌ [PostCard] Error parsing SSE post comment event:", err);
+        }
+      };
+
+      // Listen for comment reaction updates
+      const handleCommentReacted = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          // Only update if it's for this post
+          if (data.postId === post.id) {
+            console.log("📡 [PostCard] SSE: Comment reacted event received", data);
+            // Silently update comment reaction count in state - no component refresh
+            setPostDetails((prev) => {
+              const updatedComments = prev.comments?.map((comment) => {
+                // Update main comment
+                if (comment.id === data.commentId) {
+                  return {
+                    ...comment,
+                    reaction_count: data.reaction_count !== undefined ? data.reaction_count : comment.reaction_count,
+                  };
+                }
+                // Update reply if it's a reply
+                if (comment.replies) {
+                  const updatedReplies = comment.replies.map((reply) =>
+                    reply.id === data.commentId
+                      ? {
+                          ...reply,
+                          reaction_count: data.reaction_count !== undefined ? data.reaction_count : reply.reaction_count,
+                        }
+                      : reply
+                  );
+                  return { ...comment, replies: updatedReplies };
+                }
+                return comment;
+              });
+              
+              return {
+                ...prev,
+                comments: updatedComments || prev.comments,
+              };
+            });
+            setLastUpdateTime(Date.now());
+          }
+        } catch (err) {
+          console.error("❌ [PostCard] Error parsing SSE comment reaction event:", err);
+        }
+      };
+
+      // Listen for post share updates
+      const handlePostShared = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          // Only update if it's for this post
+          if (data.postId === post.id) {
+            console.log("📡 [PostCard] SSE: Post shared event received", data);
+            setPostDetails((prev) => ({
+              ...prev,
+              share_count: data.share_count !== undefined ? data.share_count : prev.share_count,
+            }));
+            setLastUpdateTime(Date.now());
+          }
+        } catch (err) {
+          console.error("❌ [PostCard] Error parsing SSE post share event:", err);
+        }
+      };
+
+      sseEventSourceRef.current.addEventListener("post:reacted", handlePostReacted);
+      sseEventSourceRef.current.addEventListener("post:commented", handlePostCommented);
+      sseEventSourceRef.current.addEventListener("comment:reacted", handleCommentReacted);
+      sseEventSourceRef.current.addEventListener("post:shared", handlePostShared);
+
+      sseEventSourceRef.current.onopen = () => {
+        console.log("✅ [PostCard] SSE connection opened for post", post.id);
+      };
+
+      sseEventSourceRef.current.onerror = (error) => {
+        console.warn("⚠️ [PostCard] SSE error:", error);
+        if (sseEventSourceRef.current?.readyState === EventSource.CLOSED) {
+          console.log("🔄 [PostCard] SSE connection closed");
+          sseEventSourceRef.current = null;
+        }
+      };
+    } catch (err) {
+      console.warn("⚠️ [PostCard] SSE not available:", err);
+    }
+
+    // Cleanup: close SSE connection when component unmounts
+    return () => {
+      if (sseEventSourceRef.current) {
+        console.log("🔌 [PostCard] Closing SSE connection");
+        sseEventSourceRef.current.close();
+        sseEventSourceRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [post.id]); // Re-setup if post ID changes (commentsOpen is checked inside handlers, not needed in deps)
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -133,7 +319,20 @@ const PostCard = ({
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
+        let errorMessage = "Failed to add reaction";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          // If response is not JSON, use status text
+          errorMessage = response.statusText || errorMessage;
+        }
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: errorMessage,
+          confirmButtonColor: "#D4AF37",
+        });
         return;
       }
 
@@ -186,13 +385,8 @@ const PostCard = ({
             return updates;
           });
         }
-        // Notify parent to refresh feed after state update
-        // Use a longer delay to ensure database transaction is committed
-        if (onReaction) {
-          setTimeout(() => {
-            onReaction(post.id, reactionType, emoji);
-          }, 200);
-        }
+        // SSE handles feed updates - no need to notify parent
+        // Local state is already updated above
       }
     } catch (err) {
       // Error adding reaction
@@ -202,12 +396,114 @@ const PostCard = ({
   const handleOpenEmojiPicker = (event) => {
     setEmojiAnchor(event.currentTarget);
     setEmojiPickerOpen(true);
+    // Store button ref for animation target
+    emojiButtonRef.current = event.currentTarget;
   };
 
-  const handleEmojiSelect = (emoji) => {
-    handleReaction("emoji", emoji);
-    setEmojiPickerOpen(false);
+  // Handle emoji selection - add to selected array with animation
+  const handleEmojiSelect = (emoji, clickPosition = null) => {
+    if (!emoji) return;
+
+    // Add emoji to selected array
+    setSelectedEmojis((prev) => [...prev, emoji]);
+
+    // Trigger flying animation if click position provided
+    if (clickPosition && emojiButtonRef.current) {
+      const buttonRect = emojiButtonRef.current.getBoundingClientRect();
+      const targetX = buttonRect.left + buttonRect.width / 2;
+      const targetY = buttonRect.top + buttonRect.height / 2;
+
+      const flyingEmoji = {
+        id: Date.now() + Math.random(),
+        emoji,
+        startX: clickPosition.x,
+        startY: clickPosition.y,
+        targetX,
+        targetY,
+      };
+
+      setFlyingEmojis((prev) => [...prev, flyingEmoji]);
+
+      // Remove flying emoji after animation completes
+      setTimeout(() => {
+        setFlyingEmojis((prev) =>
+          prev.filter((e) => e.id !== flyingEmoji.id)
+        );
+      }, 600);
+    }
+
+    // Update reaction state to show the most recent emoji
+    setPostDetails((prev) => ({
+      ...prev,
+      user_reaction: { reaction_type: "emoji", emoji },
+    }));
   };
+
+  // Close emoji picker dialog
+  const handleEmojiPickerClose = () => {
+    setEmojiPickerOpen(false);
+    setEmojiAnchor(null);
+    // selectedEmojis will be sent via useEffect when picker closes
+  };
+
+  // Send all selected emojis as one reaction when dialog closes
+  useEffect(() => {
+    if (!emojiPickerOpen && selectedEmojis.length > 0) {
+      const sendEmojisAsOneReaction = async () => {
+        const token = localStorage.getItem("token");
+        if (!token) {
+          setSelectedEmojis([]);
+          return;
+        }
+
+        try {
+          console.log("📤 [PostCard] Sending emojis as one reaction:", selectedEmojis);
+          
+          // Send all emojis as one reaction
+          const response = await fetch(`/api/posts/${post.id}/reactions`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              reaction_type: "emoji",
+              emojis: selectedEmojis, // Send as array
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error("Failed to send reaction");
+          }
+
+          const data = await response.json();
+
+          if (data.success && data.data) {
+            // Update counts from response
+            setPostDetails((prev) => ({
+              ...prev,
+              emoji_reaction_count: data.data.emoji_reaction_count !== undefined 
+                ? data.data.emoji_reaction_count 
+                : prev.emoji_reaction_count,
+              reaction_count: data.data.reaction_count !== undefined 
+                ? data.data.reaction_count 
+                : prev.reaction_count,
+            }));
+            setLastUpdateTime(Date.now());
+          }
+
+          // Clear selected emojis after sending
+          setSelectedEmojis([]);
+        } catch (err) {
+          console.error("Error sending emoji reactions:", err);
+          setSelectedEmojis([]); // Clear even on error
+        }
+      };
+
+      sendEmojisAsOneReaction();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [emojiPickerOpen]);
 
   const handleLike = () => {
     // For likes, backend handles toggle - just call handleReaction
@@ -239,6 +535,7 @@ const PostCard = ({
           like_count: Number(updatedPost.like_count || 0),
           emoji_reaction_count: Number(updatedPost.emoji_reaction_count || 0),
           comment_count: Number(updatedPost.comment_count || 0),
+          share_count: Number(updatedPost.share_count || 0),
           recent_emoji_reactions: updatedPost.recent_emoji_reactions || [],
         };
         setPostDetails(newDetails);
@@ -250,10 +547,21 @@ const PostCard = ({
 
   const handleViewComments = async () => {
     setCommentsOpen(true);
-    await fetchPostDetails();
+    setLoadingComments(true);
+    try {
+      await fetchPostDetails();
+    } finally {
+      setLoadingComments(false);
+    }
   };
 
-  const handleSubmitComment = async (parentCommentId = null) => {
+  const handleSubmitComment = async (parentCommentId = null, event) => {
+    // Prevent form submission if called from a form
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    
     const textToSubmit = parentCommentId ? replyText : commentText;
     if (!textToSubmit.trim() || submittingComment) return;
 
@@ -265,14 +573,27 @@ const PostCard = ({
       }
       const token = localStorage.getItem("token");
       if (!token) {
+        // Reset submitting state before returning
+        if (parentCommentId) {
+          setSubmittingReply((prev) => ({ ...prev, [parentCommentId]: false }));
+        } else {
+          setSubmittingComment(false);
+        }
         Swal.fire({
           icon: "error",
           title: "Login Required",
           text: "Please login to comment",
           confirmButtonColor: "#D4AF37",
+          zIndex: 1400, // Higher than Material-UI Dialog (1300)
         });
         return;
       }
+
+      console.log("📝 [PostCard] Submitting comment:", {
+        postId: post.id,
+        content: textToSubmit.trim().substring(0, 50),
+        parentCommentId,
+      });
 
       const response = await fetch(`/api/posts/${post.id}/comments`, {
         method: "POST",
@@ -286,32 +607,68 @@ const PostCard = ({
         }),
       });
 
+      // Check if response is ok before parsing JSON
+      if (!response.ok) {
+        let errorMessage = "Failed to add comment";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          // If response is not JSON, use status text
+          errorMessage = response.statusText || errorMessage;
+        }
+        throw new Error(errorMessage);
+      }
+
       const data = await response.json();
       if (data.success) {
+        // Close comments dialog before showing success alert
+        setCommentsOpen(false);
+        setReplyingTo(null);
+        
+        // Clear form fields
         if (parentCommentId) {
           setReplyText("");
-          setReplyingTo(null);
         } else {
           setCommentText("");
         }
-        await fetchPostDetails();
-        if (onComment) {
-          onComment(post);
-        }
+        
+        // Optimistically update comment count - SSE will sync the actual data
+        setPostDetails((prev) => ({
+          ...prev,
+          comment_count: (prev.comment_count || 0) + 1,
+        }));
+        
+        // Show success alert after closing dialog
+        Swal.fire({
+          icon: "success",
+          title: parentCommentId ? "Reply posted!" : "Comment posted!",
+          text: parentCommentId 
+            ? "Your reply has been posted successfully" 
+            : "Your comment has been posted successfully",
+          confirmButtonColor: "#D4AF37",
+          timer: 2000,
+          showConfirmButton: false,
+        });
+        
+        // Don't call onComment - SSE handles feed updates
       } else {
         Swal.fire({
           icon: "error",
           title: "Error",
           text: data.message || "Failed to add comment",
           confirmButtonColor: "#D4AF37",
+          zIndex: 1400, // Higher than Material-UI Dialog (1300)
         });
       }
     } catch (err) {
+      console.error("Error adding comment:", err);
       Swal.fire({
         icon: "error",
         title: "Error",
-        text: "Failed to add comment. Please try again.",
+        text: err.message || "Failed to add comment. Please try again.",
         confirmButtonColor: "#D4AF37",
+        zIndex: 1400, // Higher than Material-UI Dialog (1300)
       });
     } finally {
       if (parentCommentId) {
@@ -359,7 +716,11 @@ const PostCard = ({
         );
 
         if (response.ok) {
-          await fetchPostDetails();
+          // Optimistically update - SSE will sync the actual data
+          // Only refetch if comments dialog is open to show updated reactions
+          if (commentsOpen) {
+            await fetchPostDetails();
+          }
         }
       } else {
         // Add reaction
@@ -379,7 +740,11 @@ const PostCard = ({
         );
 
         if (response.ok) {
-          await fetchPostDetails();
+          // Optimistically update - SSE will sync the actual data
+          // Only refetch if comments dialog is open to show updated reactions
+          if (commentsOpen) {
+            await fetchPostDetails();
+          }
         }
       }
     } catch (err) {
@@ -394,13 +759,166 @@ const PostCard = ({
 
   const handleViewEmojiReactions = async () => {
     setEmojiReactionsOpen(true);
-    await fetchPostDetails();
+    setLoadingEmojiReactions(true);
+    try {
+      await fetchPostDetails();
+    } finally {
+      setLoadingEmojiReactions(false);
+    }
   };
 
   const getMediaUrl = () => {
     if (!post.media_url) return null;
     if (post.media_url.startsWith("http")) return post.media_url;
     return `/uploads/${post.media_url}`;
+  };
+
+  const getPostUrl = () => {
+    const baseUrl = window.location.origin;
+    // Use the post detail page route for proper link previews
+    return `${baseUrl}/post/${post.id}`;
+  };
+
+  const trackShare = async (shareType) => {
+    try {
+      const token = localStorage.getItem("token");
+      const headers = {
+        "Content-Type": "application/json",
+      };
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      await fetch(`/api/posts/${post.id}/share`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ share_type: shareType }),
+      });
+
+      // Optimistically update share count
+      setPostDetails((prev) => ({
+        ...prev,
+        share_count: (prev.share_count || 0) + 1,
+      }));
+    } catch (err) {
+      console.error("Error tracking share:", err);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      const postUrl = getPostUrl();
+      await navigator.clipboard.writeText(postUrl);
+      await trackShare("link");
+      setShareMenuAnchor(null);
+      Swal.fire({
+        icon: "success",
+        title: "Link copied!",
+        text: "Post link has been copied to clipboard",
+        confirmButtonColor: "#D4AF37",
+        timer: 2000,
+        showConfirmButton: false,
+      });
+    } catch (err) {
+      console.error("Error copying link:", err);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Failed to copy link. Please try again.",
+        confirmButtonColor: "#D4AF37",
+      });
+    }
+  };
+
+  const handleNativeShare = async () => {
+    try {
+      const postUrl = getPostUrl();
+      let shareData = {
+        title: `${post.user?.name || "Someone"}'s post on Tuvibe`,
+        text: post.caption || "Check out this post on Tuvibe",
+        url: postUrl,
+      };
+
+      // Try to add image if available (only works on some platforms)
+      if (post.media_type === "photo" && getMediaUrl() && navigator.canShare) {
+        try {
+          const mediaUrl = getMediaUrl();
+          const response = await fetch(mediaUrl);
+          const blob = await response.blob();
+          const file = new File([blob], "post-image.jpg", { type: blob.type });
+          
+          // Check if files can be shared
+          const shareDataWithFile = { ...shareData, files: [file] };
+          if (navigator.canShare(shareDataWithFile)) {
+            shareData = shareDataWithFile;
+          }
+        } catch (e) {
+          // If image fetch fails, continue without it
+          console.warn("Could not include image in share:", e);
+        }
+      }
+
+      if (navigator.share) {
+        if (navigator.canShare && !navigator.canShare(shareData)) {
+          // Fallback to copy link if share data is not shareable
+          handleCopyLink();
+          return;
+        }
+        await navigator.share(shareData);
+        await trackShare("native");
+        setShareMenuAnchor(null);
+      } else {
+        // Fallback to copy link if native share not available
+        handleCopyLink();
+      }
+    } catch (err) {
+      if (err.name !== "AbortError") {
+        console.error("Error sharing:", err);
+        // Fallback to copy link on error
+        handleCopyLink();
+      }
+    }
+  };
+
+  const handleSocialShare = async (platform) => {
+    const postUrl = encodeURIComponent(getPostUrl());
+    const text = encodeURIComponent(post.caption || "Check out this post on Tuvibe");
+    const title = encodeURIComponent(`${post.user?.name || "Someone"}'s post on Tuvibe`);
+
+    let shareUrl = "";
+    switch (platform) {
+      case "twitter":
+        shareUrl = `https://twitter.com/intent/tweet?url=${postUrl}&text=${text}`;
+        break;
+      case "facebook":
+        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${postUrl}`;
+        break;
+      case "whatsapp":
+        shareUrl = `https://wa.me/?text=${text}%20${postUrl}`;
+        break;
+      case "telegram":
+        shareUrl = `https://t.me/share/url?url=${postUrl}&text=${text}`;
+        break;
+      default:
+        return;
+    }
+
+    window.open(shareUrl, "_blank", "width=600,height=400");
+    await trackShare(platform);
+    setShareMenuAnchor(null);
+  };
+
+  const handleShareClick = (event) => {
+    if (!isApproved) {
+      Swal.fire({
+        icon: "info",
+        title: "Post Pending Approval",
+        text: "You can share this post once it's approved",
+        confirmButtonColor: "#D4AF37",
+      });
+      return;
+    }
+    setShareMenuAnchor(event.currentTarget);
   };
 
   const getBackgroundColor = () => {
@@ -594,57 +1112,65 @@ const PostCard = ({
                     }}
                     onClick={handleViewEmojiReactions}
                   >
-                    {/* Stacked emoji reactions */}
+                    {/* Emoji reaction - show 1 emoji with count badge */}
                     <Box
                       sx={{
                         display: "flex",
                         alignItems: "center",
                         position: "relative",
-                        ml: -0.5,
                       }}
                     >
-                      {postDetails.recent_emoji_reactions
-                        ?.slice(0, 3)
-                        .map((emoji, index) => (
+                      {postDetails.recent_emoji_reactions?.[0] && (
+                        <Box
+                          sx={{
+                            position: "relative",
+                            display: "inline-flex",
+                          }}
+                        >
                           <Box
-                            key={index}
                             sx={{
-                              fontSize: "1rem",
-                              ml: index > 0 ? "-4px" : 0,
-                              zIndex: 3 - index,
-                              position: "relative",
+                              fontSize: "1.1rem",
                               backgroundColor: "white",
                               borderRadius: "50%",
-                              width: "20px",
-                              height: "20px",
+                              width: "24px",
+                              height: "24px",
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
-                              border: "1px solid rgba(0,0,0,0.1)",
+                              border: "2px solid rgba(0,0,0,0.1)",
+                              boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
                             }}
                           >
-                            {emoji}
+                            {postDetails.recent_emoji_reactions[0]}
                           </Box>
-                        ))}
+                          {/* Count badge overlay */}
+                          {postDetails.emoji_reaction_count > 0 && (
+                            <Box
+                              sx={{
+                                position: "absolute",
+                                top: -6,
+                                right: -6,
+                                backgroundColor: "#D4AF37",
+                                color: "#1a1a1a",
+                                borderRadius: "50%",
+                                minWidth: "18px",
+                                height: "18px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontSize: "0.7rem",
+                                fontWeight: 600,
+                                border: "2px solid white",
+                                padding: "0 4px",
+                                boxSizing: "border-box",
+                              }}
+                            >
+                              {postDetails.emoji_reaction_count > 99 ? "99+" : postDetails.emoji_reaction_count}
+                            </Box>
+                          )}
+                        </Box>
+                      )}
                     </Box>
-                    {/* Show +X if there are more emojis than the 3 visible ones */}
-                    {(() => {
-                      const visibleCount = Math.min(
-                        postDetails.recent_emoji_reactions?.length || 0,
-                        3
-                      );
-                      const totalCount = postDetails.emoji_reaction_count || 0;
-                      const remaining = totalCount - visibleCount;
-
-                      return remaining > 0 ? (
-                        <Typography
-                          variant="body2"
-                          sx={{ fontSize: "0.875rem", ml: 0.5 }}
-                        >
-                          +{remaining}
-                        </Typography>
-                      ) : null;
-                    })()}
                   </Box>
                 )}
               </Box>
@@ -674,8 +1200,18 @@ const PostCard = ({
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                handleLike();
+                if (isApproved) {
+                  handleLike();
+                } else {
+                  Swal.fire({
+                    icon: "info",
+                    title: "Post Pending Approval",
+                    text: "You can interact with this post once it's approved",
+                    confirmButtonColor: "#D4AF37",
+                  });
+                }
               }}
+              disabled={!isApproved}
               sx={{
                 color:
                   postDetails.user_reaction &&
@@ -686,6 +1222,7 @@ const PostCard = ({
                 minWidth: "auto",
                 px: 1,
                 textTransform: "none",
+                opacity: isApproved ? 1 : 0.5,
               }}
             >
               Like
@@ -698,18 +1235,73 @@ const PostCard = ({
                 </Typography>
               )}
             </Button>
-            <IconButton size="small" onClick={handleOpenEmojiPicker}>
+            <IconButton 
+              size="small" 
+              onClick={(e) => {
+                if (isApproved) {
+                  handleOpenEmojiPicker(e);
+                } else {
+                  Swal.fire({
+                    icon: "info",
+                    title: "Post Pending Approval",
+                    text: "You can interact with this post once it's approved",
+                    confirmButtonColor: "#D4AF37",
+                  });
+                }
+              }}
+              disabled={!isApproved}
+              ref={emojiButtonRef}
+              sx={{ 
+                position: "relative",
+                opacity: isApproved ? 1 : 0.5,
+              }}
+            >
               <EmojiEmotions />
+              {selectedEmojis.length > 0 && (
+                <Box
+                  sx={{
+                    position: "absolute",
+                    top: -4,
+                    right: -4,
+                    bgcolor: "#D4AF37",
+                    color: "#1a1a1a",
+                    borderRadius: "50%",
+                    width: 18,
+                    height: 18,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "0.7rem",
+                    fontWeight: 600,
+                    border: "2px solid white",
+                  }}
+                >
+                  {selectedEmojis.length}
+                </Box>
+              )}
             </IconButton>
             <Button
               size="small"
               startIcon={<Comment />}
-              onClick={handleViewComments}
+              onClick={() => {
+                if (isApproved) {
+                  handleViewComments();
+                } else {
+                  Swal.fire({
+                    icon: "info",
+                    title: "Post Pending Approval",
+                    text: "You can interact with this post once it's approved",
+                    confirmButtonColor: "#D4AF37",
+                  });
+                }
+              }}
+              disabled={!isApproved}
               sx={{
                 color: "inherit",
                 minWidth: "auto",
                 px: 1,
                 textTransform: "none",
+                opacity: isApproved ? 1 : 0.5,
               }}
             >
               {postDetails.comment_count > 0
@@ -719,14 +1311,25 @@ const PostCard = ({
             <Button
               size="small"
               startIcon={<Share />}
+              onClick={handleShareClick}
+              disabled={!isApproved}
               sx={{
                 color: "inherit",
                 minWidth: "auto",
                 px: 1,
                 textTransform: "none",
+                opacity: isApproved ? 1 : 0.5,
               }}
             >
               Share
+              {(postDetails.share_count || 0) > 0 && (
+                <Typography
+                  component="span"
+                  sx={{ ml: 0.5, fontSize: "0.875rem", fontWeight: 500 }}
+                >
+                  {postDetails.share_count || 0}
+                </Typography>
+              )}
             </Button>
           </Box>
         </CardActions>
@@ -752,17 +1355,86 @@ const PostCard = ({
         </MenuItem>
       </Menu>
 
+      {/* Share Menu */}
+      <Menu
+        anchorEl={shareMenuAnchor}
+        open={Boolean(shareMenuAnchor)}
+        onClose={() => setShareMenuAnchor(null)}
+        anchorOrigin={{
+          vertical: "top",
+          horizontal: "left",
+        }}
+        transformOrigin={{
+          vertical: "bottom",
+          horizontal: "left",
+        }}
+      >
+        {navigator.share && (
+          <MenuItem onClick={handleNativeShare}>
+            <Share sx={{ mr: 1 }} />
+            Share via...
+          </MenuItem>
+        )}
+        <MenuItem onClick={handleCopyLink}>
+          <ContentCopy sx={{ mr: 1 }} />
+          Copy Link
+        </MenuItem>
+        <Divider />
+        <MenuItem onClick={() => handleSocialShare("twitter")}>
+          <Twitter sx={{ mr: 1, color: "#1DA1F2" }} />
+          Twitter
+        </MenuItem>
+        <MenuItem onClick={() => handleSocialShare("facebook")}>
+          <Facebook sx={{ mr: 1, color: "#1877F2" }} />
+          Facebook
+        </MenuItem>
+        <MenuItem onClick={() => handleSocialShare("whatsapp")}>
+          <WhatsApp sx={{ mr: 1, color: "#25D366" }} />
+          WhatsApp
+        </MenuItem>
+        <MenuItem onClick={() => handleSocialShare("telegram")}>
+          <Telegram sx={{ mr: 1, color: "#0088cc" }} />
+          Telegram
+        </MenuItem>
+      </Menu>
+
       {/* Emoji Picker */}
       <EmojiPicker
         open={emojiPickerOpen}
         anchorEl={emojiAnchor}
-        onClose={() => {
-          setEmojiPickerOpen(false);
-          setEmojiAnchor(null);
-        }}
+        onClose={handleEmojiPickerClose}
         onEmojiSelect={handleEmojiSelect}
         position="top"
+        keepOpenOnSelect={true}
       />
+
+      {/* Flying Emoji Animations */}
+      {flyingEmojis.map((flyingEmoji) => (
+        <Box
+          key={flyingEmoji.id}
+          sx={{
+            position: "fixed",
+            left: flyingEmoji.startX,
+            top: flyingEmoji.startY,
+            fontSize: "2rem",
+            pointerEvents: "none",
+            zIndex: 9999,
+            animation: `flyToButton 0.6s ease-out forwards`,
+            "@keyframes flyToButton": {
+              "0%": {
+                transform: "translate(0, 0) scale(1)",
+                opacity: 1,
+              },
+              "100%": {
+                transform: `translate(${flyingEmoji.targetX - flyingEmoji.startX}px, ${flyingEmoji.targetY - flyingEmoji.startY}px) scale(0.3)`,
+                opacity: 0,
+              },
+            },
+          }}
+        >
+          {flyingEmoji.emoji}
+        </Box>
+      ))}
 
       {/* Comments Dialog */}
       <Dialog
@@ -772,6 +1444,7 @@ const PostCard = ({
           setCommentText("");
           setReplyingTo(null);
           setReplyText("");
+          setLoadingComments(false);
         }}
         maxWidth="sm"
         fullWidth
@@ -792,6 +1465,7 @@ const PostCard = ({
                 setCommentText("");
                 setReplyingTo(null);
                 setReplyText("");
+                setLoadingComments(false);
               }}
               sx={{
                 color: "text.secondary",
@@ -809,15 +1483,29 @@ const PostCard = ({
               label="Write a comment..."
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
+              onKeyDown={(e) => {
+                // Submit on Ctrl+Enter or Cmd+Enter
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                  e.preventDefault();
+                  if (commentText.trim() && !submittingComment) {
+                    handleSubmitComment(null, e);
+                  }
+                }
+              }}
               multiline
               rows={3}
               variant="outlined"
               sx={{ mb: 1 }}
+              disabled={submittingComment}
             />
             <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
               <Button
                 variant="contained"
-                onClick={handleSubmitComment}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleSubmitComment(null, e);
+                }}
                 disabled={!commentText.trim() || submittingComment}
                 sx={{
                   bgcolor: "#D4AF37",
@@ -826,13 +1514,62 @@ const PostCard = ({
                 startIcon={
                   submittingComment ? <CircularProgress size={16} /> : <Send />
                 }
+                type="button"
               >
                 {submittingComment ? "Posting..." : "Post"}
               </Button>
             </Box>
           </Box>
           <Divider sx={{ mb: 2 }} />
-          {postDetails.comments && postDetails.comments.length > 0 ? (
+          {loadingComments ? (
+            // Skeleton loader while fetching comments
+            <List>
+              {[1, 2, 3, 4, 5].map((index) => (
+                <React.Fragment key={index}>
+                  <ListItem
+                    alignItems="flex-start"
+                    sx={{
+                      minHeight: 120, // Match comment item height
+                      py: 1,
+                    }}
+                  >
+                    <ListItemAvatar>
+                      <Skeleton variant="circular" width={40} height={40} />
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1 }}>
+                          <Skeleton variant="text" width={100} height={20} />
+                          <Skeleton variant="circular" width={14} height={14} />
+                        </Box>
+                      }
+                      secondary={
+                        <Box>
+                          <Skeleton variant="text" width="100%" height={20} sx={{ mb: 0.5 }} />
+                          <Skeleton variant="text" width="80%" height={20} sx={{ mb: 1 }} />
+                          <Box sx={{ display: "flex", gap: 1, mb: 1 }}>
+                            <Skeleton variant="text" width={60} height={24} />
+                            <Skeleton variant="text" width={60} height={24} />
+                          </Box>
+                          {/* Reply skeleton */}
+                          <Box sx={{ ml: 4, mt: 1 }}>
+                            <Box sx={{ display: "flex", gap: 1, mb: 1 }}>
+                              <Skeleton variant="circular" width={24} height={24} />
+                              <Box sx={{ flex: 1 }}>
+                                <Skeleton variant="text" width={80} height={16} sx={{ mb: 0.5 }} />
+                                <Skeleton variant="text" width="70%" height={16} />
+                              </Box>
+                            </Box>
+                          </Box>
+                        </Box>
+                      }
+                    />
+                  </ListItem>
+                  {index < 5 && <Divider />}
+                </React.Fragment>
+              ))}
+            </List>
+          ) : postDetails.comments && postDetails.comments.length > 0 ? (
             <List>
               {postDetails.comments
                 .filter((c) => !c.parent_comment_id)
@@ -951,9 +1688,11 @@ const PostCard = ({
                                   <Button
                                     size="small"
                                     variant="contained"
-                                    onClick={() =>
-                                      handleSubmitComment(comment.id)
-                                    }
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      handleSubmitComment(comment.id, e);
+                                    }}
                                     disabled={
                                       !replyText.trim() ||
                                       submittingReply[comment.id]
@@ -962,6 +1701,7 @@ const PostCard = ({
                                       bgcolor: "#D4AF37",
                                       "&:hover": { bgcolor: "#B8941F" },
                                     }}
+                                    type="button"
                                   >
                                     {submittingReply[comment.id]
                                       ? "Posting..."
@@ -1184,7 +1924,10 @@ const PostCard = ({
       {/* Emoji Reactions Dialog */}
       <Dialog
         open={emojiReactionsOpen}
-        onClose={() => setEmojiReactionsOpen(false)}
+        onClose={() => {
+          setEmojiReactionsOpen(false);
+          setLoadingEmojiReactions(false);
+        }}
         maxWidth="sm"
         fullWidth
       >
@@ -1199,7 +1942,10 @@ const PostCard = ({
             Emoji Reactions
             <IconButton
               size="small"
-              onClick={() => setEmojiReactionsOpen(false)}
+              onClick={() => {
+                setEmojiReactionsOpen(false);
+                setLoadingEmojiReactions(false);
+              }}
               sx={{
                 color: "text.secondary",
               }}
@@ -1209,16 +1955,73 @@ const PostCard = ({
           </Box>
         </DialogTitle>
         <DialogContent>
-          {postDetails.reactions &&
-          postDetails.reactions.filter(
-            (r) => r.reaction_type === "emoji" && r.emoji
-          ).length > 0 ? (
+          {loadingEmojiReactions ? (
+            // Skeleton loader while fetching - matching exact height of actual list items
+            <List>
+              {[1, 2, 3, 4, 5].map((index) => (
+                <React.Fragment key={index}>
+                  <ListItem
+                    sx={{
+                      minHeight: 72, // Match ListItem default minHeight
+                      py: 1, // Match ListItem padding
+                    }}
+                  >
+                    <ListItemAvatar>
+                      <Skeleton variant="circular" width={40} height={40} />
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1,
+                            minHeight: 24, // Match subtitle2 line height
+                          }}
+                        >
+                          <Skeleton
+                            variant="text"
+                            width={120}
+                            height={24}
+                            sx={{ fontSize: "0.875rem", lineHeight: 1.57 }} // Match subtitle2
+                          />
+                          <Skeleton
+                            variant="text"
+                            width={24}
+                            height={24}
+                            sx={{ fontSize: "1.25rem" }} // Match emoji fontSize 20
+                          />
+                        </Box>
+                      }
+                      secondary={
+                        <Skeleton
+                          variant="text"
+                          width={80}
+                          height={20}
+                          sx={{ fontSize: "0.75rem", lineHeight: 1.66 }} // Match caption
+                        />
+                      }
+                    />
+                  </ListItem>
+                  {index < 5 && <Divider />}
+                </React.Fragment>
+              ))}
+            </List>
+          ) : postDetails.reactions &&
+            postDetails.reactions.filter(
+              (r) => r.reaction_type === "emoji" && r.emoji
+            ).length > 0 ? (
             <List>
               {postDetails.reactions
                 .filter((r) => r.reaction_type === "emoji" && r.emoji)
                 .map((reaction, index, filteredReactions) => (
                   <React.Fragment key={reaction.id}>
-                    <ListItem>
+                    <ListItem
+                      sx={{
+                        minHeight: 72, // Match skeleton height
+                        py: 1, // Match skeleton padding
+                      }}
+                    >
                       <ListItemAvatar>
                         <Avatar
                           src={
@@ -1237,6 +2040,7 @@ const PostCard = ({
                               display: "flex",
                               alignItems: "center",
                               gap: 1,
+                              minHeight: 24, // Match skeleton height
                             }}
                           >
                             <Typography variant="subtitle2">

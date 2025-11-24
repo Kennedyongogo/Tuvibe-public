@@ -22,9 +22,11 @@ import {
   LocationOn,
   TextFields,
   EmojiEmotions,
+  MusicNote,
 } from "@mui/icons-material";
 import Swal from "sweetalert2";
 import EmojiPicker from "../EmojiPicker/EmojiPicker";
+import MusicPicker from "./MusicPicker";
 
 // Predefined background colors for text stories (similar to Facebook)
 const TEXT_STORY_COLORS = [
@@ -97,9 +99,13 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
   const [emojiPickerAnchor, setEmojiPickerAnchor] = useState(null);
   const [captionPosition, setCaptionPosition] = useState({ x: 50, y: 50 }); // Position as percentages
   const [isDraggingCaption, setIsDraggingCaption] = useState(false);
+  const [musicPickerOpen, setMusicPickerOpen] = useState(false);
+  const [selectedMusic, setSelectedMusic] = useState(null);
   const fileInputRef = useRef(null);
   const emojiButtonRef = useRef(null);
   const previewContainerRef = useRef(null);
+  const dialogRef = useRef(null);
+  const [dialogContainer, setDialogContainer] = useState(null);
   const [mediaDimensions, setMediaDimensions] = useState({
     width: 0,
     height: 0,
@@ -201,6 +207,29 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
       setCaption("");
       setIsDraggingCaption(false);
       setMediaDimensions({ width: 0, height: 0, offsetX: 0, offsetY: 0 });
+      setDialogContainer(null);
+    }
+  }, [open]);
+
+  // Find Dialog Paper element when dialog opens
+  useEffect(() => {
+    if (open) {
+      // Find the Dialog's Paper element (Material-UI Dialog uses this class)
+      const findDialogPaper = () => {
+        const papers = document.querySelectorAll('[role="dialog"]');
+        if (papers.length > 0) {
+          // Get the most recent dialog (should be this one)
+          const dialogPaper = Array.from(papers).find(
+            (paper) => paper.querySelector('[aria-labelledby*="dialog-title"]')
+          ) || papers[papers.length - 1];
+          if (dialogPaper) {
+            setDialogContainer(dialogPaper);
+          }
+        }
+      };
+      // Small delay to ensure Dialog is rendered
+      const timer = setTimeout(findDialogPaper, 100);
+      return () => clearTimeout(timer);
     }
   }, [open]);
 
@@ -449,6 +478,12 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
         });
       }
 
+      // Add music_id if music is selected
+      if (selectedMusic?.id) {
+        formData.append("music_id", selectedMusic.id);
+        console.log("🎵 [StoryCreator] Adding music:", selectedMusic.title);
+      }
+
       // Add caption position to metadata if caption exists and it's a media story
       if (storyType === "media" && caption.trim()) {
         const metadata = {
@@ -457,11 +492,20 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
             y: captionPosition.y,
           },
         };
+        if (selectedMusic?.id) {
+          metadata.music_id = selectedMusic.id;
+        }
         formData.append("metadata", JSON.stringify(metadata));
         console.log(
           "📍 [StoryCreator] Adding caption position:",
           captionPosition
         );
+      } else if (selectedMusic?.id) {
+        // Add music to metadata for text stories too
+        const metadata = {
+          music_id: selectedMusic.id,
+        };
+        formData.append("metadata", JSON.stringify(metadata));
       }
 
       console.log("🚀 [StoryCreator] Sending POST request to /api/stories");
@@ -523,10 +567,21 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
     setLocationCoords({ latitude: null, longitude: null });
     setGettingLocation(false);
     setUploading(false);
+    setSelectedMusic(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
     onClose();
+  };
+
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return null;
+    if (imagePath.startsWith("http")) return imagePath;
+    if (imagePath.startsWith("/")) return imagePath;
+    if (imagePath.includes("music/")) {
+      return `/uploads/${imagePath}`;
+    }
+    return imagePath;
   };
 
   return (
@@ -539,6 +594,8 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
         sx: {
           borderRadius: "20px",
           border: "1px solid rgba(212, 175, 55, 0.3)",
+          position: "relative",
+          overflow: "visible",
         },
       }}
     >
@@ -550,6 +607,8 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
+          borderTopLeftRadius: "20px",
+          borderTopRightRadius: "20px",
         }}
       >
         Create Story
@@ -717,6 +776,7 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
                 p: 3,
                 background: textBackgroundColor,
                 border: "2px solid rgba(212, 175, 55, 0.3)",
+                position: "relative",
               }}
             >
               <Typography
@@ -732,6 +792,68 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
               >
                 {caption || "Your text will appear here"}
               </Typography>
+
+              {/* Music Overlay for Text Stories */}
+              {selectedMusic && (
+                <Box
+                  sx={{
+                    position: "absolute",
+                    bottom: 16,
+                    left: 16,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    bgcolor: "rgba(0, 0, 0, 0.7)",
+                    borderRadius: 2,
+                    p: 1.5,
+                    backdropFilter: "blur(10px)",
+                    border: "1px solid rgba(255, 255, 255, 0.2)",
+                    maxWidth: "70%",
+                  }}
+                >
+                  {selectedMusic.cover_image_url && (
+                    <Box
+                      component="img"
+                      src={getImageUrl(selectedMusic.cover_image_url)}
+                      alt={selectedMusic.title}
+                      sx={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 1,
+                        objectFit: "cover",
+                      }}
+                    />
+                  )}
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: "white",
+                        fontWeight: 600,
+                        display: "block",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {selectedMusic.title}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: "rgba(255, 255, 255, 0.8)",
+                        display: "block",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {selectedMusic.artist}
+                    </Typography>
+                  </Box>
+                  <MusicNote sx={{ color: "#D4AF37", fontSize: 20 }} />
+                </Box>
+              )}
             </Box>
 
             <Box sx={{ mb: 2 }}>
@@ -860,6 +982,69 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
                   />
                 )}
 
+                {/* Music Overlay - Bottom Left */}
+                {selectedMusic && (
+                  <Box
+                    sx={{
+                      position: "absolute",
+                      bottom: 16,
+                      left: 16,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      bgcolor: "rgba(0, 0, 0, 0.7)",
+                      borderRadius: 2,
+                      p: 1.5,
+                      backdropFilter: "blur(10px)",
+                      border: "1px solid rgba(255, 255, 255, 0.2)",
+                      maxWidth: "70%",
+                      zIndex: 10,
+                    }}
+                  >
+                    {selectedMusic.cover_image_url && (
+                      <Box
+                        component="img"
+                        src={getImageUrl(selectedMusic.cover_image_url)}
+                        alt={selectedMusic.title}
+                        sx={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 1,
+                          objectFit: "cover",
+                        }}
+                      />
+                    )}
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: "white",
+                          fontWeight: 600,
+                          display: "block",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {selectedMusic.title}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: "rgba(255, 255, 255, 0.8)",
+                          display: "block",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {selectedMusic.artist}
+                      </Typography>
+                    </Box>
+                    <MusicNote sx={{ color: "#D4AF37", fontSize: 20 }} />
+                  </Box>
+                )}
+
                 {/* Draggable Caption Overlay - positioned relative to media element */}
                 {caption.trim() && mediaDimensions.width > 0 && (
                   <Box
@@ -957,6 +1142,65 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
               </Box>
             </Box>
 
+            {/* Music Selection */}
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                p: 1.5,
+                mb: 2,
+                borderRadius: "12px",
+                bgcolor: selectedMusic
+                  ? "rgba(212, 175, 55, 0.1)"
+                  : "rgba(0,0,0,0.02)",
+                border: `1px solid ${selectedMusic ? "#D4AF37" : "rgba(0,0,0,0.1)"}`,
+                transition: "all 0.3s ease",
+                cursor: "pointer",
+                "&:hover": {
+                  bgcolor: selectedMusic
+                    ? "rgba(212, 175, 55, 0.15)"
+                    : "rgba(0,0,0,0.05)",
+                },
+              }}
+              onClick={() => setMusicPickerOpen(true)}
+            >
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <MusicNote
+                  sx={{
+                    color: selectedMusic ? "#D4AF37" : "rgba(0,0,0,0.5)",
+                    transition: "color 0.3s ease",
+                  }}
+                />
+                <Box>
+                  <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                    Add Music
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "rgba(0,0,0,0.6)" }}
+                  >
+                    {selectedMusic
+                      ? `${selectedMusic.title} - ${selectedMusic.artist}`
+                      : "Add music to your story"}
+                  </Typography>
+                </Box>
+              </Box>
+              {selectedMusic && (
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedMusic(null);
+                  }}
+                  sx={{ color: "#D4AF37" }}
+                >
+                  <Close />
+                </IconButton>
+              )}
+            </Box>
+
+            {/* Location Selection */}
             <Box
               sx={{
                 display: "flex",
@@ -1030,10 +1274,22 @@ const StoryCreator = ({ open, onClose, onStoryCreated }) => {
         )}
       </DialogContent>
 
+      {/* Music Picker */}
+      <MusicPicker
+        open={musicPickerOpen}
+        onClose={() => setMusicPickerOpen(false)}
+        onSelectMusic={(music) => {
+          setSelectedMusic(music);
+          setMusicPickerOpen(false);
+        }}
+        selectedMusicId={selectedMusic?.id}
+      />
+
       {/* Emoji Picker */}
       <EmojiPicker
         open={emojiPickerOpen}
         anchorEl={emojiPickerAnchor}
+        container={dialogContainer}
         onClose={() => {
           setEmojiPickerOpen(false);
           setEmojiPickerAnchor(null);

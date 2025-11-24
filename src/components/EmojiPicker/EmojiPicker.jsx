@@ -8,6 +8,7 @@ import {
   Tab,
   ClickAwayListener,
   Button,
+  Portal,
 } from "@mui/material";
 import { EmojiEmotions } from "@mui/icons-material";
 
@@ -261,6 +262,7 @@ const EmojiPicker = ({
   onClose,
   position = "bottom",
   keepOpenOnSelect = false,
+  container = null,
 }) => {
   const [activeTab, setActiveTab] = useState("smileys");
   const [recentEmojis, setRecentEmojis] = useState([]);
@@ -309,17 +311,29 @@ const EmojiPicker = ({
   };
 
   const getPosition = () => {
-    if (!anchorEl) return {};
+    if (!anchorEl) return { position: "fixed" };
     const rect = anchorEl.getBoundingClientRect();
-    const isMobile = window.innerWidth < 600;
-    const pickerHeight = isMobile
-      ? Math.min(300, window.innerHeight - 64)
-      : 400;
-    const pickerWidth = isMobile ? Math.min(350, window.innerWidth - 32) : 350;
+    // Fixed dimensions to avoid horizontal scroll
+    const pickerHeight = 400;
+    const pickerWidth = 350;
     const padding = 16;
 
-    let top, left, right, bottom;
+    // If container is provided, center the picker on the container
+    if (container) {
+      const containerRect = container.getBoundingClientRect();
+      
+      // Ensure picker width doesn't exceed container width (with padding)
+      const maxPickerWidth = Math.min(pickerWidth, containerRect.width - padding * 2);
+      
+      // Center horizontally and vertically on the container
+      const left = (containerRect.width - maxPickerWidth) / 2;
+      const top = (containerRect.height - pickerHeight) / 2;
+      
+      return { top, left, position: "absolute", maxWidth: maxPickerWidth };
+    }
 
+    // Default: fixed positioning relative to viewport
+    let top, left;
     switch (position) {
       case "top":
         top = rect.top - pickerHeight - padding;
@@ -330,11 +344,20 @@ const EmojiPicker = ({
         if (left + pickerWidth > window.innerWidth - padding) {
           left = window.innerWidth - pickerWidth - padding;
         }
-        // If not enough space above, show below instead
-        if (top < padding) {
-          top = rect.bottom + padding;
+        // If not enough space above, try to show above anyway but adjust position
+        // Only fall back to below if absolutely necessary (less than 50px from top)
+        if (top < 50) {
+          // Try to show above the dialog by positioning relative to dialog center
+          const dialogCenter = window.innerHeight / 2;
+          const dialogTop = dialogCenter - 200; // Approximate dialog top
+          if (dialogTop > pickerHeight + padding) {
+            top = dialogTop - pickerHeight - padding;
+          } else {
+            // Last resort: show below
+            top = rect.bottom + padding;
+          }
         }
-        return { top, left };
+        return { top, left, position: "fixed" };
       case "left":
         left = rect.left - pickerWidth - padding;
         top = rect.top;
@@ -348,7 +371,7 @@ const EmojiPicker = ({
         }
         // Ensure it doesn't go off the top
         if (top < padding) top = padding;
-        return { top, left };
+        return { top, left, position: "fixed" };
       case "right":
         left = rect.right + padding;
         top = rect.top;
@@ -368,7 +391,7 @@ const EmojiPicker = ({
         }
         // Ensure it doesn't go off the top
         if (top < padding) top = padding;
-        return { top, left };
+        return { top, left, position: "fixed" };
       default: // bottom
         top = rect.bottom + padding;
         left = rect.left + rect.width / 2 - pickerWidth / 2;
@@ -386,33 +409,34 @@ const EmojiPicker = ({
         if (top < padding) {
           top = window.innerHeight - pickerHeight - padding;
         }
-        return { top, left };
+        return { top, left, position: "fixed" };
     }
   };
 
   if (!open) return null;
+  
+  const positionStyles = getPosition();
 
   const categories = Object.keys(EMOJI_CATEGORIES).filter(
     (key) => key !== "recent" || recentEmojis.length > 0
   );
 
-  return (
+  const pickerContent = (
     <ClickAwayListener onClickAway={onClose}>
       <Paper
         ref={pickerRef}
         elevation={8}
         sx={{
-          position: "fixed",
-          width: { xs: "calc(100vw - 32px)", sm: 350 },
-          maxWidth: 350,
-          height: { xs: 300, sm: 400 },
-          maxHeight: { xs: "calc(100vh - 64px)", sm: 400 },
+          position: positionStyles.position || "fixed",
+          width: positionStyles.maxWidth ? positionStyles.maxWidth : 350,
+          maxWidth: positionStyles.maxWidth || 350,
+          height: 400,
           display: "flex",
           flexDirection: "column",
-          zIndex: 1300,
+          zIndex: 1400,
           borderRadius: 2,
           overflow: "hidden",
-          ...getPosition(),
+          ...positionStyles,
         }}
       >
         {/* Header */}
@@ -424,6 +448,8 @@ const EmojiPicker = ({
             borderBottom: 1,
             borderColor: "divider",
             bgcolor: "background.paper",
+            overflow: "hidden",
+            minHeight: 48,
           }}
         >
           <Tabs
@@ -433,11 +459,28 @@ const EmojiPicker = ({
             scrollButtons="auto"
             sx={{
               flex: 1,
-              minHeight: { xs: 40, sm: 48 },
+              minHeight: 48,
+              maxWidth: "100%",
+              overflowX: "auto",
+              "& .MuiTabs-scrollButtons": {
+                width: 24,
+              },
               "& .MuiTab-root": {
-                minHeight: { xs: 40, sm: 48 },
-                fontSize: { xs: "0.75rem", sm: "1.2rem" },
-                px: { xs: 1, sm: 2 },
+                minHeight: 48,
+                fontSize: "0.75rem",
+                px: 1,
+                minWidth: "auto",
+                textTransform: "none",
+              },
+              "&::-webkit-scrollbar": {
+                height: "4px",
+              },
+              "&::-webkit-scrollbar-track": {
+                background: "rgba(0,0,0,0.05)",
+              },
+              "&::-webkit-scrollbar-thumb": {
+                background: "rgba(0,0,0,0.2)",
+                borderRadius: "2px",
               },
             }}
           >
@@ -446,7 +489,6 @@ const EmojiPicker = ({
                 key={key}
                 label={EMOJI_CATEGORIES[key].name}
                 value={key}
-                sx={{ textTransform: "none" }}
               />
             ))}
           </Tabs>
@@ -456,10 +498,13 @@ const EmojiPicker = ({
           sx={{
             flex: 1,
             overflowY: "auto",
-            p: { xs: 1, sm: 2 },
+            overflowX: "hidden",
+            p: 1.5,
             display: "grid",
-            gridTemplateColumns: { xs: "repeat(6, 1fr)", sm: "repeat(8, 1fr)" },
-            gap: { xs: 0.5, sm: 1 },
+            gridTemplateColumns: "repeat(8, 1fr)",
+            gap: 0.75,
+            width: "100%",
+            boxSizing: "border-box",
             "&::-webkit-scrollbar": {
               width: "6px",
             },
@@ -477,10 +522,12 @@ const EmojiPicker = ({
               key={`${activeTab}-${index}`}
               onClick={(e) => handleEmojiClick(emoji, e)}
               sx={{
-                fontSize: { xs: "1.2rem", sm: "1.5rem" },
-                width: { xs: 32, sm: 36 },
-                height: { xs: 32, sm: 36 },
-                minWidth: { xs: 32, sm: 36 },
+                fontSize: "1.5rem",
+                width: 36,
+                height: 36,
+                minWidth: 36,
+                maxWidth: 36,
+                padding: 0,
                 "&:hover": {
                   bgcolor: "rgba(212, 175, 55, 0.1)",
                   transform: "scale(1.2)",
@@ -502,6 +549,7 @@ const EmojiPicker = ({
             p: 1,
             display: "flex",
             justifyContent: "center",
+            flexShrink: 0,
           }}
         >
           <Button
@@ -513,7 +561,7 @@ const EmojiPicker = ({
               py: 0.75,
               color: "text.secondary",
               textTransform: "none",
-              fontSize: { xs: "0.75rem", sm: "0.875rem" },
+              fontSize: "0.875rem",
               "&:hover": {
                 bgcolor: "rgba(0, 0, 0, 0.05)",
                 color: "text.primary",
@@ -527,6 +575,14 @@ const EmojiPicker = ({
       </Paper>
     </ClickAwayListener>
   );
+
+  // If container is provided, render inside container using Portal
+  if (container) {
+    return <Portal container={container}>{pickerContent}</Portal>;
+  }
+
+  // Otherwise, render normally (fixed positioning)
+  return pickerContent;
 };
 
 export default EmojiPicker;

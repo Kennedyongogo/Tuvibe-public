@@ -74,8 +74,37 @@ const PostCreator = ({ open, onClose, onPostCreated }) => {
   const [uploading, setUploading] = useState(false);
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const [emojiPickerAnchor, setEmojiPickerAnchor] = useState(null);
+  const [dialogPaper, setDialogPaper] = useState(null);
   const fileInputRef = useRef(null);
   const emojiButtonRef = useRef(null);
+
+  // Find dialog paper element when dialog opens
+  useEffect(() => {
+    if (open) {
+      // Find the Dialog paper element
+      const findDialogPaper = () => {
+        const dialogContainer = document.querySelector('.MuiDialog-container');
+        if (dialogContainer) {
+          const paper = dialogContainer.querySelector('.MuiDialog-paper');
+          if (paper) {
+            setDialogPaper(paper);
+            return true;
+          }
+        }
+        return false;
+      };
+      
+      // Try immediately, then retry once after a short delay if needed
+      if (!findDialogPaper()) {
+        const timeoutId = setTimeout(() => {
+          findDialogPaper();
+        }, 100);
+        return () => clearTimeout(timeoutId);
+      }
+    } else {
+      setDialogPaper(null);
+    }
+  }, [open]);
 
   useEffect(() => {
     let isMounted = true;
@@ -316,6 +345,7 @@ const PostCreator = ({ open, onClose, onPostCreated }) => {
         sx: {
           borderRadius: "20px",
           border: "1px solid rgba(212, 175, 55, 0.3)",
+          position: "relative",
         },
       }}
     >
@@ -739,6 +769,7 @@ const PostCreator = ({ open, onClose, onPostCreated }) => {
           setEmojiPickerAnchor(null);
         }}
         position="top"
+        container={dialogPaper}
       />
 
       <DialogActions sx={{ p: 2, gap: 1 }}>

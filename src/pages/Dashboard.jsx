@@ -91,6 +91,18 @@ const goldShine = keyframes`
   }
 `;
 
+const colorShift = keyframes`
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+`;
+
 const getRemainingTimeForDate = (dateValue) => {
   if (!dateValue) return null;
   try {
@@ -1746,18 +1758,20 @@ export default function Dashboard({ user, setUser }) {
               fontWeight: 700,
               mb: { xs: 1, sm: 0.5 },
               fontSize: {
-                xs: "1.6rem",
-                sm: "2rem",
-                md: "2.2rem",
-                lg: "2.4rem",
+                xs: "1.2rem",
+                sm: "1.4rem",
+                md: "1.5rem",
+                lg: "1.6rem",
               },
               whiteSpace: { xs: "normal", md: "nowrap" },
               overflow: "hidden",
               textOverflow: "ellipsis",
-              background: "linear-gradient(45deg, #D4AF37, #B8941F)",
+              background: "linear-gradient(90deg, #D4AF37 0%, #f4d03f 25%, #FFD700 50%, #B8941F 75%, #8B6914 100%)",
+              backgroundSize: "200% 200%",
               backgroundClip: "text",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
+              animation: `${colorShift} 6s ease-in-out infinite`,
             }}
           >
             Welcome back, {user?.name || "User"}!
@@ -1766,7 +1780,7 @@ export default function Dashboard({ user, setUser }) {
             variant="body1"
             sx={{
               color: "rgba(26, 26, 26, 0.7)",
-              fontSize: { xs: "0.9rem", sm: "0.95rem", md: "1rem" },
+              fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.85rem" },
               whiteSpace: { xs: "normal", lg: "nowrap" },
               overflow: "hidden",
               textOverflow: "ellipsis",
@@ -1969,6 +1983,11 @@ export default function Dashboard({ user, setUser }) {
             "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
           border: "1px solid rgba(212, 175, 55, 0.2)",
           boxShadow: "0 4px 20px rgba(212, 175, 55, 0.1)",
+          // Fixed height to prevent layout shift during loading
+          minHeight: "220px", // StoriesFeed content (180px) + card padding
+          height: "220px",
+          display: "flex",
+          flexDirection: "column",
         }}
       >
         {user && (

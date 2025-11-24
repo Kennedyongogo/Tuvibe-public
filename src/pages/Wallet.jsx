@@ -627,6 +627,12 @@ export default function Wallet({ user, setUser }) {
           width: "100%",
           maxWidth: "100%",
           boxSizing: "border-box",
+          // Fixed height to prevent layout shift during loading
+          minHeight: { xs: "140px", sm: "160px", md: "180px" },
+          height: { xs: "140px", sm: "160px", md: "180px" },
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
         }}
       >
         <Stack
@@ -663,7 +669,15 @@ export default function Wallet({ user, setUser }) {
               Current Balance
             </Typography>
             {loading ? (
-              <CircularProgress size={24} sx={{ color: "#D4AF37" }} />
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  minHeight: { xs: "1.5rem", sm: "2rem", md: "3rem" },
+                }}
+              >
+                <CircularProgress size={24} sx={{ color: "#D4AF37" }} />
+              </Box>
             ) : (
               <Typography
                 variant="h3"
@@ -675,6 +689,9 @@ export default function Wallet({ user, setUser }) {
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
                   wordBreak: "break-word",
+                  minHeight: { xs: "1.5rem", sm: "2rem", md: "3rem" },
+                  display: "flex",
+                  alignItems: "center",
                 }}
               >
                 {Number(balance || 0).toFixed(2)} Tokens

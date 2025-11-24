@@ -14,11 +14,13 @@ import {
 import { theme } from "./theme";
 import "./App.css";
 import React, { useState, useEffect, Suspense, lazy } from "react";
+import { HelmetProvider } from "react-helmet-async";
 import Chatbot from "./components/Chatbot/Chatbot";
 import PageRoutes from "./components/PageRoutes";
 
 // Lazy load components
 const Home = lazy(() => import("./pages/Home"));
+const PostDetail = lazy(() => import("./pages/PostDetail"));
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -35,35 +37,39 @@ function App() {
   const [drawerOpen, setDrawerOpen] = useState(true); // Drawer open by default
 
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Router>
-        <ScrollToTop />
-        <Suspense
-          fallback={
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                height: "100vh",
-                backgroundColor: "white",
-              }}
-            >
-              <CircularProgress />
-            </Box>
-          }
-        >
-          <Routes>
-            {/* Public landing page */}
-            <Route path="/" element={<Home />} />
-            {/* Authenticated routes */}
-            <Route path="/*" element={<PageRoutes />} />
-          </Routes>
-        </Suspense>
-        <Chatbot />
-      </Router>
-    </ThemeProvider>
+    <HelmetProvider>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Router>
+          <ScrollToTop />
+          <Suspense
+            fallback={
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  height: "100vh",
+                  backgroundColor: "white",
+                }}
+              >
+                <CircularProgress />
+              </Box>
+            }
+          >
+            <Routes>
+              {/* Public landing page */}
+              <Route path="/" element={<Home />} />
+              {/* Post detail page - accessible without auth for sharing */}
+              <Route path="/post/:postId" element={<PostDetail user={null} />} />
+              {/* Authenticated routes */}
+              <Route path="/*" element={<PageRoutes />} />
+            </Routes>
+          </Suspense>
+          <Chatbot />
+        </Router>
+      </ThemeProvider>
+    </HelmetProvider>
   );
 }
 

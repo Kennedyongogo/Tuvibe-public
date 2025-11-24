@@ -31,6 +31,7 @@ import {
   ListItemText,
   useMediaQuery,
   Badge,
+  TextField,
 } from "@mui/material";
 import {
   LocationOn,
@@ -46,6 +47,7 @@ import {
   CheckCircle,
   NotificationsActive,
   Timeline,
+  Edit,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
@@ -73,6 +75,11 @@ export default function PremiumLounge({ user }) {
   const fetchingRef = useRef(false); // Track if we're currently fetching
   const lastFetchedRef = useRef({ category: null, tab: null }); // Track what we last fetched
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [myLookingForPost, setMyLookingForPost] = useState(null); // Current user's own post
+  const [postDialogOpen, setPostDialogOpen] = useState(false);
+  const [postContent, setPostContent] = useState("");
+  const [posting, setPosting] = useState(false);
+  const [hasCheckedPost, setHasCheckedPost] = useState(false); // Track if we've checked for existing post
 
   const isRegularUser = user?.category === "Regular";
   const isSmallScreen = useMediaQuery("(max-width:600px)");
@@ -254,6 +261,37 @@ export default function PremiumLounge({ user }) {
     }
   }, []);
 
+  // Fetch current user's own "Looking For" post
+  const fetchMyLookingForPost = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token || isRegularUser) return;
+
+    try {
+      const response = await fetch("/api/looking-for-posts/mine", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = await response.json();
+      if (data.success && data.data && data.data.length > 0) {
+        // Get the latest post
+        const latestPost = data.data[0];
+        setMyLookingForPost(latestPost);
+        setPostContent(latestPost.content || "");
+      } else {
+        setMyLookingForPost(null);
+        setPostContent("");
+      }
+      setHasCheckedPost(true);
+    } catch (err) {
+      console.error("Error fetching my Looking For post:", err);
+      setMyLookingForPost(null);
+      setHasCheckedPost(true);
+    }
+  }, [isRegularUser]);
+
   useEffect(() => {
     // Check localStorage as fallback if user prop is not available yet
     let userCategory = user?.category;
@@ -276,6 +314,7 @@ export default function PremiumLounge({ user }) {
       if (localStorage.getItem("token")) {
         fetchFavorites();
         fetchUnreadNotificationCount();
+        fetchMyLookingForPost();
       }
     } else if (userCategory === "Regular") {
       // Regular user - stop loading, upgrade dialog will show
@@ -291,7 +330,7 @@ export default function PremiumLounge({ user }) {
       }, 1000);
       return () => clearTimeout(timeout);
     }
-  }, [selectedTab, user?.category, fetchPremiumUsers, fetchUnreadNotificationCount]); // Only depend on category, not entire user object
+  }, [selectedTab, user?.category, fetchPremiumUsers, fetchUnreadNotificationCount, fetchMyLookingForPost]); // Only depend on category, not entire user object
 
   // Poll for unread notification count every 30 seconds
   useEffect(() => {
@@ -334,6 +373,76 @@ export default function PremiumLounge({ user }) {
       }
     } catch (err) {
       console.error("Error fetching Looking For posts:", err);
+    }
+  };
+
+  // Create "Looking For" post
+  const handleCreatePost = async () => {
+    if (!postContent.trim()) {
+      Swal.fire({
+        icon: "warning",
+        title: "Content Required",
+        text: "Please enter what you're looking for",
+        confirmButtonColor: "#D4AF37",
+      });
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      Swal.fire({
+        icon: "warning",
+        title: "Login Required",
+        text: "Please login to post",
+        confirmButtonColor: "#D4AF37",
+      });
+      return;
+    }
+
+    try {
+      setPosting(true);
+
+      // Create new post
+      const response = await fetch("/api/looking-for-posts", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ content: postContent.trim() }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        Swal.fire({
+          icon: "success",
+          title: "Post Created",
+          text: "Your 'Looking For' post has been created",
+          confirmButtonColor: "#D4AF37",
+          timer: 2000,
+          showConfirmButton: false,
+        });
+        setPostDialogOpen(false);
+        setPostContent("");
+        await fetchMyLookingForPost();
+        // Refresh posts for all users if needed
+        if (users.length > 0) {
+          fetchLookingForPosts(users.map((u) => u.id));
+        }
+      } else {
+        throw new Error(data.message || "Failed to create post");
+      }
+    } catch (error) {
+      console.error("Error creating post:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: error.message || "Failed to create post",
+        confirmButtonColor: "#D4AF37",
+      });
+    } finally {
+      setPosting(false);
     }
   };
 
@@ -871,69 +980,104 @@ export default function PremiumLounge({ user }) {
               </Box>
             </Box>
 
-            {/* Token Cost Banner */}
-            {tokenCost > 0 && (
-              <Card
-                sx={{
-                  p: 2,
-                  mb: 3,
-                  borderRadius: "12px",
-                  background:
-                    "linear-gradient(135deg, rgba(212, 175, 55, 0.15) 0%, rgba(184, 148, 31, 0.1) 100%)",
-                  border: "1px solid rgba(212, 175, 55, 0.3)",
-                }}
-              >
+            {/* "Looking For" Post Card */}
+            <Card
+              sx={{
+                mb: 2,
+                borderRadius: "12px",
+                background:
+                  "linear-gradient(135deg, rgba(212, 175, 55, 0.1) 0%, rgba(184, 148, 31, 0.05) 100%)",
+                border: "2px solid rgba(212, 175, 55, 0.3)",
+                boxShadow: "0 2px 12px rgba(212, 175, 55, 0.15)",
+              }}
+            >
+              <CardContent sx={{ p: { xs: 1.5, sm: 1.5 }, "&:last-child": { pb: { xs: 1.5, sm: 1.5 } } }}>
                 <Box
                   sx={{
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
+                    gap: { xs: 1, sm: 1.5 },
                     flexWrap: "wrap",
-                    gap: 2,
                   }}
                 >
-                  <Box>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    {isSmallScreen ? (
+                      <Tooltip
+                        title="Post what you're looking for to attract premium matches (you can create multiple posts)"
+                        arrow
+                        placement="top"
+                      >
+                        <Typography
+                          variant="h6"
+                          sx={{
+                            fontWeight: 700,
+                            color: "#1a1a1a",
+                            mb: { xs: 0, sm: 0.25 },
+                            fontSize: { xs: "1rem", sm: "1.125rem" },
+                            cursor: "help",
+                            lineHeight: 1.2,
+                          }}
+                        >
+                          What Are You Looking For?
+                        </Typography>
+                      </Tooltip>
+                    ) : (
+                      <Typography
+                        variant="h6"
+                        sx={{
+                          fontWeight: 700,
+                          color: "#1a1a1a",
+                          mb: 0.25,
+                          fontSize: { xs: "1rem", sm: "1.125rem" },
+                          lineHeight: 1.2,
+                        }}
+                      >
+                        What Are You Looking For?
+                      </Typography>
+                    )}
                     <Typography
                       variant="body2"
                       sx={{
-                        color: "rgba(26, 26, 26, 0.7)",
-                        mb: 0.5,
-                        fontSize: "0.875rem",
+                        color: "rgba(26, 26, 26, 0.6)",
+                        fontSize: { xs: "0.8rem", sm: "0.875rem" },
+                        display: { xs: "none", sm: "block" },
+                        lineHeight: 1.3,
+                        mt: 0.25,
                       }}
                     >
-                      Token Cost per Chat
-                    </Typography>
-                    <Typography
-                      variant="h6"
-                      sx={{
-                        fontWeight: 700,
-                        color: "#D4AF37",
-                        fontSize: { xs: "1.25rem", sm: "1.5rem" },
-                      }}
-                    >
-                      {tokenCost} Tokens ({formatKshFromTokens(tokenCost)})
+                      Post what you're looking for to attract premium matches (you can create multiple posts)
                     </Typography>
                   </Box>
                   <Button
                     variant="contained"
-                    onClick={() => navigate("/wallet")}
+                    startIcon={<Edit />}
+                    onClick={() => {
+                      setPostContent("");
+                      setPostDialogOpen(true);
+                    }}
                     sx={{
-                      background: "linear-gradient(135deg, #D4AF37, #B8941F)",
+                      background:
+                        "linear-gradient(135deg, #D4AF37, #B8941F)",
                       color: "#1a1a1a",
                       fontWeight: 600,
                       textTransform: "none",
-                      borderRadius: "12px",
-                      px: 3,
+                      borderRadius: "8px",
+                      px: { xs: 1.5, sm: 2 },
+                      py: { xs: 0.75, sm: 0.875 },
+                      fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                      minHeight: { xs: "36px", sm: "40px" },
                       "&:hover": {
-                        background: "linear-gradient(135deg, #B8941F, #D4AF37)",
+                        background:
+                          "linear-gradient(135deg, #B8941F, #D4AF37)",
                       },
                     }}
                   >
-                    Buy Tokens
+                    {myLookingForPost ? "Create New Post" : "Post"}
                   </Button>
                 </Box>
-              </Card>
-            )}
+              </CardContent>
+            </Card>
 
             {/* Category Tabs */}
             <Card
@@ -1413,7 +1557,7 @@ export default function PremiumLounge({ user }) {
                         >
                           {unlocking[userData.id]
                             ? "Unlocking..."
-                            : `Chat (${tokenCost} tokens | ${formatKshFromTokens(tokenCost)})`}
+                            : "Chat"}
                         </Button>
                       </Tooltip>
                     </Stack>
@@ -1524,6 +1668,131 @@ export default function PremiumLounge({ user }) {
                 }}
               >
                 Close
+              </Button>
+            </DialogActions>
+          </Dialog>
+
+          {/* Create "Looking For" Post Dialog */}
+          <Dialog
+            open={postDialogOpen}
+            onClose={() => {
+              if (!posting) {
+                setPostDialogOpen(false);
+                setPostContent("");
+              }
+            }}
+            maxWidth="sm"
+            fullWidth
+            sx={{
+              "& .MuiDialog-paper": {
+                borderRadius: "16px",
+                background: "#FFFFFF",
+                border: "1px solid rgba(212, 175, 55, 0.3)",
+              },
+            }}
+          >
+            <DialogTitle
+              sx={{
+                background: "linear-gradient(135deg, #D4AF37, #B8941F)",
+                color: "#1a1a1a",
+                fontWeight: 700,
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                pb: 2,
+              }}
+            >
+              <Edit sx={{ color: "#1a1a1a" }} />
+              Post What You're Looking For
+            </DialogTitle>
+            <DialogContent sx={{ pt: 3, backgroundColor: "#FFFFFF" }}>
+              <TextField
+                multiline
+                rows={6}
+                fullWidth
+                value={postContent}
+                onChange={(e) => setPostContent(e.target.value)}
+                placeholder="Describe what you're looking for... Be specific and clear to attract the right matches."
+                variant="outlined"
+                disabled={posting}
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: "12px",
+                    "& fieldset": {
+                      borderColor: "rgba(212, 175, 55, 0.3)",
+                    },
+                    "&:hover fieldset": {
+                      borderColor: "rgba(212, 175, 55, 0.5)",
+                    },
+                    "&.Mui-focused fieldset": {
+                      borderColor: "#D4AF37",
+                    },
+                  },
+                }}
+              />
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "rgba(26, 26, 26, 0.6)",
+                  mt: 1,
+                  display: "block",
+                }}
+              >
+                This post will be visible to other premium users in the Premium Lounge
+              </Typography>
+            </DialogContent>
+            <DialogActions
+              sx={{
+                p: 2,
+                borderTop: "1px solid rgba(212, 175, 55, 0.2)",
+                backgroundColor: "#FFFFFF",
+                gap: 1,
+              }}
+            >
+              <Button
+                onClick={() => {
+                  setPostDialogOpen(false);
+                  setPostContent("");
+                }}
+                disabled={posting}
+                sx={{
+                  color: "#1a1a1a",
+                  fontWeight: 600,
+                  textTransform: "none",
+                  "&:hover": {
+                    backgroundColor: "rgba(212, 175, 55, 0.1)",
+                  },
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleCreatePost}
+                disabled={posting || !postContent.trim()}
+                variant="contained"
+                sx={{
+                  background: "linear-gradient(135deg, #D4AF37, #B8941F)",
+                  color: "#1a1a1a",
+                  fontWeight: 600,
+                  textTransform: "none",
+                  borderRadius: "8px",
+                  px: 3,
+                  "&:hover": {
+                    background: "linear-gradient(135deg, #B8941F, #D4AF37)",
+                  },
+                  "&:disabled": {
+                    opacity: 0.6,
+                  },
+                }}
+              >
+                {posting ? (
+                  <>
+                    <CircularProgress size={16} sx={{ mr: 1, color: "#1a1a1a" }} />
+                    Posting...
+                  </>
+                ) : (
+                  "Post"
+                )}
               </Button>
             </DialogActions>
           </Dialog>

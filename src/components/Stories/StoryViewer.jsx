@@ -35,6 +35,7 @@ import {
   MoreVert,
   EmojiEmotions,
   Visibility,
+  MusicNote,
 } from "@mui/icons-material";
 import Swal from "sweetalert2";
 import EmojiPicker from "../EmojiPicker/EmojiPicker";
@@ -57,6 +58,8 @@ const StoryViewer = ({
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const [emojiPickerAnchor, setEmojiPickerAnchor] = useState(null);
   const [viewCount, setViewCount] = useState(0);
+  const [reactionCount, setReactionCount] = useState(0);
+  const [commentCount, setCommentCount] = useState(0);
   const [viewersDialogOpen, setViewersDialogOpen] = useState(false);
   const [viewers, setViewers] = useState([]);
   const [loadingViewers, setLoadingViewers] = useState(false);
@@ -72,6 +75,9 @@ const StoryViewer = ({
   const storyTimeoutRef = useRef(null);
   const emojiButtonRef = useRef(null);
   const mediaContainerRef = useRef(null);
+  const sseEventSourceRef = useRef(null);
+  const currentStoryIdRef = useRef(null);
+  const musicAudioRef = useRef(null);
   const [mediaDimensions, setMediaDimensions] = useState({
     width: 0,
     height: 0,
@@ -125,9 +131,12 @@ const StoryViewer = ({
       setComment(""); // Clear comment when closing
       setEmojiPickerOpen(false); // Close emoji picker when viewer closes
       setEmojiPickerAnchor(null);
+      // Stop music when closing
+      stopMusic();
     }
     return () => {
       clearProgress();
+      stopMusic();
     };
   }, [open, storyGroup, currentUser, user]);
 
@@ -171,6 +180,16 @@ const StoryViewer = ({
 
       // Update view count from story data
       setViewCount(currentStory.view_count || 0);
+      setReactionCount(currentStory.reaction_count || 0);
+      setCommentCount(currentStory.comment_count || 0);
+      // Update ref for SSE handlers (critical for real-time updates)
+      currentStoryIdRef.current = currentStory.id;
+      console.log("🔄 [StoryViewer] Story changed, updated ref:", {
+        storyId: currentStory.id,
+        viewCount: currentStory.view_count,
+        reactionCount: currentStory.reaction_count,
+        commentCount: currentStory.comment_count,
+      });
 
       // Load reactions and comments if story owner
       if (isStoryOwner && currentStory.id) {
@@ -186,6 +205,13 @@ const StoryViewer = ({
         } else {
           loadStoryComments(currentStory.id);
         }
+      }
+
+      // Play music if story has music
+      if (currentStory.music || currentStory.music_id) {
+        playMusic(currentStory.music || { id: currentStory.music_id });
+      } else {
+        stopMusic();
       }
     }
   }, [currentStoryIndex, currentStory, isStoryOwner]);
@@ -320,6 +346,122 @@ const StoryViewer = ({
     }
   };
 
+  // Set up SSE connection for real-time count updates (only once when viewer opens)
+  useEffect(() => {
+    if (!open) {
+      // Close SSE connection when viewer closes
+      if (sseEventSourceRef.current) {
+        sseEventSourceRef.current.close();
+        sseEventSourceRef.current = null;
+      }
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    // Only create SSE connection once when viewer opens
+    if (sseEventSourceRef.current) {
+      return; // Already connected
+    }
+
+    try {
+      const isDev = import.meta.env.DEV;
+      const protocol = window.location.protocol;
+      const host = window.location.hostname;
+      const apiPort = isDev ? "4000" : window.location.port || "";
+      const sseUrl = isDev
+        ? `${protocol}//${host}:${apiPort}/api/sse/events?token=${encodeURIComponent(token)}`
+        : `${protocol}//${host}${apiPort ? `:${apiPort}` : ""}/api/sse/events?token=${encodeURIComponent(token)}`;
+
+      console.log("🔌 [StoryViewer] Setting up SSE connection for real-time updates");
+      sseEventSourceRef.current = new EventSource(sseUrl);
+
+      // Listen for story view count updates
+      const handleStoryViewed = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log("📡 [StoryViewer] SSE: Received story:viewed event", data);
+          // Only update if it's for the current story
+          if (data.storyId === currentStoryIdRef.current) {
+            console.log("✅ [StoryViewer] SSE: Updating view count for current story", data);
+            setViewCount(data.viewCount || 0);
+          } else {
+            console.log("⏭️ [StoryViewer] SSE: Ignoring view event for different story", {
+              eventStoryId: data.storyId,
+              currentStoryId: currentStoryIdRef.current,
+            });
+          }
+        } catch (err) {
+          console.error("❌ [StoryViewer] Error parsing SSE view event:", err);
+        }
+      };
+
+      // Listen for story reaction count updates
+      const handleStoryReacted = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log("📡 [StoryViewer] SSE: Received story:reacted event", data);
+          // Only update if it's for the current story
+          if (data.storyId === currentStoryIdRef.current) {
+            console.log("✅ [StoryViewer] SSE: Updating reaction count for current story", data);
+            setReactionCount(data.reactionCount || 0);
+          }
+        } catch (err) {
+          console.error("❌ [StoryViewer] Error parsing SSE reaction event:", err);
+        }
+      };
+
+      // Listen for story comment count updates
+      const handleStoryCommented = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log("📡 [StoryViewer] SSE: Received story:commented event", data);
+          // Only update if it's for the current story
+          if (data.storyId === currentStoryIdRef.current) {
+            console.log("✅ [StoryViewer] SSE: Updating comment count for current story", data);
+            setCommentCount(data.commentCount || 0);
+          }
+        } catch (err) {
+          console.error("❌ [StoryViewer] Error parsing SSE comment event:", err);
+        }
+      };
+
+      sseEventSourceRef.current.addEventListener("story:viewed", handleStoryViewed);
+      sseEventSourceRef.current.addEventListener("story:reacted", handleStoryReacted);
+      sseEventSourceRef.current.addEventListener("story:commented", handleStoryCommented);
+
+      sseEventSourceRef.current.onopen = () => {
+        console.log("✅ [StoryViewer] SSE connection opened");
+      };
+
+      sseEventSourceRef.current.onerror = (error) => {
+        console.warn("⚠️ [StoryViewer] SSE error:", error);
+        // Try to reconnect if connection is lost
+        if (sseEventSourceRef.current?.readyState === EventSource.CLOSED) {
+          console.log("🔄 [StoryViewer] SSE connection closed, will reconnect on next story change");
+          sseEventSourceRef.current = null;
+        }
+      };
+    } catch (err) {
+      console.warn("⚠️ [StoryViewer] SSE not available:", err);
+    }
+
+    return () => {
+      // Cleanup: close SSE connection when viewer closes
+      // This will run when open becomes false or component unmounts
+    };
+  }, [open]); // Only depend on open, not story ID
+
+  // Separate effect to handle closing SSE when viewer closes
+  useEffect(() => {
+    if (!open && sseEventSourceRef.current) {
+      console.log("🔌 [StoryViewer] Closing SSE connection");
+      sseEventSourceRef.current.close();
+      sseEventSourceRef.current = null;
+    }
+  }, [open]);
+
   // Track view when story is displayed (only once per story, and only if not the owner)
   useEffect(() => {
     if (open && currentStory && !isStoryOwner && currentStory.id) {
@@ -395,10 +537,20 @@ const StoryViewer = ({
           clearInterval(progressIntervalRef.current);
           progressIntervalRef.current = null;
         }
+        // Pause music
+        if (musicAudioRef.current) {
+          musicAudioRef.current.pause();
+        }
       } else {
         // Unpause: start or resume progress if not already running
         if (!progressIntervalRef.current && progress < 100) {
           startProgress(progress); // Start from current progress (0 if just opened)
+        }
+        // Resume music
+        if (musicAudioRef.current && currentStory.music) {
+          musicAudioRef.current.play().catch((err) => {
+            console.error("Error resuming music:", err);
+          });
         }
       }
     }
@@ -914,7 +1066,70 @@ const StoryViewer = ({
     if (imagePath.startsWith("stories/")) return `/uploads/${imagePath}`;
     if (imagePath.startsWith("uploads/")) return `/${imagePath}`;
     if (imagePath.startsWith("profiles/")) return `/uploads/${imagePath}`;
+    if (imagePath.includes("music/")) return `/uploads/${imagePath}`;
     return `/uploads/${imagePath}`;
+  };
+
+  const getAudioUrl = (audioPath) => {
+    if (!audioPath) return null;
+    if (audioPath.startsWith("http")) return audioPath;
+    if (audioPath.startsWith("/")) return audioPath;
+    if (audioPath.includes("music/")) return `/uploads/${audioPath}`;
+    return audioPath;
+  };
+
+  const playMusic = (music) => {
+    if (!music) return;
+    
+    // If music is just an ID, we need to fetch it or it should be included in story
+    // For now, assume music object is passed or we need audio_url
+    const audioUrl = music.audio_url ? getAudioUrl(music.audio_url) : null;
+    if (!audioUrl) {
+      console.log("No audio URL available for music:", music);
+      return;
+    }
+
+    // Stop any currently playing music
+    stopMusic();
+
+    try {
+      const audio = new Audio(audioUrl);
+      audio.loop = true; // Loop music like Instagram/Facebook
+      audio.volume = 0.5; // Set volume to 50%
+      
+      audio.addEventListener("error", (e) => {
+        console.error("Error playing music:", e);
+        stopMusic();
+      });
+
+      audio.addEventListener("ended", () => {
+        // Restart if not paused
+        if (!isPaused && musicAudioRef.current) {
+          audio.currentTime = 0;
+          audio.play().catch((err) => {
+            console.error("Error replaying music:", err);
+          });
+        }
+      });
+
+      // Play music
+      audio.play().catch((err) => {
+        console.error("Error playing music:", err);
+        // Some browsers require user interaction - music will play on next user action
+      });
+
+      musicAudioRef.current = audio;
+    } catch (err) {
+      console.error("Error creating audio element:", err);
+    }
+  };
+
+  const stopMusic = () => {
+    if (musicAudioRef.current) {
+      musicAudioRef.current.pause();
+      musicAudioRef.current.src = "";
+      musicAudioRef.current = null;
+    }
   };
 
   if (!open || !currentStory) return null;
@@ -1124,6 +1339,7 @@ const StoryViewer = ({
                 alignItems: "center",
                 justifyContent: "center",
                 p: 4,
+                position: "relative",
                 background:
                   (currentStory.metadata &&
                     typeof currentStory.metadata === "object" &&
@@ -1146,6 +1362,69 @@ const StoryViewer = ({
               >
                 {currentStory.caption}
               </Typography>
+
+              {/* Music Overlay for Text Stories */}
+              {currentStory.music && (
+                <Box
+                  sx={{
+                    position: "absolute",
+                    top: 80,
+                    right: 16,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    bgcolor: "rgba(0, 0, 0, 0.7)",
+                    borderRadius: 2,
+                    p: 1.5,
+                    backdropFilter: "blur(10px)",
+                    border: "1px solid rgba(255, 255, 255, 0.2)",
+                    maxWidth: "70%",
+                    zIndex: 5,
+                  }}
+                >
+                  {currentStory.music?.cover_image_url && (
+                    <Box
+                      component="img"
+                      src={getImageUrl(currentStory.music.cover_image_url)}
+                      alt={currentStory.music.title}
+                      sx={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 1,
+                        objectFit: "cover",
+                      }}
+                    />
+                  )}
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: "white",
+                        fontWeight: 600,
+                        display: "block",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {currentStory.music?.title}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: "rgba(255, 255, 255, 0.8)",
+                        display: "block",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {currentStory.music?.artist}
+                    </Typography>
+                  </Box>
+                  <MusicNote sx={{ color: "#D4AF37", fontSize: 20 }} />
+                </Box>
+              )}
             </Box>
           ) : (
             <Box
@@ -1203,11 +1482,75 @@ const StoryViewer = ({
                   />
                 )}
 
+                {/* Music Overlay for Media Stories */}
+                {currentStory.music && (
+                  <Box
+                    sx={{
+                      position: "absolute",
+                      top: 80,
+                      right: 16,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      bgcolor: "rgba(0, 0, 0, 0.7)",
+                      borderRadius: 2,
+                      p: 1.5,
+                      backdropFilter: "blur(10px)",
+                      border: "1px solid rgba(255, 255, 255, 0.2)",
+                      maxWidth: "70%",
+                      zIndex: 5,
+                    }}
+                  >
+                    {currentStory.music.cover_image_url && (
+                      <Box
+                        component="img"
+                        src={getImageUrl(currentStory.music.cover_image_url)}
+                        alt={currentStory.music.title}
+                        sx={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 1,
+                          objectFit: "cover",
+                        }}
+                      />
+                    )}
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: "white",
+                          fontWeight: 600,
+                          display: "block",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {currentStory.music.title}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: "rgba(255, 255, 255, 0.8)",
+                          display: "block",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {currentStory.music.artist}
+                      </Typography>
+                    </Box>
+                    <MusicNote sx={{ color: "#D4AF37", fontSize: 20 }} />
+                  </Box>
+                )}
+
                 {/* Caption positioned relative to actual media element dimensions */}
                 {currentStory.caption &&
                   currentStory.metadata?.caption_position &&
                   mediaDimensions.width > 0 && (
-                    <Box
+                    <Typography
+                      variant="body2"
                       sx={{
                         position: "absolute",
                         // Calculate position based on actual media dimensions
@@ -1215,32 +1558,18 @@ const StoryViewer = ({
                         left: `${mediaDimensions.offsetX + (mediaDimensions.width * Math.max(10, Math.min(90, currentStory.metadata.caption_position.x))) / 100}px`,
                         top: `${mediaDimensions.offsetY + (mediaDimensions.height * Math.max(10, Math.min(90, currentStory.metadata.caption_position.y))) / 100}px`,
                         transform: "translate(-50%, -50%)",
-                        px: { xs: 1.5, sm: 2 },
-                        py: { xs: 1, sm: 1.5 },
-                        background: "rgba(0, 0, 0, 0.6)",
-                        borderRadius: 2,
-                        backdropFilter: "blur(10px)",
-                        border: "2px solid rgba(255, 255, 255, 0.3)",
+                        color: "white",
+                        textAlign: "center",
+                        fontSize: { xs: "0.875rem", sm: "1rem" },
+                        wordBreak: "break-word",
                         maxWidth: { xs: "85%", sm: "80%" },
-                        maxHeight: "40%",
-                        overflow: "hidden",
+                        fontWeight: 600,
+                        textShadow: "2px 2px 4px rgba(0,0,0,0.8)",
                         zIndex: 4,
                       }}
                     >
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          color: "white",
-                          textAlign: "center",
-                          fontSize: { xs: "0.875rem", sm: "1rem" },
-                          wordBreak: "break-word",
-                          maxWidth: "100%",
-                          fontWeight: 600,
-                        }}
-                      >
-                        {currentStory.caption}
-                      </Typography>
-                    </Box>
+                      {currentStory.caption}
+                    </Typography>
                   )}
               </Box>
             </Box>
@@ -1351,7 +1680,7 @@ const StoryViewer = ({
                     fontSize: "0.875rem",
                   }}
                 >
-                  {currentStory.reaction_count || 0}
+                  {reactionCount}
                 </Typography>
               </Box>
 
@@ -1389,7 +1718,7 @@ const StoryViewer = ({
                     fontSize: "0.875rem",
                   }}
                 >
-                  {currentStory.comment_count || 0}
+                  {commentCount}
                 </Typography>
               </Box>
             </Stack>

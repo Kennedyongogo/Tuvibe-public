@@ -18,6 +18,7 @@ import {
   Paper,
   Tooltip,
   Checkbox,
+  Skeleton,
 } from "@mui/material";
 import {
   NotificationsActive,
@@ -308,22 +309,24 @@ export default function Notifications({ user }) {
       text: "This action cannot be undone.",
       icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: "#D4AF37",
-      cancelButtonColor: "#6c757d",
       confirmButtonText: `Yes, delete ${count}`,
       cancelButtonText: "Cancel",
-      reverseButtons: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#D4AF37",
+      zIndex: 9999,
       customClass: {
-        popup: "swal-notification-delete",
+        container: "swal-story-viewer-overlay",
       },
       didOpen: () => {
-        const swal = document.querySelector(".swal-notification-delete");
-        if (swal) {
-          swal.style.borderRadius = "16px";
-          swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
-          swal.style.boxShadow = "0 20px 60px rgba(212, 175, 55, 0.25)";
-          swal.style.background =
-            "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)";
+        const swalContainer = document.querySelector(
+          ".swal-story-viewer-overlay"
+        );
+        const swalBackdrop = document.querySelector(".swal2-backdrop-show");
+        if (swalContainer) {
+          swalContainer.style.zIndex = "9999";
+        }
+        if (swalBackdrop) {
+          swalBackdrop.style.zIndex = "9998";
         }
       },
     });
@@ -360,19 +363,32 @@ export default function Notifications({ user }) {
       const failedCount = count - successCount;
 
       if (failedCount === 0) {
-        Swal.fire({
-          icon: "success",
-          title: "Deleted!",
-          text: `${successCount} notification${successCount > 1 ? "s" : ""} deleted successfully.`,
-          timer: 2000,
-          timerProgressBar: true,
-          showConfirmButton: false,
-          toast: true,
-          position: "top-end",
-          width: 300,
-          padding: "1rem",
-          confirmButtonColor: "#D4AF37",
-        });
+        // Small delay to ensure confirmation dialog is fully closed and UI updated
+        setTimeout(() => {
+          Swal.fire({
+            icon: "success",
+            title: "Deleted!",
+            text: `${successCount} notification${successCount > 1 ? "s" : ""} deleted successfully.`,
+            confirmButtonColor: "#D4AF37",
+            timer: 3000,
+            zIndex: 9999,
+            customClass: {
+              container: "swal-story-viewer-overlay",
+            },
+            didOpen: () => {
+              const swalContainer = document.querySelector(
+                ".swal-story-viewer-overlay"
+              );
+              const swalBackdrop = document.querySelector(".swal2-backdrop-show");
+              if (swalContainer) {
+                swalContainer.style.zIndex = "9999";
+              }
+              if (swalBackdrop) {
+                swalBackdrop.style.zIndex = "9998";
+              }
+            },
+          });
+        }, 200);
       } else {
         // Revert optimistic update for failed deletions
         setNotifications((prev) => {
@@ -448,24 +464,24 @@ export default function Notifications({ user }) {
       text: "This action cannot be undone.",
       icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: "#D4AF37",
-      cancelButtonColor: "#6c757d",
-      confirmButtonText: "Yes, delete it",
+      confirmButtonText: "Delete",
       cancelButtonText: "Cancel",
-      reverseButtons: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#D4AF37",
+      zIndex: 9999,
       customClass: {
-        popup: "swal-notification-delete",
-        confirmButton: "swal-confirm-button",
-        cancelButton: "swal-cancel-button",
+        container: "swal-story-viewer-overlay",
       },
       didOpen: () => {
-        const swal = document.querySelector(".swal-notification-delete");
-        if (swal) {
-          swal.style.borderRadius = "16px";
-          swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
-          swal.style.boxShadow = "0 20px 60px rgba(212, 175, 55, 0.25)";
-          swal.style.background =
-            "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)";
+        const swalContainer = document.querySelector(
+          ".swal-story-viewer-overlay"
+        );
+        const swalBackdrop = document.querySelector(".swal2-backdrop-show");
+        if (swalContainer) {
+          swalContainer.style.zIndex = "9999";
+        }
+        if (swalBackdrop) {
+          swalBackdrop.style.zIndex = "9998";
         }
       },
     });
@@ -498,27 +514,26 @@ export default function Notifications({ user }) {
 
       const data = await response.json();
       if (data.success) {
-        // Show success toast
         Swal.fire({
           icon: "success",
           title: "Deleted!",
-          text: "Notification has been deleted.",
-          timer: 2000,
-          timerProgressBar: true,
-          showConfirmButton: false,
-          toast: true,
-          position: "top-end",
-          width: 300,
-          padding: "1rem",
+          text: "Notification has been deleted successfully",
           confirmButtonColor: "#D4AF37",
+          timer: 3000,
+          zIndex: 9999,
           customClass: {
-            popup: "swal-notification-toast",
+            container: "swal-story-viewer-overlay",
           },
           didOpen: () => {
-            const swal = document.querySelector(".swal-notification-toast");
-            if (swal) {
-              swal.style.borderRadius = "12px";
-              swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
+            const swalContainer = document.querySelector(
+              ".swal-story-viewer-overlay"
+            );
+            const swalBackdrop = document.querySelector(".swal2-backdrop-show");
+            if (swalContainer) {
+              swalContainer.style.zIndex = "9999";
+            }
+            if (swalBackdrop) {
+              swalBackdrop.style.zIndex = "9998";
             }
           },
         });
@@ -628,21 +643,6 @@ export default function Notifications({ user }) {
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  if (loading && notifications.length === 0) {
-    return (
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          minHeight: "400px",
-        }}
-      >
-        <CircularProgress sx={{ color: "#D4AF37" }} />
-      </Box>
-    );
-  }
-
   return (
     <Box>
       <Card
@@ -709,7 +709,17 @@ export default function Notifications({ user }) {
                   flexShrink: 0,
                 }}
               >
-                {notifications.length > 0 && (
+                {loading && notifications.length === 0 ? (
+                  <Skeleton
+                    variant="rectangular"
+                    width={80}
+                    height={32}
+                    sx={{
+                      borderRadius: "4px",
+                      minWidth: { xs: "auto", sm: "64px" },
+                    }}
+                  />
+                ) : notifications.length > 0 ? (
                   <>
                     {selectionMode ? (
                       <Checkbox
@@ -769,7 +779,7 @@ export default function Notifications({ user }) {
                       </Typography>
                     )}
                   </>
-                )}
+                ) : null}
                 <Tooltip title="Timeline" arrow>
                   <span>
                     <IconButton
@@ -818,6 +828,8 @@ export default function Notifications({ user }) {
               gap: { xs: 1, sm: 1.5 },
               flexWrap: "wrap",
               width: { xs: "100%", sm: "auto" },
+              mb: { xs: 2, sm: 3 },
+              mt: { xs: 1, sm: 1.5 },
             }}
           >
             {selectedIds.size > 0 ? (
@@ -855,18 +867,20 @@ export default function Notifications({ user }) {
                   Delete ({selectedIds.size})
                 </Button>
                 <Button
-                  variant="contained"
+                  variant="outlined"
                   size="small"
                   onClick={() => {
                     deselectAll();
                     setSelectionMode(false);
                   }}
                   sx={{
-                    bgcolor: "#D4AF37",
-                    color: "white",
+                    borderColor: "rgba(26, 26, 26, 0.3)",
+                    color: "rgba(26, 26, 26, 0.8)",
                     fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                    bgcolor: "rgba(255, 255, 255, 0.8)",
                     "&:hover": {
-                      bgcolor: "#B8941F",
+                      borderColor: "rgba(26, 26, 26, 0.5)",
+                      bgcolor: "rgba(26, 26, 26, 0.05)",
                     },
                   }}
                 >
@@ -902,7 +916,115 @@ export default function Notifications({ user }) {
           </Typography>
         )}
 
-        {notifications.length === 0 ? (
+        {loading && notifications.length === 0 ? (
+          <List sx={{ p: 0 }}>
+            {Array.from({ length: 5 }).map((_, index) => (
+              <React.Fragment key={`skeleton-${index}`}>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    mb: { xs: 0.5, sm: 1 },
+                    backgroundColor: "transparent",
+                    border: "2px solid transparent",
+                  }}
+                >
+                  <ListItem
+                    alignItems="flex-start"
+                    sx={{
+                      px: { xs: 1, sm: 2 },
+                      py: { xs: 1.5, sm: 2 },
+                    }}
+                    secondaryAction={
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: { xs: 0.5, sm: 1 },
+                        }}
+                      >
+                        <Skeleton
+                          variant="circular"
+                          width={32}
+                          height={32}
+                          sx={{ mr: { xs: 0.5, sm: 1 } }}
+                        />
+                        <Skeleton variant="circular" width={32} height={32} />
+                      </Box>
+                    }
+                  >
+                    <ListItemAvatar sx={{ minWidth: { xs: 44, sm: 56 } }}>
+                      <Skeleton
+                        variant="circular"
+                        width={48}
+                        height={48}
+                        sx={{
+                          width: { xs: 40, sm: 48 },
+                          height: { xs: 40, sm: 48 },
+                        }}
+                      />
+                    </ListItemAvatar>
+                    <ListItemText
+                      sx={{
+                        pr: { xs: "48px", sm: "56px" },
+                      }}
+                      primary={
+                        <Box
+                          sx={{
+                            display: "flex",
+                            flexDirection: { xs: "column", sm: "row" },
+                            alignItems: { xs: "flex-start", sm: "center" },
+                            gap: { xs: 0.5, sm: 1 },
+                            mb: 0.5,
+                          }}
+                        >
+                          <Skeleton
+                            variant="text"
+                            width="60%"
+                            height={24}
+                            sx={{
+                              fontSize: { xs: "0.875rem", sm: "1rem" },
+                            }}
+                          />
+                          <Skeleton
+                            variant="rectangular"
+                            width={40}
+                            height={18}
+                            sx={{
+                              borderRadius: "4px",
+                              height: { xs: 16, sm: 18 },
+                            }}
+                          />
+                        </Box>
+                      }
+                      secondary={
+                        <Box>
+                          <Skeleton
+                            variant="text"
+                            width="90%"
+                            height={20}
+                            sx={{
+                              fontSize: { xs: "0.8125rem", sm: "0.875rem" },
+                              mb: 0.5,
+                            }}
+                          />
+                          <Skeleton
+                            variant="text"
+                            width="40%"
+                            height={16}
+                            sx={{
+                              fontSize: { xs: "0.7rem", sm: "0.75rem" },
+                            }}
+                          />
+                        </Box>
+                      }
+                    />
+                  </ListItem>
+                </Paper>
+                {index < 4 && <Divider />}
+              </React.Fragment>
+            ))}
+          </List>
+        ) : notifications.length === 0 ? (
           <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
             <Box
               sx={{
