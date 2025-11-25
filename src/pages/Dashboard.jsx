@@ -2056,7 +2056,7 @@ export default function Dashboard({ user, setUser }) {
           sx={{
             flex: "1 1 0%",
             minWidth: { xs: 160, sm: 220, md: 260 },
-            p: { xs: 1, sm: 1.25, md: 1.5 },
+            p: { xs: 0.75, sm: 1.25, md: 1.5 },
             ml: { xs: 2, sm: 2.5, md: 3 },
             borderRadius: "16px",
             textTransform: "none",
@@ -2122,25 +2122,27 @@ export default function Dashboard({ user, setUser }) {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: { xs: 0.75, sm: 1, md: 1.25 },
+              gap: { xs: 0.5, sm: 1, md: 1.25 },
             }}
           >
             <Favorite
               sx={{
-                fontSize: { xs: "1.35rem", sm: "1.55rem", md: "1.75rem" },
+                fontSize: { xs: "1.1rem", sm: "1.55rem", md: "1.75rem" },
                 color: "#ff6b9d",
               }}
             />
             <Typography
               variant="h6"
+              noWrap
               sx={{
-                fontWeight: 700,
+                fontWeight: 900,
                 fontSize: {
-                  xs: "0.75rem",
+                  xs: "0.65rem",
                   sm: "0.9rem",
                   md: "1.05rem",
                   lg: "1.2rem",
                 },
+                lineHeight: { xs: 1.5, sm: 1.4, md: 1.3 },
                 textAlign: "center",
               }}
             >
@@ -2154,7 +2156,7 @@ export default function Dashboard({ user, setUser }) {
           sx={{
             flex: "1 1 0%",
             minWidth: { xs: 160, sm: 220, md: 260 },
-            p: { xs: 1, sm: 1.25, md: 1.5 },
+            p: { xs: 0.75, sm: 1.25, md: 1.5 },
             mr: { xs: 2, sm: 2.5, md: 3 },
             borderRadius: "16px",
             textTransform: "none",
@@ -2220,25 +2222,27 @@ export default function Dashboard({ user, setUser }) {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: { xs: 0.75, sm: 1, md: 1.25 },
+              gap: { xs: 0.5, sm: 1, md: 1.25 },
             }}
           >
             <LockOpen
               sx={{
-                fontSize: { xs: "1.35rem", sm: "1.55rem", md: "1.75rem" },
+                fontSize: { xs: "1.1rem", sm: "1.55rem", md: "1.75rem" },
                 color: "#D4AF37",
               }}
             />
             <Typography
               variant="h6"
+              noWrap
               sx={{
-                fontWeight: 700,
+                fontWeight: 900,
                 fontSize: {
-                  xs: "0.75rem",
+                  xs: "0.65rem",
                   sm: "0.9rem",
                   md: "1.05rem",
                   lg: "1.2rem",
                 },
+                lineHeight: { xs: 1.5, sm: 1.4, md: 1.3 },
                 textAlign: "center",
               }}
             >
