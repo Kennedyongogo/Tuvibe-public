@@ -150,10 +150,10 @@ const PublicResetPasswordDialog = ({ open, onClose, user }) => {
   };
 
   const renderCriteriaChip = (label, met) => (
-  <Chip
-    key={label}
-    label={label}
-    className="criteria-chip"
+    <Chip
+      key={label}
+      label={label}
+      className="criteria-chip"
       size="small"
       icon={
         met ? (
@@ -247,7 +247,11 @@ const PublicResetPasswordDialog = ({ open, onClose, user }) => {
           </Alert>
         )}
 
-        <Box component="form" onSubmit={handleSubmit} sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
+        <Box
+          component="form"
+          onSubmit={handleSubmit}
+          sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}
+        >
           <TextField
             label="Current Password"
             type={showPassword.current ? "text" : "password"}
@@ -255,6 +259,7 @@ const PublicResetPasswordDialog = ({ open, onClose, user }) => {
             onChange={(event) => setCurrentPassword(event.target.value)}
             required
             fullWidth
+            sx={{ mt: 2 }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -263,7 +268,10 @@ const PublicResetPasswordDialog = ({ open, onClose, user }) => {
               ),
               endAdornment: (
                 <InputAdornment position="end">
-                  <IconButton onClick={() => toggleVisibility("current")} edge="end">
+                  <IconButton
+                    onClick={() => toggleVisibility("current")}
+                    edge="end"
+                  >
                     {showPassword.current ? <VisibilityOff /> : <Visibility />}
                   </IconButton>
                 </InputAdornment>
@@ -287,7 +295,10 @@ const PublicResetPasswordDialog = ({ open, onClose, user }) => {
               ),
               endAdornment: (
                 <InputAdornment position="end">
-                  <IconButton onClick={() => toggleVisibility("next")} edge="end">
+                  <IconButton
+                    onClick={() => toggleVisibility("next")}
+                    edge="end"
+                  >
                     {showPassword.next ? <VisibilityOff /> : <Visibility />}
                   </IconButton>
                 </InputAdornment>
@@ -310,7 +321,10 @@ const PublicResetPasswordDialog = ({ open, onClose, user }) => {
               ),
               endAdornment: (
                 <InputAdornment position="end">
-                  <IconButton onClick={() => toggleVisibility("confirm")} edge="end">
+                  <IconButton
+                    onClick={() => toggleVisibility("confirm")}
+                    edge="end"
+                  >
                     {showPassword.confirm ? <VisibilityOff /> : <Visibility />}
                   </IconButton>
                 </InputAdornment>
@@ -326,7 +340,10 @@ const PublicResetPasswordDialog = ({ open, onClose, user }) => {
               border: "1px solid rgba(212, 175, 55, 0.2)",
             }}
           >
-            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600, color: "#1a1a1a" }}>
+            <Typography
+              variant="subtitle2"
+              sx={{ mb: 1, fontWeight: 600, color: "#1a1a1a" }}
+            >
               Password must include:
             </Typography>
             <Stack
@@ -396,7 +413,11 @@ const PublicResetPasswordDialog = ({ open, onClose, user }) => {
           }}
           disabled={loading}
           startIcon={
-            loading ? <CircularProgress size={20} color="inherit" /> : <Security />
+            loading ? (
+              <CircularProgress size={20} color="inherit" />
+            ) : (
+              <Security />
+            )
           }
         >
           {loading ? "Updating..." : "Update Password"}
@@ -407,5 +428,3 @@ const PublicResetPasswordDialog = ({ open, onClose, user }) => {
 };
 
 export default PublicResetPasswordDialog;
-
-

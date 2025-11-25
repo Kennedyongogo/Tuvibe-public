@@ -374,23 +374,34 @@ const StoryViewer = ({
         ? `${protocol}//${host}:${apiPort}/api/sse/events?token=${encodeURIComponent(token)}`
         : `${protocol}//${host}${apiPort ? `:${apiPort}` : ""}/api/sse/events?token=${encodeURIComponent(token)}`;
 
-      console.log("🔌 [StoryViewer] Setting up SSE connection for real-time updates");
+      console.log(
+        "🔌 [StoryViewer] Setting up SSE connection for real-time updates"
+      );
       sseEventSourceRef.current = new EventSource(sseUrl);
 
       // Listen for story view count updates
       const handleStoryViewed = (event) => {
         try {
           const data = JSON.parse(event.data);
-          console.log("📡 [StoryViewer] SSE: Received story:viewed event", data);
+          console.log(
+            "📡 [StoryViewer] SSE: Received story:viewed event",
+            data
+          );
           // Only update if it's for the current story
           if (data.storyId === currentStoryIdRef.current) {
-            console.log("✅ [StoryViewer] SSE: Updating view count for current story", data);
+            console.log(
+              "✅ [StoryViewer] SSE: Updating view count for current story",
+              data
+            );
             setViewCount(data.viewCount || 0);
           } else {
-            console.log("⏭️ [StoryViewer] SSE: Ignoring view event for different story", {
-              eventStoryId: data.storyId,
-              currentStoryId: currentStoryIdRef.current,
-            });
+            console.log(
+              "⏭️ [StoryViewer] SSE: Ignoring view event for different story",
+              {
+                eventStoryId: data.storyId,
+                currentStoryId: currentStoryIdRef.current,
+              }
+            );
           }
         } catch (err) {
           console.error("❌ [StoryViewer] Error parsing SSE view event:", err);
@@ -401,14 +412,23 @@ const StoryViewer = ({
       const handleStoryReacted = (event) => {
         try {
           const data = JSON.parse(event.data);
-          console.log("📡 [StoryViewer] SSE: Received story:reacted event", data);
+          console.log(
+            "📡 [StoryViewer] SSE: Received story:reacted event",
+            data
+          );
           // Only update if it's for the current story
           if (data.storyId === currentStoryIdRef.current) {
-            console.log("✅ [StoryViewer] SSE: Updating reaction count for current story", data);
+            console.log(
+              "✅ [StoryViewer] SSE: Updating reaction count for current story",
+              data
+            );
             setReactionCount(data.reactionCount || 0);
           }
         } catch (err) {
-          console.error("❌ [StoryViewer] Error parsing SSE reaction event:", err);
+          console.error(
+            "❌ [StoryViewer] Error parsing SSE reaction event:",
+            err
+          );
         }
       };
 
@@ -416,20 +436,38 @@ const StoryViewer = ({
       const handleStoryCommented = (event) => {
         try {
           const data = JSON.parse(event.data);
-          console.log("📡 [StoryViewer] SSE: Received story:commented event", data);
+          console.log(
+            "📡 [StoryViewer] SSE: Received story:commented event",
+            data
+          );
           // Only update if it's for the current story
           if (data.storyId === currentStoryIdRef.current) {
-            console.log("✅ [StoryViewer] SSE: Updating comment count for current story", data);
+            console.log(
+              "✅ [StoryViewer] SSE: Updating comment count for current story",
+              data
+            );
             setCommentCount(data.commentCount || 0);
           }
         } catch (err) {
-          console.error("❌ [StoryViewer] Error parsing SSE comment event:", err);
+          console.error(
+            "❌ [StoryViewer] Error parsing SSE comment event:",
+            err
+          );
         }
       };
 
-      sseEventSourceRef.current.addEventListener("story:viewed", handleStoryViewed);
-      sseEventSourceRef.current.addEventListener("story:reacted", handleStoryReacted);
-      sseEventSourceRef.current.addEventListener("story:commented", handleStoryCommented);
+      sseEventSourceRef.current.addEventListener(
+        "story:viewed",
+        handleStoryViewed
+      );
+      sseEventSourceRef.current.addEventListener(
+        "story:reacted",
+        handleStoryReacted
+      );
+      sseEventSourceRef.current.addEventListener(
+        "story:commented",
+        handleStoryCommented
+      );
 
       sseEventSourceRef.current.onopen = () => {
         console.log("✅ [StoryViewer] SSE connection opened");
@@ -439,7 +477,9 @@ const StoryViewer = ({
         console.warn("⚠️ [StoryViewer] SSE error:", error);
         // Try to reconnect if connection is lost
         if (sseEventSourceRef.current?.readyState === EventSource.CLOSED) {
-          console.log("🔄 [StoryViewer] SSE connection closed, will reconnect on next story change");
+          console.log(
+            "🔄 [StoryViewer] SSE connection closed, will reconnect on next story change"
+          );
           sseEventSourceRef.current = null;
         }
       };
@@ -558,7 +598,7 @@ const StoryViewer = ({
 
   const startProgress = (fromProgress = 0) => {
     clearProgress();
-    const duration = 5000; // 5 seconds per story
+    const duration = 10000; // 10 seconds per story
     const interval = 16; // Update every ~16ms for smooth 60fps animation
     const startTime = Date.now() - (fromProgress / 100) * duration; // Adjust start time if resuming
 
@@ -1080,7 +1120,7 @@ const StoryViewer = ({
 
   const playMusic = (music) => {
     if (!music) return;
-    
+
     // If music is just an ID, we need to fetch it or it should be included in story
     // For now, assume music object is passed or we need audio_url
     const audioUrl = music.audio_url ? getAudioUrl(music.audio_url) : null;
@@ -1096,7 +1136,7 @@ const StoryViewer = ({
       const audio = new Audio(audioUrl);
       audio.loop = true; // Loop music like Instagram/Facebook
       audio.volume = 0.5; // Set volume to 50%
-      
+
       audio.addEventListener("error", (e) => {
         console.error("Error playing music:", e);
         stopMusic();

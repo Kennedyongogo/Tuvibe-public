@@ -1044,7 +1044,7 @@ export default function Explore({ user }) {
       </Card>
 
       {/* Results Count */}
-      {!loading && (
+      {/* {!loading && (
         <Typography
           variant="body2"
           sx={{
@@ -1055,7 +1055,7 @@ export default function Explore({ user }) {
         >
           Showing {users.length} of {totalUsers} users
         </Typography>
-      )}
+      )} */}
 
       {/* Users Grid */}
       {loading ? (

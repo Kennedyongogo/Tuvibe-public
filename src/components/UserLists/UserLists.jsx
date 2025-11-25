@@ -145,26 +145,40 @@ export default function UserLists({
 
   // Get image URL
   const buildImageUrl = (imageUrl) => {
-    if (!imageUrl) return "";
-    if (imageUrl.startsWith("http")) return imageUrl;
-    if (imageUrl.startsWith("uploads/")) return `/${imageUrl}`;
-    if (imageUrl.startsWith("/uploads/")) return imageUrl;
-    if (imageUrl.startsWith("profiles/")) return `/uploads/${imageUrl}`;
-    return imageUrl;
+    if (!imageUrl || typeof imageUrl !== "string") return "";
+    try {
+      // Check if it's already a valid URL
+      if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
+        new URL(imageUrl); // Validate URL
+        return imageUrl;
+      }
+      if (imageUrl.startsWith("uploads/")) return `/${imageUrl}`;
+      if (imageUrl.startsWith("/uploads/")) return imageUrl;
+      if (imageUrl.startsWith("profiles/")) return `/uploads/${imageUrl}`;
+      // If it doesn't start with /, add it
+      if (!imageUrl.startsWith("/")) return `/${imageUrl}`;
+      return imageUrl;
+    } catch (error) {
+      console.error("Invalid image URL:", imageUrl, error);
+      return "";
+    }
   };
 
   // Get all images for a user (main photo + photos array)
   const getAllImages = (userData) => {
+    if (!userData) return [];
     const images = [];
     // Add main photo if it exists (API already filters unapproved photos)
     if (userData.photo) {
-      images.push(buildImageUrl(userData.photo));
+      const imageUrl = buildImageUrl(userData.photo);
+      if (imageUrl) images.push(imageUrl);
     }
     // Add photos from array if they exist (API already filters to approved only)
     if (userData.photos && Array.isArray(userData.photos)) {
       userData.photos.forEach((photo) => {
         if (photo && photo.path) {
-          images.push(buildImageUrl(photo.path));
+          const imageUrl = buildImageUrl(photo.path);
+          if (imageUrl) images.push(imageUrl);
         }
       });
     }
@@ -175,8 +189,8 @@ export default function UserLists({
   useEffect(() => {
     const allUsers =
       activeTab === "favorites"
-        ? favorites.map((f) => f.favouritedUser).filter(Boolean)
-        : unlockedChats.map((u) => u.target).filter(Boolean);
+        ? favorites.map((f) => f?.favouritedUser).filter((u) => u && u.id)
+        : unlockedChats.map((u) => u?.target).filter((u) => u && u.id);
 
     if (allUsers.length === 0) return;
 
@@ -184,12 +198,15 @@ export default function UserLists({
     const newIndices = {};
 
     allUsers.forEach((userData) => {
+      if (!userData || !userData.id) return;
       const images = getAllImages(userData);
       const userId = userData.id;
 
       images.forEach((imageSrc) => {
-        const img = new Image();
-        img.src = imageSrc;
+        if (imageSrc) {
+          const img = new Image();
+          img.src = imageSrc;
+        }
       });
 
       newIndices[userId] = 0;
@@ -224,6 +241,10 @@ export default function UserLists({
 
   // Render user card
   const renderUserCard = (userData, extraData = {}) => {
+    if (!userData || !userData.id) {
+      console.warn("renderUserCard called with invalid userData:", userData);
+      return null;
+    }
     const images = getAllImages(userData);
     const currentIdx = currentImageIndex[userData.id] || 0;
 
@@ -260,31 +281,34 @@ export default function UserLists({
               bgcolor: "rgba(212, 175, 55, 0.1)",
             }}
           >
-            {images.map((image, index) => (
-              <Box
-                key={`${userData.id}-img-${index}`}
-                component="img"
-                src={image}
-                loading="lazy"
-                decoding="async"
-                fetchpriority="low"
-                alt={getDisplayName(userData, { fallback: "Member" })}
-                sx={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  opacity: currentIdx === index ? 1 : 0,
-                  transition: "opacity 1.5s ease-in-out",
-                  zIndex: currentIdx === index ? 1 : 0,
-                }}
-                onError={(e) => {
-                  e.target.style.display = "none";
-                }}
-              />
-            ))}
+            {images.map((image, index) => {
+              if (!image || image.trim() === "") return null;
+              return (
+                <Box
+                  key={`${userData.id}-img-${index}`}
+                  component="img"
+                  src={image}
+                  loading="lazy"
+                  decoding="async"
+                  fetchpriority="low"
+                  alt={getDisplayName(userData, { fallback: "Member" })}
+                  sx={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    opacity: currentIdx === index ? 1 : 0,
+                    transition: "opacity 1.5s ease-in-out",
+                    zIndex: currentIdx === index ? 1 : 0,
+                  }}
+                  onError={(e) => {
+                    e.target.style.display = "none";
+                  }}
+                />
+              );
+            })}
           </Box>
         ) : (
           <Box
@@ -480,11 +504,19 @@ export default function UserLists({
                 flexWrap: "wrap",
               }}
             >
-              {favorites.map((favorite) =>
-                renderUserCard(favorite.favouritedUser, {
-                  favoriteId: favorite.id,
-                })
-              )}
+              {favorites
+                .filter(
+                  (favorite) =>
+                    favorite &&
+                    favorite.favouritedUser &&
+                    favorite.favouritedUser.id
+                )
+                .map((favorite) =>
+                  renderUserCard(favorite.favouritedUser, {
+                    favoriteId: favorite.id,
+                  })
+                )
+                .filter(Boolean)}
             </Box>
           ) : (
             <Box sx={{ textAlign: "center", py: 4, px: 2 }}>
@@ -556,12 +588,15 @@ export default function UserLists({
                 flexWrap: "wrap",
               }}
             >
-              {unlockedChats.map((unlock) =>
-                renderUserCard(unlock.target, {
-                  unlockDate: unlock.createdAt,
-                  tokenCost: unlock.token_cost,
-                })
-              )}
+              {unlockedChats
+                .filter((unlock) => unlock && unlock.target && unlock.target.id)
+                .map((unlock) =>
+                  renderUserCard(unlock.target, {
+                    unlockDate: unlock.createdAt,
+                    tokenCost: unlock.token_cost,
+                  })
+                )
+                .filter(Boolean)}
             </Box>
           ) : (
             <Box sx={{ textAlign: "center", py: 4, px: 2 }}>

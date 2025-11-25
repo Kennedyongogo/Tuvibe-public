@@ -17,6 +17,7 @@ import {
   BottomNavigation,
   BottomNavigationAction,
   Paper,
+  Tooltip,
 } from "@mui/material";
 import {
   Home,
@@ -26,7 +27,7 @@ import {
   Store,
   Wallet,
   Star,
-  ArrowDropDown,
+  GridView,
   Report,
   Lock,
 } from "@mui/icons-material";
@@ -378,16 +379,7 @@ export default function Navbar({
                   display: "flex",
                   alignItems: "center",
                   gap: 1,
-                  cursor: "pointer",
-                  px: 1,
-                  py: 0.5,
-                  borderRadius: "12px",
-                  transition: "all 0.3s ease",
-                  "&:hover": {
-                    backgroundColor: "rgba(212, 175, 55, 0.1)",
-                  },
                 }}
-                onClick={handleProfileMenuOpen}
               >
                 <Avatar
                   src={
@@ -413,16 +405,33 @@ export default function Navbar({
                     currentUserId: user?.id,
                   })}
                 </Avatar>
-                <ArrowDropDown
-                  sx={{
-                    fontSize: 28,
-                    color: "#D4AF37",
-                    transition: "transform 0.3s ease",
-                    transform: Boolean(anchorEl)
-                      ? "rotate(180deg)"
-                      : "rotate(0deg)",
-                  }}
-                />
+                <Tooltip title="Explore more" arrow>
+                  <Box
+                    component="button"
+                    onClick={handleProfileMenuOpen}
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      border: "none",
+                      background: "transparent",
+                      padding: 0.5,
+                      borderRadius: "8px",
+                      transition: "all 0.3s ease",
+                      "&:hover": {
+                        backgroundColor: "rgba(212, 175, 55, 0.1)",
+                      },
+                    }}
+                  >
+                    <GridView
+                      sx={{
+                        fontSize: 28,
+                        color: "#D4AF37",
+                      }}
+                    />
+                  </Box>
+                </Tooltip>
               </Box>
               <Menu
                 id="account-menu"

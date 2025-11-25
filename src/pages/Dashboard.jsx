@@ -60,6 +60,7 @@ import {
   Insights,
   GpsFixed,
   Timeline,
+  BarChart,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
@@ -523,7 +524,6 @@ export default function Dashboard({ user, setUser }) {
         },
       });
       const data = await response.json();
-      console.log("[Boost] status payload", data);
 
       if (response.ok && data.success) {
         const boostsSource = Array.isArray(data.data?.boosts)
@@ -542,7 +542,6 @@ export default function Dashboard({ user, setUser }) {
           }
           return boosts[0].id;
         });
-        console.log("[Boost] Active boosts fetched", boosts);
         setBoostStatusError("");
       } else {
         setActiveBoosts([]);
@@ -612,9 +611,7 @@ export default function Dashboard({ user, setUser }) {
   }, [boostDialogOpen, fetchActiveBoosts]);
 
   useEffect(() => {
-    if (boostDialogOpen) {
-      console.log("[Boost] Selected boost", selectedBoost);
-    }
+    // Boost dialog opened with selected boost
   }, [boostDialogOpen, selectedBoost]);
 
   useEffect(() => {
@@ -653,7 +650,6 @@ export default function Dashboard({ user, setUser }) {
 
   // Fetch featured market items and users
   useEffect(() => {
-    console.log("[Dashboard] Fetching featured items and users");
     fetchFeaturedItems();
     fetchFeaturedUsers();
     // Also fetch current boosts without blocking render
@@ -673,18 +669,10 @@ export default function Dashboard({ user, setUser }) {
 
   // Auto-transition images for each featured user
   useEffect(() => {
-    console.log("[Dashboard] Featured users effect triggered", {
-      count: featuredUsers.length,
-      userIds: featuredUsers.map((u) => u.id),
-    });
-
     // Update ref with current users
     featuredUsersRef.current = featuredUsers;
 
     // Always clean up previous intervals first
-    console.log("[Dashboard] Cleaning up previous featured users intervals", {
-      intervalCount: Object.keys(featuredUsersIntervalsRef.current).length,
-    });
     Object.values(featuredUsersIntervalsRef.current).forEach((interval) => {
       if (interval) clearInterval(interval);
     });
@@ -693,14 +681,7 @@ export default function Dashboard({ user, setUser }) {
     if (featuredUsers.length === 0) {
       // Reset indices when no users
       setCurrentImageIndex({});
-      return () => {
-        console.log(
-          "[Dashboard] Cleaning up featured users intervals (empty)",
-          {
-            intervalCount: 0,
-          }
-        );
-      };
+      return () => {};
     }
 
     const intervals = {};
@@ -732,18 +713,10 @@ export default function Dashboard({ user, setUser }) {
               (user) => user.id === userId
             );
             if (!userStillExists || !isMountedRef.current) {
-              console.log(
-                `[Dashboard] User ${userId} no longer exists or unmounted, skipping update`
-              );
               return prev;
             }
             const currentIdx = prev[userId] || 0;
             const nextIdx = (currentIdx + 1) % imageCount;
-            console.log(`[Dashboard] Updating user ${userId} image index`, {
-              currentIdx,
-              nextIdx,
-              imageCount,
-            });
             return { ...prev, [userId]: nextIdx };
           });
         }, 3000); // Change image every 3 seconds
@@ -758,10 +731,6 @@ export default function Dashboard({ user, setUser }) {
 
     // Cleanup intervals on unmount or when users change
     return () => {
-      console.log("[Dashboard] Cleaning up featured users intervals", {
-        intervalCount: Object.keys(intervals).length,
-        userIds: Object.keys(intervals),
-      });
       Object.values(intervals).forEach((interval) => {
         if (interval) clearInterval(interval);
       });
@@ -771,18 +740,10 @@ export default function Dashboard({ user, setUser }) {
 
   // Auto-transition images for each featured market item
   useEffect(() => {
-    console.log("[Dashboard] Featured items effect triggered", {
-      count: featuredItems.length,
-      itemIds: featuredItems.map((i) => i.id),
-    });
-
     // Update ref with current items
     featuredItemsRef.current = featuredItems;
 
     // Always clean up previous intervals first
-    console.log("[Dashboard] Cleaning up previous featured items intervals", {
-      intervalCount: Object.keys(featuredItemsIntervalsRef.current).length,
-    });
     Object.values(featuredItemsIntervalsRef.current).forEach((interval) => {
       if (interval) clearInterval(interval);
     });
@@ -791,14 +752,7 @@ export default function Dashboard({ user, setUser }) {
     if (featuredItems.length === 0) {
       // Reset indices when no items
       setCurrentItemImageIndex({});
-      return () => {
-        console.log(
-          "[Dashboard] Cleaning up featured items intervals (empty)",
-          {
-            intervalCount: 0,
-          }
-        );
-      };
+      return () => {};
     }
 
     const intervals = {};
@@ -829,18 +783,10 @@ export default function Dashboard({ user, setUser }) {
               (item) => item.id === itemId
             );
             if (!itemStillExists || !isMountedRef.current) {
-              console.log(
-                `[Dashboard] Item ${itemId} no longer exists or unmounted, skipping update`
-              );
               return prev;
             }
             const currentIdx = prev[itemId] || 0;
             const nextIdx = (currentIdx + 1) % imageCount;
-            console.log(`[Dashboard] Updating item ${itemId} image index`, {
-              currentIdx,
-              nextIdx,
-              imageCount,
-            });
             return { ...prev, [itemId]: nextIdx };
           });
         }, 3000); // Change image every 3 seconds
@@ -855,10 +801,6 @@ export default function Dashboard({ user, setUser }) {
 
     // Cleanup intervals on unmount or when items change
     return () => {
-      console.log("[Dashboard] Cleaning up featured items intervals", {
-        intervalCount: Object.keys(intervals).length,
-        itemIds: Object.keys(intervals),
-      });
       Object.values(intervals).forEach((interval) => {
         if (interval) clearInterval(interval);
       });
@@ -919,10 +861,6 @@ export default function Dashboard({ user, setUser }) {
         const featured = (data.data || [])
           .filter((item) => item.is_featured)
           .slice(0, 6);
-        console.log("[Dashboard] Setting featured items", {
-          count: featured.length,
-          itemIds: featured.map((i) => i.id),
-        });
         setFeaturedItems(featured);
       }
     } catch (err) {
@@ -950,10 +888,6 @@ export default function Dashboard({ user, setUser }) {
 
       if (data.success) {
         const users = data.data || [];
-        console.log("[Dashboard] Setting featured users", {
-          count: users.length,
-          userIds: users.map((u) => u.id),
-        });
         setFeaturedUsers(users);
       }
     } catch (err) {
@@ -1080,13 +1014,6 @@ export default function Dashboard({ user, setUser }) {
       }
 
       setBoosting(true);
-
-      console.log("[Boost] Creating new boost", {
-        category: boostCategory,
-        county: normalizedTargetCounty,
-        radiusKm: sanitizedBoostRadiusKm,
-        hours,
-      });
 
       const response = await fetch("/api/tokens/boost", {
         method: "POST",
@@ -1464,12 +1391,6 @@ export default function Dashboard({ user, setUser }) {
 
       setBoosting(true);
 
-      console.log("[Boost] Extending existing boost", {
-        boostId: boostToUse.id,
-        hours,
-        radiusKm: extensionRadiusKm,
-      });
-
       const response = await fetch(
         `/api/tokens/boost/${boostToUse.id}/extend`,
         {
@@ -1739,7 +1660,14 @@ export default function Dashboard({ user, setUser }) {
   };
 
   return (
-    <Box>
+    <Box
+      sx={{
+        width: "100%",
+        maxWidth: "100%",
+        overflowX: "hidden",
+        boxSizing: "border-box",
+      }}
+    >
       {/* Welcome Section */}
       <Box
         sx={{
@@ -1766,7 +1694,8 @@ export default function Dashboard({ user, setUser }) {
               whiteSpace: { xs: "normal", md: "nowrap" },
               overflow: "hidden",
               textOverflow: "ellipsis",
-              background: "linear-gradient(90deg, #D4AF37 0%, #f4d03f 25%, #FFD700 50%, #B8941F 75%, #8B6914 100%)",
+              background:
+                "linear-gradient(90deg, #D4AF37 0%, #f4d03f 25%, #FFD700 50%, #B8941F 75%, #8B6914 100%)",
               backgroundSize: "200% 200%",
               backgroundClip: "text",
               WebkitBackgroundClip: "text",
@@ -1804,7 +1733,8 @@ export default function Dashboard({ user, setUser }) {
             sx={{
               position: "relative",
               borderRadius: "999px",
-              padding: { xs: "10px 20px", sm: "12px 36px" },
+              padding: { xs: "8px 16px", sm: "10px 28px" },
+              mt: { xs: 2, sm: 2.5, md: 3 },
               background:
                 "linear-gradient(135deg, rgba(255, 220, 128, 1), rgba(212, 175, 55, 1))",
               color: "#1a1a1a",
@@ -1962,7 +1892,7 @@ export default function Dashboard({ user, setUser }) {
                       flexShrink: 0,
                     }}
                   >
-                    <Insights sx={{ color: "#D4AF37" }} />
+                    <BarChart sx={{ color: "#D4AF37" }} />
                   </IconButton>
                 </span>
               </Tooltip>
@@ -1988,6 +1918,10 @@ export default function Dashboard({ user, setUser }) {
           height: "220px",
           display: "flex",
           flexDirection: "column",
+          width: "100%",
+          maxWidth: "100%",
+          overflow: "hidden",
+          boxSizing: "border-box",
         }}
       >
         {user && (
@@ -2009,7 +1943,12 @@ export default function Dashboard({ user, setUser }) {
               onCreateStory={() => setStoryCreatorOpen(true)}
               onStoriesLoaded={(groups) => {
                 if (groups && Array.isArray(groups)) {
-                  setStoryGroups(groups);
+                  // Filter out current user's story from navigation order
+                  // User's story should be visible in feed but excluded from navigation sequence
+                  const navigationGroups = groups.filter(
+                    (group) => group?.user?.id !== user?.id
+                  );
+                  setStoryGroups(navigationGroups);
                 }
               }}
               refreshTrigger={storyCreated}
@@ -2027,18 +1966,22 @@ export default function Dashboard({ user, setUser }) {
           display: "flex",
           gap: 2,
           mb: 4,
-          flexWrap: "nowrap",
-          justifyContent: "space-between",
-          alignItems: "stretch",
+          flexDirection: { xs: "column", sm: "row" },
+          justifyContent: { xs: "center", sm: "space-between" },
+          alignItems: { xs: "center", sm: "stretch" },
           width: "100%",
         }}
       >
         <Card
           onClick={() => handleScrollToUserLists("favorites")}
           sx={{
-            flex: "1 1 0%",
-            minWidth: { xs: 160, sm: 220, md: 260 },
-            p: { xs: 1.5, sm: 2 },
+            flex: { xs: "0 1 auto", sm: "1 1 0%" },
+            width: { xs: "85%", sm: "auto" },
+            maxWidth: { xs: "320px", sm: "none" },
+            minWidth: { xs: "auto", sm: 220, md: 260 },
+            p: { xs: 0.75, sm: 1.25, md: 1.5 },
+            mx: { xs: "auto", sm: 0 },
+            ml: { xs: "auto", sm: 2.5, md: 3 },
             borderRadius: "16px",
             textTransform: "none",
             cursor: "pointer",
@@ -2103,25 +2046,27 @@ export default function Dashboard({ user, setUser }) {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: { xs: 1.25, sm: 1.5, md: 2 },
+              gap: { xs: 0.5, sm: 1, md: 1.25 },
             }}
           >
             <Favorite
               sx={{
-                fontSize: { xs: "1.35rem", sm: "1.55rem", md: "1.75rem" },
+                fontSize: { xs: "1.1rem", sm: "1.55rem", md: "1.75rem" },
                 color: "#ff6b9d",
               }}
             />
             <Typography
               variant="h6"
+              noWrap
               sx={{
-                fontWeight: 700,
+                fontWeight: 900,
                 fontSize: {
-                  xs: "0.75rem",
+                  xs: "0.65rem",
                   sm: "0.9rem",
                   md: "1.05rem",
                   lg: "1.2rem",
                 },
+                lineHeight: { xs: 1.5, sm: 1.4, md: 1.3 },
                 textAlign: "center",
               }}
             >
@@ -2133,9 +2078,13 @@ export default function Dashboard({ user, setUser }) {
         <Card
           onClick={() => handleScrollToUserLists("unlocked")}
           sx={{
-            flex: "1 1 0%",
-            minWidth: { xs: 160, sm: 220, md: 260 },
-            p: { xs: 1.5, sm: 2 },
+            flex: { xs: "0 1 auto", sm: "1 1 0%" },
+            width: { xs: "85%", sm: "auto" },
+            maxWidth: { xs: "320px", sm: "none" },
+            minWidth: { xs: "auto", sm: 220, md: 260 },
+            p: { xs: 0.75, sm: 1.25, md: 1.5 },
+            mx: { xs: "auto", sm: 0 },
+            mr: { xs: "auto", sm: 2.5, md: 3 },
             borderRadius: "16px",
             textTransform: "none",
             cursor: "pointer",
@@ -2200,25 +2149,27 @@ export default function Dashboard({ user, setUser }) {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: { xs: 1.25, sm: 1.5, md: 2 },
+              gap: { xs: 0.5, sm: 1, md: 1.25 },
             }}
           >
             <LockOpen
               sx={{
-                fontSize: { xs: "1.35rem", sm: "1.55rem", md: "1.75rem" },
+                fontSize: { xs: "1.1rem", sm: "1.55rem", md: "1.75rem" },
                 color: "#D4AF37",
               }}
             />
             <Typography
               variant="h6"
+              noWrap
               sx={{
-                fontWeight: 700,
+                fontWeight: 900,
                 fontSize: {
-                  xs: "0.75rem",
+                  xs: "0.65rem",
                   sm: "0.9rem",
                   md: "1.05rem",
                   lg: "1.2rem",
                 },
+                lineHeight: { xs: 1.5, sm: 1.4, md: 1.3 },
                 textAlign: "center",
               }}
             >
@@ -2319,11 +2270,6 @@ export default function Dashboard({ user, setUser }) {
             {featuredUsers.slice(0, 10).map((featuredUser) => {
               const images = getAllImages(featuredUser);
               const currentIdx = currentImageIndex[featuredUser.id] || 0;
-              console.log(`[Dashboard] Rendering featured user card`, {
-                userId: featuredUser.id,
-                imageCount: images.length,
-                currentIdx,
-              });
               const featuredBoostUntil =
                 featuredUser.active_boost_until ??
                 featuredUser.is_featured_until;
@@ -2386,18 +2332,6 @@ export default function Dashboard({ user, setUser }) {
                           }))
                           .filter((img) => img.isValid);
 
-                        console.log(
-                          `[Dashboard] Rendering featured user ${featuredUser.id} images`,
-                          {
-                            totalImages: images.length,
-                            validImages: validImagesWithIndices.length,
-                            currentIdx,
-                            failedImages: Array.from(failedImages).filter(
-                              (url) => images.includes(url)
-                            ),
-                          }
-                        );
-
                         return validImagesWithIndices.map((imgData) => {
                           // Use original index for visibility check
                           const isVisible =
@@ -2426,13 +2360,6 @@ export default function Dashboard({ user, setUser }) {
                               }}
                               onError={() => {
                                 if (!isMountedRef.current) return;
-                                console.log(
-                                  `[Dashboard] Image error for user ${featuredUser.id}`,
-                                  {
-                                    image: imgData.image,
-                                    originalIndex: imgData.originalIndex,
-                                  }
-                                );
                                 // Track failed images in state instead of manipulating DOM
                                 if (imgData.image) {
                                   setFailedImages((prev) =>
@@ -2665,10 +2592,6 @@ export default function Dashboard({ user, setUser }) {
             }}
           >
             {featuredItems.map((item) => {
-              console.log(`[Dashboard] Rendering featured item card`, {
-                itemId: item.id,
-                imageCount: item.images?.length || 0,
-              });
               return (
                 <Card
                   key={item.id}
@@ -2713,21 +2636,6 @@ export default function Dashboard({ user, setUser }) {
                           })
                           .filter((img) => img.isValid);
 
-                        console.log(
-                          `[Dashboard] Rendering featured item ${item.id} images`,
-                          {
-                            totalImages: item.images?.length || 0,
-                            validImages: validImagesWithIndices.length,
-                            currentIdx: currentItemImageIndex[item.id] || 0,
-                            failedImages: Array.from(failedImages).filter(
-                              (url) =>
-                                item.images?.some(
-                                  (img) => getImageUrl(img) === url
-                                )
-                            ),
-                          }
-                        );
-
                         return validImagesWithIndices.map((imgData) => {
                           const currentIdx =
                             currentItemImageIndex[item.id] || 0;
@@ -2755,13 +2663,6 @@ export default function Dashboard({ user, setUser }) {
                               }}
                               onError={() => {
                                 if (!isMountedRef.current) return;
-                                console.log(
-                                  `[Dashboard] Image error for item ${item.id}`,
-                                  {
-                                    imageUrl: imgData.imageUrl,
-                                    originalIndex: imgData.originalIndex,
-                                  }
-                                );
                                 // Track failed images in state instead of manipulating DOM
                                 if (imgData.imageUrl) {
                                   setFailedImages((prev) =>
@@ -4226,27 +4127,50 @@ export default function Dashboard({ user, setUser }) {
         storyGroup={selectedStoryGroup}
         currentUser={user}
         onNextGroup={() => {
-          // Find next story group
-          const currentIndex = storyGroups.findIndex(
-            (sg) => sg.user?.id === selectedStoryGroup?.user?.id
-          );
-          if (currentIndex < storyGroups.length - 1) {
-            setSelectedStoryGroup(storyGroups[currentIndex + 1]);
+          // Check if viewing own story
+          const isViewingOwnStory = selectedStoryGroup?.user?.id === user?.id;
+
+          if (isViewingOwnStory) {
+            // When viewing own story and going next, go to first other user's story
+            if (storyGroups.length > 0) {
+              setSelectedStoryGroup(storyGroups[0]);
+            } else {
+              setStoryViewerOpen(false);
+              setSelectedStoryGroup(null);
+            }
           } else {
-            setStoryViewerOpen(false);
-            setSelectedStoryGroup(null);
+            // Find next story group (user's story is excluded from storyGroups)
+            const currentIndex = storyGroups.findIndex(
+              (sg) => sg.user?.id === selectedStoryGroup?.user?.id
+            );
+            if (currentIndex < storyGroups.length - 1) {
+              setSelectedStoryGroup(storyGroups[currentIndex + 1]);
+            } else {
+              setStoryViewerOpen(false);
+              setSelectedStoryGroup(null);
+            }
           }
         }}
         onPrevGroup={() => {
-          // Find previous story group
-          const currentIndex = storyGroups.findIndex(
-            (sg) => sg.user?.id === selectedStoryGroup?.user?.id
-          );
-          if (currentIndex > 0) {
-            setSelectedStoryGroup(storyGroups[currentIndex - 1]);
-          } else {
+          // Check if viewing own story
+          const isViewingOwnStory = selectedStoryGroup?.user?.id === user?.id;
+
+          if (isViewingOwnStory) {
+            // When viewing own story and going prev, close viewer
             setStoryViewerOpen(false);
             setSelectedStoryGroup(null);
+          } else {
+            // Find previous story group (user's story is excluded from storyGroups)
+            const currentIndex = storyGroups.findIndex(
+              (sg) => sg.user?.id === selectedStoryGroup?.user?.id
+            );
+            if (currentIndex > 0) {
+              setSelectedStoryGroup(storyGroups[currentIndex - 1]);
+            } else {
+              // At first other user's story, going prev should close (not go to own story)
+              setStoryViewerOpen(false);
+              setSelectedStoryGroup(null);
+            }
           }
         }}
         onStoryDeleted={(updatedGroup) => {
