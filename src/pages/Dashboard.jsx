@@ -2022,7 +2022,12 @@ export default function Dashboard({ user, setUser }) {
               onCreateStory={() => setStoryCreatorOpen(true)}
               onStoriesLoaded={(groups) => {
                 if (groups && Array.isArray(groups)) {
-                  setStoryGroups(groups);
+                  // Filter out current user's story from navigation order
+                  // User's story should be visible in feed but excluded from navigation sequence
+                  const navigationGroups = groups.filter(
+                    (group) => group?.user?.id !== user?.id
+                  );
+                  setStoryGroups(navigationGroups);
                 }
               }}
               refreshTrigger={storyCreated}
@@ -4241,27 +4246,50 @@ export default function Dashboard({ user, setUser }) {
         storyGroup={selectedStoryGroup}
         currentUser={user}
         onNextGroup={() => {
-          // Find next story group
-          const currentIndex = storyGroups.findIndex(
-            (sg) => sg.user?.id === selectedStoryGroup?.user?.id
-          );
-          if (currentIndex < storyGroups.length - 1) {
-            setSelectedStoryGroup(storyGroups[currentIndex + 1]);
+          // Check if viewing own story
+          const isViewingOwnStory = selectedStoryGroup?.user?.id === user?.id;
+
+          if (isViewingOwnStory) {
+            // When viewing own story and going next, go to first other user's story
+            if (storyGroups.length > 0) {
+              setSelectedStoryGroup(storyGroups[0]);
+            } else {
+              setStoryViewerOpen(false);
+              setSelectedStoryGroup(null);
+            }
           } else {
-            setStoryViewerOpen(false);
-            setSelectedStoryGroup(null);
+            // Find next story group (user's story is excluded from storyGroups)
+            const currentIndex = storyGroups.findIndex(
+              (sg) => sg.user?.id === selectedStoryGroup?.user?.id
+            );
+            if (currentIndex < storyGroups.length - 1) {
+              setSelectedStoryGroup(storyGroups[currentIndex + 1]);
+            } else {
+              setStoryViewerOpen(false);
+              setSelectedStoryGroup(null);
+            }
           }
         }}
         onPrevGroup={() => {
-          // Find previous story group
-          const currentIndex = storyGroups.findIndex(
-            (sg) => sg.user?.id === selectedStoryGroup?.user?.id
-          );
-          if (currentIndex > 0) {
-            setSelectedStoryGroup(storyGroups[currentIndex - 1]);
-          } else {
+          // Check if viewing own story
+          const isViewingOwnStory = selectedStoryGroup?.user?.id === user?.id;
+
+          if (isViewingOwnStory) {
+            // When viewing own story and going prev, close viewer
             setStoryViewerOpen(false);
             setSelectedStoryGroup(null);
+          } else {
+            // Find previous story group (user's story is excluded from storyGroups)
+            const currentIndex = storyGroups.findIndex(
+              (sg) => sg.user?.id === selectedStoryGroup?.user?.id
+            );
+            if (currentIndex > 0) {
+              setSelectedStoryGroup(storyGroups[currentIndex - 1]);
+            } else {
+              // At first other user's story, going prev should close (not go to own story)
+              setStoryViewerOpen(false);
+              setSelectedStoryGroup(null);
+            }
           }
         }}
         onStoryDeleted={(updatedGroup) => {

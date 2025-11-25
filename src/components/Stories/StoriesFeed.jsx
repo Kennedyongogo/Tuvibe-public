@@ -175,7 +175,7 @@ const StoriesFeed = ({
 
           setStoriesFeed(sortedStories);
           if (onStoriesLoadedRef.current && isMountedRef.current) {
-            onStoriesLoadedRef.current(stories);
+            onStoriesLoadedRef.current(sortedStories);
           }
         } else {
           setError(data.message || "Failed to load stories");
