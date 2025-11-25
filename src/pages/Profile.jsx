@@ -25,6 +25,10 @@ import {
   Tooltip,
   Alert,
   Badge,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
 import {
   Edit,
@@ -53,10 +57,286 @@ import {
   Warning,
   NotificationsActive,
   Timeline,
+  Image,
+  CheckCircleOutline,
 } from "@mui/icons-material";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
 import { getDisplayInitial, getDisplayName } from "../utils/userDisplay";
+
+// Photo card component with image loading state
+const GalleryPhotoCard = ({ photo, photoUrl, index, isApproved, isPending, isRejected, isCurrentProfilePhoto, onSelect, isSelecting, isSelected }) => {
+  const [imageError, setImageError] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+
+  return (
+    <Grid item xs={6} sm={4} md={3} key={`photo-${index}-${photo.path}`} sx={{ display: "flex", justifyContent: "center" }}>
+      <Tooltip
+        title={
+          isApproved
+            ? "Click to set as profile picture"
+            : isPending
+            ? "Pending approval - cannot be used yet"
+            : isRejected
+            ? "Rejected - cannot be used"
+            : "Cannot be used as profile picture"
+        }
+        arrow
+      >
+        <Card
+          sx={{
+            position: "relative",
+            cursor: isApproved && !isSelecting ? "pointer" : "not-allowed",
+            borderRadius: "16px",
+            overflow: "hidden",
+            border: isCurrentProfilePhoto || isSelected
+              ? "4px solid #D4AF37"
+              : isApproved
+              ? "3px solid rgba(212, 175, 55, 0.7)"
+              : "2px solid rgba(0, 0, 0, 0.3)",
+            boxShadow: isCurrentProfilePhoto || isSelected
+              ? "0 8px 24px rgba(212, 175, 55, 0.4)"
+              : "0 4px 12px rgba(212, 175, 55, 0.2)",
+            transition: "all 0.3s ease",
+            opacity: isApproved && !isSelecting ? 1 : isSelecting ? 0.6 : 0.7,
+            bgcolor: "rgba(255, 255, 255, 0.9)",
+            width: "150px",
+            height: "150px",
+            margin: "0 auto",
+            pointerEvents: isSelecting ? "none" : "auto",
+            "&:hover": isApproved && !isSelecting
+              ? {
+                  transform: "translateY(-4px)",
+                  boxShadow: "0 12px 32px rgba(212, 175, 55, 0.3)",
+                  borderColor: "#D4AF37",
+                }
+              : {},
+          }}
+          onClick={() => {
+            if (isApproved && !isSelecting) {
+              onSelect(photo.path);
+            }
+          }}
+        >
+          <Box
+            sx={{
+              position: "relative",
+              width: "100%",
+              height: "100%",
+              overflow: "hidden",
+              bgcolor: "rgba(212, 175, 55, 0.1)",
+              border: "2px solid rgba(212, 175, 55, 0.3)",
+              borderRadius: "12px",
+            }}
+          >
+            {!imageError && (
+              <Box
+                component="img"
+                src={photoUrl}
+                alt={`Gallery photo ${index + 1}`}
+                onError={() => {
+                  console.error(`Failed to load image: ${photoUrl}`, photo);
+                  setImageError(true);
+                }}
+                onLoad={() => {
+                  console.log(`Successfully loaded image: ${photoUrl}`);
+                  setImageLoaded(true);
+                }}
+                sx={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  display: imageLoaded ? "block" : "none",
+                }}
+              />
+            )}
+            {imageError && (
+              <Box
+                sx={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  bgcolor: "rgba(212, 175, 55, 0.1)",
+                  color: "rgba(0, 0, 0, 0.5)",
+                }}
+              >
+                <Typography variant="caption">Image not found</Typography>
+              </Box>
+            )}
+            {!imageLoaded && !imageError && (
+              <Box
+                sx={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  bgcolor: "rgba(212, 175, 55, 0.1)",
+                }}
+              >
+                <CircularProgress size={24} sx={{ color: "#D4AF37" }} />
+              </Box>
+            )}
+            {/* Status badge */}
+            {!isApproved && (
+              <Box
+                sx={{
+                  position: "absolute",
+                  top: 8,
+                  left: 8,
+                  bgcolor: isPending
+                    ? "rgba(255, 193, 7, 0.9)"
+                    : "rgba(244, 67, 54, 0.9)",
+                  borderRadius: "8px",
+                  px: 1,
+                  py: 0.5,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.5,
+                  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.2)",
+                  zIndex: 2,
+                }}
+              >
+                {isPending ? (
+                  <>
+                    <Pending sx={{ fontSize: "0.875rem", color: "#fff" }} />
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: "#fff",
+                        fontWeight: 600,
+                        fontSize: "0.7rem",
+                      }}
+                    >
+                      Pending
+                    </Typography>
+                  </>
+                ) : (
+                  <>
+                    <CancelIcon sx={{ fontSize: "0.875rem", color: "#fff" }} />
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: "#fff",
+                        fontWeight: 600,
+                        fontSize: "0.7rem",
+                      }}
+                    >
+                      Rejected
+                    </Typography>
+                  </>
+                )}
+              </Box>
+            )}
+            {isCurrentProfilePhoto && (
+              <Box
+                sx={{
+                  position: "absolute",
+                  top: 8,
+                  right: 8,
+                  bgcolor: "#D4AF37",
+                  borderRadius: "50%",
+                  p: 0.5,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.2)",
+                  zIndex: 2,
+                }}
+              >
+                <CheckCircleOutline
+                  sx={{
+                    fontSize: "1.5rem",
+                    color: "#1a1a1a",
+                  }}
+                />
+              </Box>
+            )}
+            {/* Overlay for non-approved photos */}
+            {!isApproved && (
+              <Box
+                sx={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  bgcolor: "rgba(0, 0, 0, 0.3)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  zIndex: 1,
+                }}
+              />
+            )}
+            {/* Loading overlay when selecting this photo */}
+            {isSelecting && isSelected && (
+              <Box
+                sx={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  bgcolor: "rgba(212, 175, 55, 0.8)",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  zIndex: 10,
+                  borderRadius: "12px",
+                }}
+              >
+                <CircularProgress size={32} sx={{ color: "#ffffff", mb: 1 }} />
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: "#ffffff",
+                    fontWeight: 600,
+                    fontSize: "0.7rem",
+                  }}
+                >
+                  Updating...
+                </Typography>
+              </Box>
+            )}
+          </Box>
+          {isCurrentProfilePhoto && (
+            <Box
+              sx={{
+                p: 1,
+                bgcolor: "rgba(212, 175, 55, 0.1)",
+                textAlign: "center",
+              }}
+            >
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "#D4AF37",
+                  fontWeight: 600,
+                  fontSize: "0.7rem",
+                }}
+              >
+                Current Profile Photo
+              </Typography>
+            </Box>
+          )}
+        </Card>
+      </Tooltip>
+    </Grid>
+  );
+};
 
 export default function Profile({ user, setUser }) {
   const navigate = useNavigate();
@@ -176,6 +456,60 @@ export default function Profile({ user, setUser }) {
   const [loadingBoostStatus, setLoadingBoostStatus] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [gallerySelectionDialogOpen, setGallerySelectionDialogOpen] = useState(false);
+  const [selectingProfilePhoto, setSelectingProfilePhoto] = useState(false);
+  const [selectedPhotoPath, setSelectedPhotoPath] = useState(null);
+
+  // Debug logging when gallery dialog opens
+  useEffect(() => {
+    if (gallerySelectionDialogOpen && user?.photos) {
+      // Normalize photos array - handle JSONB which might come as string
+      let photosArray = [];
+      if (Array.isArray(user.photos)) {
+        photosArray = user.photos;
+      } else if (typeof user.photos === "string") {
+        try {
+          const parsed = JSON.parse(user.photos);
+          photosArray = Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+          photosArray = [];
+        }
+      }
+
+      // Filter valid photos
+      const validPhotos = photosArray.filter(
+        (photo) =>
+          photo &&
+          typeof photo === "object" &&
+          photo.path &&
+          typeof photo.path === "string"
+      );
+
+      // Separate approved and non-approved photos
+      const approvedPhotos = validPhotos.filter(
+        (photo) => photo.moderation_status === "approved"
+      );
+      const pendingPhotos = validPhotos.filter(
+        (photo) => photo.moderation_status === "pending"
+      );
+      const rejectedPhotos = validPhotos.filter(
+        (photo) => photo.moderation_status === "rejected"
+      );
+
+      console.log("Gallery Photos Debug (Dialog Opened):", {
+        userExists: !!user,
+        hasPhotosProperty: !!user?.photos,
+        rawPhotos: user?.photos,
+        photosArray,
+        validPhotos,
+        totalPhotos: validPhotos.length,
+        approvedCount: approvedPhotos.length,
+        pendingCount: pendingPhotos.length,
+        rejectedCount: rejectedPhotos.length,
+        samplePhoto: validPhotos[0],
+      });
+    }
+  }, [gallerySelectionDialogOpen, user?.photos]);
 
   const userAge = useMemo(() => resolveAgeFromUser(user), [user]);
   const birthYearAgePreview = useMemo(
@@ -850,6 +1184,18 @@ export default function Profile({ user, setUser }) {
         });
         return;
       }
+      
+      // If not in edit mode, upload directly
+      if (!isEditing) {
+        handlePhotoUploadDirect(file);
+        // Reset file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+        return;
+      }
+      
+      // If in edit mode, set for preview and save later
       setPhotoFile(file);
       // Create preview
       const reader = new FileReader();
@@ -862,6 +1208,250 @@ export default function Profile({ user, setUser }) {
 
   const handlePhotoClick = () => {
     fileInputRef.current?.click();
+  };
+
+  // Upload profile photo directly without edit mode
+  const handlePhotoUploadDirect = async (file) => {
+    if (!file) return;
+
+    setSelectingProfilePhoto(true);
+    try {
+      const token = localStorage.getItem("token");
+      const formData = new FormData();
+      formData.append("profile_image", file);
+
+      const response = await fetch("/api/public/me", {
+        method: "PUT",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.message || "Failed to update profile picture"
+        );
+      }
+
+      // Update user state
+      if (setUser && data.data) {
+        setUser(data.data);
+      }
+
+      // Update form data
+      setFormData((prev) => ({
+        ...prev,
+        photo: data.data?.photo || prev.photo,
+      }));
+
+      // Clear photo preview
+      setPhotoPreview(null);
+      setPhotoFile(null);
+
+      // Show success message
+      await Swal.fire({
+        icon: "success",
+        title: "Profile Picture Updated!",
+        text: data.data?.photo_moderation_status === "pending"
+          ? "Your profile picture has been uploaded and is pending approval. It will be visible to others once approved."
+          : "Your profile picture has been updated successfully.",
+        timer: data.data?.photo_moderation_status === "pending" ? 4000 : 2000,
+        showConfirmButton: false,
+        confirmButtonColor: "#D4AF37",
+        customClass: {
+          popup: "swal2-popup-high-z",
+        },
+        didOpen: () => {
+          const swal = document.querySelector(".swal2-popup");
+          if (swal) {
+            swal.style.zIndex = "9999";
+            swal.style.borderRadius = "20px";
+            swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
+            swal.style.boxShadow = "0 20px 60px rgba(212, 175, 55, 0.25)";
+            swal.style.background =
+              "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)";
+            swal.style.backdropFilter = "blur(20px)";
+          }
+          const container = document.querySelector(".swal2-container");
+          if (container) {
+            container.style.zIndex = "9999";
+          }
+          const title = document.querySelector(".swal2-title");
+          if (title) {
+            title.style.color = "#1a1a1a";
+            title.style.fontWeight = "700";
+            title.style.fontSize = "1.5rem";
+            title.style.background =
+              "linear-gradient(45deg, #D4AF37, #B8941F)";
+            title.style.webkitBackgroundClip = "text";
+            title.style.webkitTextFillColor = "transparent";
+            title.style.backgroundClip = "text";
+          }
+        },
+      });
+    } catch (error) {
+      console.error("Error uploading profile photo:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Upload Failed",
+        text: error.message || "Failed to upload profile picture. Please try again.",
+        confirmButtonColor: "#D4AF37",
+        customClass: {
+          popup: "swal2-popup-high-z",
+        },
+        didOpen: () => {
+          const swal = document.querySelector(".swal2-popup");
+          if (swal) {
+            swal.style.zIndex = "9999";
+          }
+          const container = document.querySelector(".swal2-container");
+          if (container) {
+            container.style.zIndex = "9999";
+          }
+        },
+      });
+    } finally {
+      setSelectingProfilePhoto(false);
+    }
+  };
+
+  const handleSelectFromGallery = () => {
+    setGallerySelectionDialogOpen(true);
+  };
+
+  const handleSetProfilePhotoFromGallery = async (photoPath) => {
+    if (!photoPath || selectingProfilePhoto) return; // Prevent multiple clicks
+
+    setSelectedPhotoPath(photoPath);
+    setSelectingProfilePhoto(true);
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch("/api/public/me", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          photo_path: photoPath,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.message || "Failed to update profile picture"
+        );
+      }
+
+      // Update user state
+      if (setUser && data.data) {
+        setUser(data.data);
+      }
+
+      // Update form data
+      setFormData((prev) => ({
+        ...prev,
+        photo: photoPath,
+      }));
+
+      // Clear photo preview since we're using gallery photo
+      setPhotoPreview(null);
+      setPhotoFile(null);
+
+      // Close dialog first, then show success message
+      setGallerySelectionDialogOpen(false);
+      setSelectedPhotoPath(null);
+      
+      // Small delay to ensure dialog closes before showing alert
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      await Swal.fire({
+        icon: "success",
+        title: "Profile Picture Updated!",
+        text: "Your profile picture has been updated successfully.",
+        timer: 2000,
+        showConfirmButton: false,
+        confirmButtonColor: "#D4AF37",
+        customClass: {
+          popup: "swal2-popup-high-z",
+        },
+        didOpen: () => {
+          const swal = document.querySelector(".swal2-popup");
+          if (swal) {
+            swal.style.zIndex = "9999";
+            swal.style.borderRadius = "20px";
+            swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
+            swal.style.boxShadow = "0 20px 60px rgba(212, 175, 55, 0.25)";
+            swal.style.background =
+              "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)";
+            swal.style.backdropFilter = "blur(20px)";
+          }
+          const container = document.querySelector(".swal2-container");
+          if (container) {
+            container.style.zIndex = "9999";
+          }
+          const title = document.querySelector(".swal2-title");
+          if (title) {
+            title.style.color = "#1a1a1a";
+            title.style.fontWeight = "700";
+            title.style.fontSize = "1.5rem";
+            title.style.background =
+              "linear-gradient(45deg, #D4AF37, #B8941F)";
+            title.style.webkitBackgroundClip = "text";
+            title.style.webkitTextFillColor = "transparent";
+            title.style.backgroundClip = "text";
+          }
+        },
+      });
+    } catch (error) {
+      console.error("Error setting profile photo from gallery:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Update Failed",
+        text: error.message || "Failed to update profile picture. Please try again.",
+        confirmButtonColor: "#D4AF37",
+        customClass: {
+          popup: "swal2-popup-high-z",
+        },
+        didOpen: () => {
+          const swal = document.querySelector(".swal2-popup");
+          if (swal) {
+            swal.style.zIndex = "9999";
+            swal.style.borderRadius = "20px";
+            swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
+            swal.style.boxShadow = "0 20px 60px rgba(212, 175, 55, 0.25)";
+            swal.style.background =
+              "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)";
+            swal.style.backdropFilter = "blur(20px)";
+          }
+          const container = document.querySelector(".swal2-container");
+          if (container) {
+            container.style.zIndex = "9999";
+          }
+          const title = document.querySelector(".swal2-title");
+          if (title) {
+            title.style.color = "#1a1a1a";
+            title.style.fontWeight = "700";
+            title.style.fontSize = "1.5rem";
+            title.style.background =
+              "linear-gradient(45deg, #D4AF37, #B8941F)";
+            title.style.webkitBackgroundClip = "text";
+            title.style.webkitTextFillColor = "transparent";
+            title.style.backgroundClip = "text";
+          }
+        },
+      });
+    } finally {
+      setSelectingProfilePhoto(false);
+      setSelectedPhotoPath(null);
+    }
   };
 
   const handleGalleryPhotosChange = (e) => {
@@ -2007,8 +2597,55 @@ export default function Profile({ user, setUser }) {
             boxShadow: "0 4px 20px rgba(212, 175, 55, 0.1)",
             textAlign: "center",
             width: "100%",
+            position: "relative",
           }}
         >
+          {/* Profile picture change buttons - upper right when NOT in edit mode */}
+          {!isEditing && (
+            <Box
+              sx={{
+                position: "absolute",
+                top: { xs: 8, sm: 12 },
+                right: { xs: 8, sm: 12 },
+                display: "flex",
+                gap: 0.5,
+                zIndex: 1,
+              }}
+            >
+              <Tooltip title="Upload New Photo">
+                <IconButton
+                  onClick={handlePhotoClick}
+                  size="small"
+                  sx={{
+                    bgcolor: "#D4AF37",
+                    color: "#1a1a1a",
+                    "&:hover": {
+                      bgcolor: "#B8941F",
+                    },
+                    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
+                  }}
+                >
+                  <PhotoCamera fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Select from Gallery">
+                <IconButton
+                  onClick={handleSelectFromGallery}
+                  size="small"
+                  sx={{
+                    bgcolor: "#D4AF37",
+                    color: "#1a1a1a",
+                    "&:hover": {
+                      bgcolor: "#B8941F",
+                    },
+                    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
+                  }}
+                >
+                  <Image fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          )}
           <Box sx={{ position: "relative", display: "inline-block", mb: 2 }}>
             <input
               accept="image/*"
@@ -2097,24 +2734,48 @@ export default function Profile({ user, setUser }) {
                     <CancelIcon sx={{ fontSize: "1.5rem" }} />
                   </Box>
                 )}
+              {/* Profile picture change buttons - bottom right when IN edit mode */}
+              {isEditing && (
+                <Box
+                  sx={{
+                    position: "absolute",
+                    bottom: 0,
+                    right: 0,
+                    display: "flex",
+                    gap: 0.5,
+                  }}
+                >
+                  <Tooltip title="Upload New Photo">
+                    <IconButton
+                      onClick={handlePhotoClick}
+                      sx={{
+                        bgcolor: "#D4AF37",
+                        color: "#1a1a1a",
+                        "&:hover": {
+                          bgcolor: "#B8941F",
+                        },
+                      }}
+                    >
+                      <PhotoCamera />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Select from Gallery">
+                    <IconButton
+                      onClick={handleSelectFromGallery}
+                      sx={{
+                        bgcolor: "#D4AF37",
+                        color: "#1a1a1a",
+                        "&:hover": {
+                          bgcolor: "#B8941F",
+                        },
+                      }}
+                    >
+                      <Image />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+              )}
             </Box>
-            {isEditing && (
-              <IconButton
-                onClick={handlePhotoClick}
-                sx={{
-                  position: "absolute",
-                  bottom: 0,
-                  right: 0,
-                  bgcolor: "#D4AF37",
-                  color: "#1a1a1a",
-                  "&:hover": {
-                    bgcolor: "#B8941F",
-                  },
-                }}
-              >
-                <PhotoCamera />
-              </IconButton>
-            )}
             {/* Help text for pending/rejected photo */}
             {!isEditing &&
               user?.photo &&
@@ -4054,6 +4715,213 @@ export default function Profile({ user, setUser }) {
           </Box>
         </Card>
       </Box>
+
+      {/* Gallery Photo Selection Dialog */}
+      <Dialog
+        open={gallerySelectionDialogOpen}
+        onClose={() => setGallerySelectionDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: "24px",
+            background: "#ffffff",
+            boxShadow:
+              "0 25px 80px rgba(212, 175, 55, 0.25), 0 0 0 1px rgba(212, 175, 55, 0.1)",
+            maxHeight: "90vh",
+            overflow: "hidden",
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            background: "linear-gradient(135deg, #D4AF37 0%, #B8941F 100%)",
+            color: "#ffffff",
+            fontWeight: 700,
+            fontSize: { xs: "1.3rem", sm: "1.5rem" },
+            textAlign: "center",
+            py: { xs: 2, sm: 2.5 },
+            px: { xs: 2, sm: 3 },
+            borderBottom: "2px solid rgba(212, 175, 55, 0.3)",
+          }}
+        >
+          Select Profile Picture from Gallery
+        </DialogTitle>
+        <DialogContent
+          sx={{
+            px: { xs: 2, sm: 3 },
+            py: { xs: 2, sm: 2.5 },
+            pt: { xs: 3, sm: 4 },
+            overflow: "auto",
+            maxHeight: "70vh",
+            bgcolor: "#ffffff",
+          }}
+        >
+          {/* Show all photos with status indicators, but only allow selecting approved ones */}
+          {(() => {
+            // Normalize photos array - handle JSONB which might come as string
+            let photosArray = [];
+            if (user?.photos) {
+              if (Array.isArray(user.photos)) {
+                photosArray = user.photos;
+              } else if (typeof user.photos === "string") {
+                try {
+                  const parsed = JSON.parse(user.photos);
+                  photosArray = Array.isArray(parsed) ? parsed : [];
+                } catch (e) {
+                  console.error("Error parsing photos:", e);
+                  photosArray = [];
+                }
+              }
+            }
+
+            // Filter valid photos
+            const validPhotos = photosArray.filter(
+              (photo) =>
+                photo &&
+                typeof photo === "object" &&
+                photo.path &&
+                typeof photo.path === "string"
+            );
+
+            // Separate approved and non-approved photos
+            const approvedPhotos = validPhotos.filter(
+              (photo) => photo.moderation_status === "approved"
+            );
+            const pendingPhotos = validPhotos.filter(
+              (photo) => photo.moderation_status === "pending"
+            );
+            const rejectedPhotos = validPhotos.filter(
+              (photo) => photo.moderation_status === "rejected"
+            );
+
+            if (validPhotos.length === 0) {
+              return (
+                <Box
+                  sx={{
+                    textAlign: "center",
+                    py: 6,
+                    px: 2,
+                  }}
+                >
+                  <Image
+                    sx={{
+                      fontSize: 64,
+                      color: "rgba(212, 175, 55, 0.3)",
+                      mb: 2,
+                    }}
+                  />
+                  <Typography
+                    variant="h6"
+                    sx={{
+                      color: "rgba(26, 26, 26, 0.7)",
+                      fontWeight: 600,
+                      mb: 1,
+                    }}
+                  >
+                    No Photos in Gallery
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: "rgba(26, 26, 26, 0.6)",
+                      mb: 3,
+                    }}
+                  >
+                    Upload photos to your gallery first, then wait for approval
+                    before you can use them as your profile picture.
+                  </Typography>
+                  <Button
+                    variant="outlined"
+                    onClick={() => setGallerySelectionDialogOpen(false)}
+                    sx={{
+                      borderColor: "#D4AF37",
+                      color: "#D4AF37",
+                      "&:hover": {
+                        borderColor: "#B8941F",
+                        bgcolor: "rgba(212, 175, 55, 0.1)",
+                      },
+                    }}
+                  >
+                    Close
+                  </Button>
+                </Box>
+              );
+            }
+
+            // Always show all photos if there are any
+            return (
+              <Grid container spacing={2} sx={{ mt: 2 }}>
+                {validPhotos.map((photo, index) => {
+                  console.log(`Rendering photo ${index}:`, { photo, path: photo?.path, status: photo?.moderation_status });
+                  if (!photo || !photo.path) {
+                    console.warn("Invalid photo object:", photo);
+                    return null;
+                  }
+                  
+                  const photoUrl = photo.path.startsWith("/uploads/")
+                    ? photo.path
+                    : `/uploads/${photo.path}`;
+                  const isCurrentProfilePhoto =
+                    user?.photo === photo.path ||
+                    (user?.photo &&
+                      (user.photo.startsWith("/uploads/")
+                        ? user.photo === photoUrl
+                        : `/uploads/${user.photo}` === photoUrl));
+                  
+                  const isApproved = photo.moderation_status === "approved";
+                  const isPending = photo.moderation_status === "pending";
+                  const isRejected = photo.moderation_status === "rejected";
+
+                  return (
+                    <GalleryPhotoCard
+                      key={`photo-${index}-${photo.path}`}
+                      photo={photo}
+                      photoUrl={photoUrl}
+                      index={index}
+                      isApproved={isApproved}
+                      isPending={isPending}
+                      isRejected={isRejected}
+                      isCurrentProfilePhoto={isCurrentProfilePhoto}
+                      onSelect={handleSetProfilePhotoFromGallery}
+                      isSelecting={selectingProfilePhoto}
+                      isSelected={selectedPhotoPath === photo.path}
+                    />
+                  );
+                })}
+              </Grid>
+            );
+          })()}
+        </DialogContent>
+        <DialogActions
+          sx={{
+            px: { xs: 2, sm: 3 },
+            pb: { xs: 2, sm: 2.5 },
+            pt: 1,
+            justifyContent: "center",
+          }}
+        >
+          <Button
+            onClick={() => setGallerySelectionDialogOpen(false)}
+            variant="outlined"
+            sx={{
+              borderColor: "rgba(0, 0, 0, 0.3)",
+              color: "rgba(0, 0, 0, 0.7)",
+              borderRadius: "12px",
+              px: 3,
+              py: 1,
+              fontWeight: 600,
+              textTransform: "none",
+              "&:hover": {
+                borderColor: "rgba(0, 0, 0, 0.5)",
+                bgcolor: "rgba(0, 0, 0, 0.05)",
+              },
+            }}
+          >
+            Cancel
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
