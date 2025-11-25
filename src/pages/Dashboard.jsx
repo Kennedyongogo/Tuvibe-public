@@ -60,6 +60,7 @@ import {
   Insights,
   GpsFixed,
   Timeline,
+  BarChart,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
@@ -1971,7 +1972,7 @@ export default function Dashboard({ user, setUser }) {
                       flexShrink: 0,
                     }}
                   >
-                    <Insights sx={{ color: "#D4AF37" }} />
+                    <BarChart sx={{ color: "#D4AF37" }} />
                   </IconButton>
                 </span>
               </Tooltip>
