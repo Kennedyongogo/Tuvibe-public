@@ -2046,19 +2046,22 @@ export default function Dashboard({ user, setUser }) {
           display: "flex",
           gap: 2,
           mb: 4,
-          flexWrap: "nowrap",
-          justifyContent: "space-between",
-          alignItems: "stretch",
+          flexDirection: { xs: "column", sm: "row" },
+          justifyContent: { xs: "center", sm: "space-between" },
+          alignItems: { xs: "center", sm: "stretch" },
           width: "100%",
         }}
       >
         <Card
           onClick={() => handleScrollToUserLists("favorites")}
           sx={{
-            flex: "1 1 0%",
-            minWidth: { xs: 160, sm: 220, md: 260 },
+            flex: { xs: "0 1 auto", sm: "1 1 0%" },
+            width: { xs: "85%", sm: "auto" },
+            maxWidth: { xs: "320px", sm: "none" },
+            minWidth: { xs: "auto", sm: 220, md: 260 },
             p: { xs: 0.75, sm: 1.25, md: 1.5 },
-            ml: { xs: 2, sm: 2.5, md: 3 },
+            mx: { xs: "auto", sm: 0 },
+            ml: { xs: "auto", sm: 2.5, md: 3 },
             borderRadius: "16px",
             textTransform: "none",
             cursor: "pointer",
@@ -2155,10 +2158,13 @@ export default function Dashboard({ user, setUser }) {
         <Card
           onClick={() => handleScrollToUserLists("unlocked")}
           sx={{
-            flex: "1 1 0%",
-            minWidth: { xs: 160, sm: 220, md: 260 },
+            flex: { xs: "0 1 auto", sm: "1 1 0%" },
+            width: { xs: "85%", sm: "auto" },
+            maxWidth: { xs: "320px", sm: "none" },
+            minWidth: { xs: "auto", sm: 220, md: 260 },
             p: { xs: 0.75, sm: 1.25, md: 1.5 },
-            mr: { xs: 2, sm: 2.5, md: 3 },
+            mx: { xs: "auto", sm: 0 },
+            mr: { xs: "auto", sm: 2.5, md: 3 },
             borderRadius: "16px",
             textTransform: "none",
             cursor: "pointer",
