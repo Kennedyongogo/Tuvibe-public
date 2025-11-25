@@ -135,11 +135,9 @@ const GalleryPhotoCard = ({ photo, photoUrl, index, isApproved, isPending, isRej
                 src={photoUrl}
                 alt={`Gallery photo ${index + 1}`}
                 onError={() => {
-                  console.error(`Failed to load image: ${photoUrl}`, photo);
                   setImageError(true);
                 }}
                 onLoad={() => {
-                  console.log(`Successfully loaded image: ${photoUrl}`);
                   setImageLoaded(true);
                 }}
                 sx={{
@@ -496,18 +494,6 @@ export default function Profile({ user, setUser }) {
         (photo) => photo.moderation_status === "rejected"
       );
 
-      console.log("Gallery Photos Debug (Dialog Opened):", {
-        userExists: !!user,
-        hasPhotosProperty: !!user?.photos,
-        rawPhotos: user?.photos,
-        photosArray,
-        validPhotos,
-        totalPhotos: validPhotos.length,
-        approvedCount: approvedPhotos.length,
-        pendingCount: pendingPhotos.length,
-        rejectedCount: rejectedPhotos.length,
-        samplePhoto: validPhotos[0],
-      });
     }
   }, [gallerySelectionDialogOpen, user?.photos]);
 
@@ -648,7 +634,7 @@ export default function Profile({ user, setUser }) {
           !err.message ||
           (!err.message.includes("404") && !err.message.includes("Not Found"))
         ) {
-          console.error("Failed to fetch verification status:", err);
+          // Failed to fetch verification status
         }
       }
     };
@@ -683,7 +669,7 @@ export default function Profile({ user, setUser }) {
           setLookingForPosts(data.data || []);
         }
       } catch (err) {
-        console.error("Failed to fetch Looking For posts:", err);
+        // Failed to fetch Looking For posts
       } finally {
         setLoadingPosts(false);
       }
@@ -728,7 +714,6 @@ export default function Profile({ user, setUser }) {
         throw new Error(data.message || "Failed to update post");
       }
     } catch (err) {
-      console.error("Update post error:", err);
       Swal.fire({
         icon: "error",
         title: "Error",
@@ -781,7 +766,6 @@ export default function Profile({ user, setUser }) {
         throw new Error(data.message || "Failed to delete post");
       }
     } catch (err) {
-      console.error("Delete post error:", err);
       Swal.fire({
         icon: "error",
         title: "Error",
@@ -836,7 +820,6 @@ export default function Profile({ user, setUser }) {
         });
       }
     } catch (err) {
-      console.error("Verification request error:", err);
       Swal.fire({
         icon: "error",
         title: "Error",
@@ -894,7 +877,6 @@ export default function Profile({ user, setUser }) {
           const data = await response.json();
 
           if (!response.ok || !data.success) {
-            console.error("Auto-save location failed:", data);
             return;
           }
 
@@ -905,7 +887,7 @@ export default function Profile({ user, setUser }) {
             setUser(data.data);
           }
         } catch (err) {
-          console.error("Auto-save location error:", err);
+          // Auto-save location error
         }
       }, 3000);
     },
@@ -955,7 +937,6 @@ export default function Profile({ user, setUser }) {
           setIsLocationTracking(true);
         },
         (error) => {
-          console.error("Location watch error:", error);
           setIsLocationTracking(false);
         },
         {
@@ -968,7 +949,6 @@ export default function Profile({ user, setUser }) {
       locationWatchIdRef.current = watchId;
       setIsLocationTracking(true);
     } catch (err) {
-      console.error("Failed to start location watch:", err);
       setIsLocationTracking(false);
     }
   };
@@ -1294,7 +1274,6 @@ export default function Profile({ user, setUser }) {
         },
       });
     } catch (error) {
-      console.error("Error uploading profile photo:", error);
       Swal.fire({
         icon: "error",
         title: "Upload Failed",
@@ -1368,7 +1347,7 @@ export default function Profile({ user, setUser }) {
       // Close dialog first, then show success message
       setGallerySelectionDialogOpen(false);
       setSelectedPhotoPath(null);
-      
+
       // Small delay to ensure dialog closes before showing alert
       await new Promise(resolve => setTimeout(resolve, 100));
       
@@ -1411,7 +1390,6 @@ export default function Profile({ user, setUser }) {
         },
       });
     } catch (error) {
-      console.error("Error setting profile photo from gallery:", error);
       Swal.fire({
         icon: "error",
         title: "Update Failed",
@@ -1548,7 +1526,6 @@ export default function Profile({ user, setUser }) {
 
           const data = await response.json();
           if (!response.ok || !data?.success) {
-            console.error("Gallery upload failed:", data);
             return;
           }
 
@@ -1570,14 +1547,11 @@ export default function Profile({ user, setUser }) {
                 setUser(meData.data);
               }
             } catch (refreshErr) {
-              console.error(
-                "Failed to refresh profile after gallery upload:",
-                refreshErr
-              );
+              // Failed to refresh profile after gallery upload
             }
           }
         } catch (e) {
-          console.error("Unexpected error uploading gallery files:", e);
+          // Unexpected error uploading gallery files
         } finally {
           setGalleryUploadInProgress(false);
         }
@@ -1637,7 +1611,6 @@ export default function Profile({ user, setUser }) {
             if (userData.success) {
               updatedUserData = userData.data;
             } else {
-              console.error("Failed to refresh user data:", userData);
               throw new Error("Failed to get updated user data");
             }
           }
@@ -1673,11 +1646,9 @@ export default function Profile({ user, setUser }) {
             confirmButtonColor: "#D4AF37",
           });
         } else {
-          console.error("Delete API failed:", data);
           throw new Error(data.message || "Failed to delete photo");
         }
       } catch (err) {
-        console.error("Delete photo error:", err);
         Swal.fire({
           icon: "error",
           title: "Error",
@@ -1981,7 +1952,6 @@ export default function Profile({ user, setUser }) {
         }
       }
     } catch (error) {
-      console.error("Profile update error:", error);
       Swal.fire({
         icon: "error",
         title: "Error",
@@ -2242,7 +2212,6 @@ export default function Profile({ user, setUser }) {
       // Redirect to home page
       navigate("/");
     } catch (err) {
-      console.error("Delete account error:", err);
       Swal.fire({
         icon: "error",
         title: "Deletion Failed",
@@ -2308,7 +2277,7 @@ export default function Profile({ user, setUser }) {
         setUnreadNotificationCount(data.data.unread || 0);
       }
     } catch (error) {
-      console.error("Error fetching notification count:", error);
+      // Error fetching notification count
     }
   }, []);
 
@@ -2334,7 +2303,6 @@ export default function Profile({ user, setUser }) {
           setBoostStatus({ status: "inactive", boost: null });
         }
       } catch (error) {
-        console.error("Error fetching boost status:", error);
         setBoostStatus({ status: "inactive", boost: null });
       } finally {
         setLoadingBoostStatus(false);
@@ -2735,46 +2703,46 @@ export default function Profile({ user, setUser }) {
                   </Box>
                 )}
               {/* Profile picture change buttons - bottom right when IN edit mode */}
-              {isEditing && (
-                <Box
-                  sx={{
-                    position: "absolute",
-                    bottom: 0,
-                    right: 0,
-                    display: "flex",
-                    gap: 0.5,
-                  }}
-                >
-                  <Tooltip title="Upload New Photo">
-                    <IconButton
-                      onClick={handlePhotoClick}
-                      sx={{
-                        bgcolor: "#D4AF37",
-                        color: "#1a1a1a",
-                        "&:hover": {
-                          bgcolor: "#B8941F",
-                        },
-                      }}
-                    >
-                      <PhotoCamera />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Select from Gallery">
-                    <IconButton
-                      onClick={handleSelectFromGallery}
-                      sx={{
-                        bgcolor: "#D4AF37",
-                        color: "#1a1a1a",
-                        "&:hover": {
-                          bgcolor: "#B8941F",
-                        },
-                      }}
-                    >
-                      <Image />
-                    </IconButton>
-                  </Tooltip>
-                </Box>
-              )}
+            {isEditing && (
+              <Box
+                sx={{
+                  position: "absolute",
+                  bottom: 0,
+                  right: 0,
+                  display: "flex",
+                  gap: 0.5,
+                }}
+              >
+                <Tooltip title="Upload New Photo">
+                  <IconButton
+                    onClick={handlePhotoClick}
+                    sx={{
+                      bgcolor: "#D4AF37",
+                      color: "#1a1a1a",
+                      "&:hover": {
+                        bgcolor: "#B8941F",
+                      },
+                    }}
+                  >
+                    <PhotoCamera />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Select from Gallery">
+                  <IconButton
+                    onClick={handleSelectFromGallery}
+                    sx={{
+                      bgcolor: "#D4AF37",
+                      color: "#1a1a1a",
+                      "&:hover": {
+                        bgcolor: "#B8941F",
+                      },
+                    }}
+                  >
+                    <Image />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            )}
             </Box>
             {/* Help text for pending/rejected photo */}
             {!isEditing &&
@@ -4769,7 +4737,6 @@ export default function Profile({ user, setUser }) {
                   const parsed = JSON.parse(user.photos);
                   photosArray = Array.isArray(parsed) ? parsed : [];
                 } catch (e) {
-                  console.error("Error parsing photos:", e);
                   photosArray = [];
                 }
               }
@@ -4853,27 +4820,25 @@ export default function Profile({ user, setUser }) {
             return (
               <Grid container spacing={2} sx={{ mt: 2 }}>
                 {validPhotos.map((photo, index) => {
-                  console.log(`Rendering photo ${index}:`, { photo, path: photo?.path, status: photo?.moderation_status });
                   if (!photo || !photo.path) {
-                    console.warn("Invalid photo object:", photo);
                     return null;
                   }
-                  
-                  const photoUrl = photo.path.startsWith("/uploads/")
-                    ? photo.path
-                    : `/uploads/${photo.path}`;
-                  const isCurrentProfilePhoto =
-                    user?.photo === photo.path ||
-                    (user?.photo &&
-                      (user.photo.startsWith("/uploads/")
-                        ? user.photo === photoUrl
-                        : `/uploads/${user.photo}` === photoUrl));
+                    
+                    const photoUrl = photo.path.startsWith("/uploads/")
+                      ? photo.path
+                      : `/uploads/${photo.path}`;
+                    const isCurrentProfilePhoto =
+                      user?.photo === photo.path ||
+                      (user?.photo &&
+                        (user.photo.startsWith("/uploads/")
+                          ? user.photo === photoUrl
+                          : `/uploads/${user.photo}` === photoUrl));
                   
                   const isApproved = photo.moderation_status === "approved";
                   const isPending = photo.moderation_status === "pending";
                   const isRejected = photo.moderation_status === "rejected";
 
-                  return (
+                    return (
                     <GalleryPhotoCard
                       key={`photo-${index}-${photo.path}`}
                       photo={photo}
@@ -4887,9 +4852,9 @@ export default function Profile({ user, setUser }) {
                       isSelecting={selectingProfilePhoto}
                       isSelected={selectedPhotoPath === photo.path}
                     />
-                  );
-                })}
-              </Grid>
+                    );
+                  })}
+                </Grid>
             );
           })()}
         </DialogContent>
