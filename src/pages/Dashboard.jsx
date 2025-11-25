@@ -524,7 +524,6 @@ export default function Dashboard({ user, setUser }) {
         },
       });
       const data = await response.json();
-      console.log("[Boost] status payload", data);
 
       if (response.ok && data.success) {
         const boostsSource = Array.isArray(data.data?.boosts)
@@ -543,7 +542,6 @@ export default function Dashboard({ user, setUser }) {
           }
           return boosts[0].id;
         });
-        console.log("[Boost] Active boosts fetched", boosts);
         setBoostStatusError("");
       } else {
         setActiveBoosts([]);
@@ -613,9 +611,7 @@ export default function Dashboard({ user, setUser }) {
   }, [boostDialogOpen, fetchActiveBoosts]);
 
   useEffect(() => {
-    if (boostDialogOpen) {
-      console.log("[Boost] Selected boost", selectedBoost);
-    }
+    // Boost dialog opened with selected boost
   }, [boostDialogOpen, selectedBoost]);
 
   useEffect(() => {
@@ -654,7 +650,6 @@ export default function Dashboard({ user, setUser }) {
 
   // Fetch featured market items and users
   useEffect(() => {
-    console.log("[Dashboard] Fetching featured items and users");
     fetchFeaturedItems();
     fetchFeaturedUsers();
     // Also fetch current boosts without blocking render
@@ -674,18 +669,10 @@ export default function Dashboard({ user, setUser }) {
 
   // Auto-transition images for each featured user
   useEffect(() => {
-    console.log("[Dashboard] Featured users effect triggered", {
-      count: featuredUsers.length,
-      userIds: featuredUsers.map((u) => u.id),
-    });
-
     // Update ref with current users
     featuredUsersRef.current = featuredUsers;
 
     // Always clean up previous intervals first
-    console.log("[Dashboard] Cleaning up previous featured users intervals", {
-      intervalCount: Object.keys(featuredUsersIntervalsRef.current).length,
-    });
     Object.values(featuredUsersIntervalsRef.current).forEach((interval) => {
       if (interval) clearInterval(interval);
     });
@@ -694,14 +681,7 @@ export default function Dashboard({ user, setUser }) {
     if (featuredUsers.length === 0) {
       // Reset indices when no users
       setCurrentImageIndex({});
-      return () => {
-        console.log(
-          "[Dashboard] Cleaning up featured users intervals (empty)",
-          {
-            intervalCount: 0,
-          }
-        );
-      };
+      return () => {};
     }
 
     const intervals = {};
@@ -733,18 +713,10 @@ export default function Dashboard({ user, setUser }) {
               (user) => user.id === userId
             );
             if (!userStillExists || !isMountedRef.current) {
-              console.log(
-                `[Dashboard] User ${userId} no longer exists or unmounted, skipping update`
-              );
               return prev;
             }
             const currentIdx = prev[userId] || 0;
             const nextIdx = (currentIdx + 1) % imageCount;
-            console.log(`[Dashboard] Updating user ${userId} image index`, {
-              currentIdx,
-              nextIdx,
-              imageCount,
-            });
             return { ...prev, [userId]: nextIdx };
           });
         }, 3000); // Change image every 3 seconds
@@ -759,10 +731,6 @@ export default function Dashboard({ user, setUser }) {
 
     // Cleanup intervals on unmount or when users change
     return () => {
-      console.log("[Dashboard] Cleaning up featured users intervals", {
-        intervalCount: Object.keys(intervals).length,
-        userIds: Object.keys(intervals),
-      });
       Object.values(intervals).forEach((interval) => {
         if (interval) clearInterval(interval);
       });
@@ -772,18 +740,10 @@ export default function Dashboard({ user, setUser }) {
 
   // Auto-transition images for each featured market item
   useEffect(() => {
-    console.log("[Dashboard] Featured items effect triggered", {
-      count: featuredItems.length,
-      itemIds: featuredItems.map((i) => i.id),
-    });
-
     // Update ref with current items
     featuredItemsRef.current = featuredItems;
 
     // Always clean up previous intervals first
-    console.log("[Dashboard] Cleaning up previous featured items intervals", {
-      intervalCount: Object.keys(featuredItemsIntervalsRef.current).length,
-    });
     Object.values(featuredItemsIntervalsRef.current).forEach((interval) => {
       if (interval) clearInterval(interval);
     });
@@ -792,14 +752,7 @@ export default function Dashboard({ user, setUser }) {
     if (featuredItems.length === 0) {
       // Reset indices when no items
       setCurrentItemImageIndex({});
-      return () => {
-        console.log(
-          "[Dashboard] Cleaning up featured items intervals (empty)",
-          {
-            intervalCount: 0,
-          }
-        );
-      };
+      return () => {};
     }
 
     const intervals = {};
@@ -830,18 +783,10 @@ export default function Dashboard({ user, setUser }) {
               (item) => item.id === itemId
             );
             if (!itemStillExists || !isMountedRef.current) {
-              console.log(
-                `[Dashboard] Item ${itemId} no longer exists or unmounted, skipping update`
-              );
               return prev;
             }
             const currentIdx = prev[itemId] || 0;
             const nextIdx = (currentIdx + 1) % imageCount;
-            console.log(`[Dashboard] Updating item ${itemId} image index`, {
-              currentIdx,
-              nextIdx,
-              imageCount,
-            });
             return { ...prev, [itemId]: nextIdx };
           });
         }, 3000); // Change image every 3 seconds
@@ -856,10 +801,6 @@ export default function Dashboard({ user, setUser }) {
 
     // Cleanup intervals on unmount or when items change
     return () => {
-      console.log("[Dashboard] Cleaning up featured items intervals", {
-        intervalCount: Object.keys(intervals).length,
-        itemIds: Object.keys(intervals),
-      });
       Object.values(intervals).forEach((interval) => {
         if (interval) clearInterval(interval);
       });
@@ -920,10 +861,6 @@ export default function Dashboard({ user, setUser }) {
         const featured = (data.data || [])
           .filter((item) => item.is_featured)
           .slice(0, 6);
-        console.log("[Dashboard] Setting featured items", {
-          count: featured.length,
-          itemIds: featured.map((i) => i.id),
-        });
         setFeaturedItems(featured);
       }
     } catch (err) {
@@ -951,10 +888,6 @@ export default function Dashboard({ user, setUser }) {
 
       if (data.success) {
         const users = data.data || [];
-        console.log("[Dashboard] Setting featured users", {
-          count: users.length,
-          userIds: users.map((u) => u.id),
-        });
         setFeaturedUsers(users);
       }
     } catch (err) {
@@ -1081,13 +1014,6 @@ export default function Dashboard({ user, setUser }) {
       }
 
       setBoosting(true);
-
-      console.log("[Boost] Creating new boost", {
-        category: boostCategory,
-        county: normalizedTargetCounty,
-        radiusKm: sanitizedBoostRadiusKm,
-        hours,
-      });
 
       const response = await fetch("/api/tokens/boost", {
         method: "POST",
@@ -1464,12 +1390,6 @@ export default function Dashboard({ user, setUser }) {
       }
 
       setBoosting(true);
-
-      console.log("[Boost] Extending existing boost", {
-        boostId: boostToUse.id,
-        hours,
-        radiusKm: extensionRadiusKm,
-      });
 
       const response = await fetch(
         `/api/tokens/boost/${boostToUse.id}/extend`,
@@ -2350,11 +2270,6 @@ export default function Dashboard({ user, setUser }) {
             {featuredUsers.slice(0, 10).map((featuredUser) => {
               const images = getAllImages(featuredUser);
               const currentIdx = currentImageIndex[featuredUser.id] || 0;
-              console.log(`[Dashboard] Rendering featured user card`, {
-                userId: featuredUser.id,
-                imageCount: images.length,
-                currentIdx,
-              });
               const featuredBoostUntil =
                 featuredUser.active_boost_until ??
                 featuredUser.is_featured_until;
@@ -2417,18 +2332,6 @@ export default function Dashboard({ user, setUser }) {
                           }))
                           .filter((img) => img.isValid);
 
-                        console.log(
-                          `[Dashboard] Rendering featured user ${featuredUser.id} images`,
-                          {
-                            totalImages: images.length,
-                            validImages: validImagesWithIndices.length,
-                            currentIdx,
-                            failedImages: Array.from(failedImages).filter(
-                              (url) => images.includes(url)
-                            ),
-                          }
-                        );
-
                         return validImagesWithIndices.map((imgData) => {
                           // Use original index for visibility check
                           const isVisible =
@@ -2457,13 +2360,6 @@ export default function Dashboard({ user, setUser }) {
                               }}
                               onError={() => {
                                 if (!isMountedRef.current) return;
-                                console.log(
-                                  `[Dashboard] Image error for user ${featuredUser.id}`,
-                                  {
-                                    image: imgData.image,
-                                    originalIndex: imgData.originalIndex,
-                                  }
-                                );
                                 // Track failed images in state instead of manipulating DOM
                                 if (imgData.image) {
                                   setFailedImages((prev) =>
@@ -2696,10 +2592,6 @@ export default function Dashboard({ user, setUser }) {
             }}
           >
             {featuredItems.map((item) => {
-              console.log(`[Dashboard] Rendering featured item card`, {
-                itemId: item.id,
-                imageCount: item.images?.length || 0,
-              });
               return (
                 <Card
                   key={item.id}
@@ -2744,21 +2636,6 @@ export default function Dashboard({ user, setUser }) {
                           })
                           .filter((img) => img.isValid);
 
-                        console.log(
-                          `[Dashboard] Rendering featured item ${item.id} images`,
-                          {
-                            totalImages: item.images?.length || 0,
-                            validImages: validImagesWithIndices.length,
-                            currentIdx: currentItemImageIndex[item.id] || 0,
-                            failedImages: Array.from(failedImages).filter(
-                              (url) =>
-                                item.images?.some(
-                                  (img) => getImageUrl(img) === url
-                                )
-                            ),
-                          }
-                        );
-
                         return validImagesWithIndices.map((imgData) => {
                           const currentIdx =
                             currentItemImageIndex[item.id] || 0;
@@ -2786,13 +2663,6 @@ export default function Dashboard({ user, setUser }) {
                               }}
                               onError={() => {
                                 if (!isMountedRef.current) return;
-                                console.log(
-                                  `[Dashboard] Image error for item ${item.id}`,
-                                  {
-                                    imageUrl: imgData.imageUrl,
-                                    originalIndex: imgData.originalIndex,
-                                  }
-                                );
                                 // Track failed images in state instead of manipulating DOM
                                 if (imgData.imageUrl) {
                                   setFailedImages((prev) =>
