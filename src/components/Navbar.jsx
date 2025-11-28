@@ -22,7 +22,6 @@ import {
 import {
   Home,
   Explore,
-  AccountCircle,
   Logout,
   Store,
   Wallet,
@@ -30,6 +29,7 @@ import {
   GridView,
   Report,
   Lock,
+  Timeline,
 } from "@mui/icons-material";
 import { useNavigate, useLocation } from "react-router-dom";
 import Swal from "sweetalert2";
@@ -55,6 +55,12 @@ export default function Navbar({
   const baseMenuItems = [
     { text: "Home", icon: <Home />, path: "/home", mobileLabel: "Home" },
     {
+      text: "Timeline",
+      icon: <Timeline />,
+      path: "/timeline",
+      mobileLabel: "Timeline",
+    },
+    {
       text: "Explore",
       icon: <Explore />,
       path: "/explore",
@@ -77,12 +83,6 @@ export default function Navbar({
       icon: <Wallet />,
       path: "/wallet",
       mobileLabel: "Wallet",
-    },
-    {
-      text: "Profile",
-      icon: <AccountCircle />,
-      path: "/profile",
-      mobileLabel: "Profile",
     },
   ];
   const menuItems = isSuspended ? [] : baseMenuItems;

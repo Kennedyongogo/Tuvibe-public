@@ -56,7 +56,6 @@ import {
   Add,
   Warning,
   NotificationsActive,
-  Timeline,
   Image,
   CheckCircleOutline,
 } from "@mui/icons-material";
@@ -2409,31 +2408,6 @@ export default function Profile({ user, setUser }) {
                           }}
                         />
                       </Badge>
-                    </IconButton>
-                  </span>
-                </Tooltip>
-                <Tooltip title="Timeline" arrow>
-                  <span>
-                    <IconButton
-                      onClick={() => navigate("/timeline")}
-                      sx={{
-                        backgroundColor: "rgba(212, 175, 55, 0.12)",
-                        border: "1px solid rgba(212, 175, 55, 0.3)",
-                        "&:hover": {
-                          backgroundColor: "rgba(212, 175, 55, 0.22)",
-                        },
-                        flexShrink: 0,
-                        width: { xs: "36px", sm: "40px" },
-                        height: { xs: "36px", sm: "40px" },
-                        p: { xs: 0.75, sm: 1 },
-                      }}
-                    >
-                      <Timeline
-                        sx={{
-                          color: "#D4AF37",
-                          fontSize: { xs: "1.25rem", sm: "1.5rem" },
-                        }}
-                      />
                     </IconButton>
                   </span>
                 </Tooltip>

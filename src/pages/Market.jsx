@@ -26,7 +26,7 @@ import {
   Star as StarIcon,
   LocalOffer as TagIcon,
   NotificationsActive,
-  Timeline,
+  AccountCircle,
 } from "@mui/icons-material";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
@@ -322,10 +322,10 @@ const Market = ({ user }) => {
                     </IconButton>
                   </span>
                 </Tooltip>
-                <Tooltip title="Timeline" arrow>
+                <Tooltip title="Profile" arrow>
                   <span>
                     <IconButton
-                      onClick={() => navigate("/timeline")}
+                      onClick={() => navigate("/profile")}
                       sx={{
                         backgroundColor: "rgba(26, 26, 26, 0.15)",
                         border: "1px solid rgba(26, 26, 26, 0.3)",
@@ -339,7 +339,7 @@ const Market = ({ user }) => {
                         p: { xs: 0.75, sm: 1 },
                       }}
                     >
-                      <Timeline
+                      <AccountCircle
                         sx={{
                           color: "#1a1a1a",
                           fontSize: { xs: "1.25rem", sm: "1.5rem" },

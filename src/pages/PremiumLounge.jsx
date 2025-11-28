@@ -46,7 +46,7 @@ import {
   Visibility,
   CheckCircle,
   NotificationsActive,
-  Timeline,
+  AccountCircle,
   Edit,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
@@ -939,10 +939,10 @@ export default function PremiumLounge({ user }) {
                         </IconButton>
                       </span>
                     </Tooltip>
-                    <Tooltip title="Timeline" arrow>
+                    <Tooltip title="Profile" arrow>
                       <span>
                         <IconButton
-                          onClick={() => navigate("/timeline")}
+                          onClick={() => navigate("/profile")}
                           sx={{
                             backgroundColor: "rgba(212, 175, 55, 0.12)",
                             border: "1px solid rgba(212, 175, 55, 0.3)",
@@ -955,7 +955,7 @@ export default function PremiumLounge({ user }) {
                             p: { xs: 0.75, sm: 1 },
                           }}
                         >
-                          <Timeline
+                          <AccountCircle
                             sx={{
                               color: "#D4AF37",
                               fontSize: { xs: "1.25rem", sm: "1.5rem" },

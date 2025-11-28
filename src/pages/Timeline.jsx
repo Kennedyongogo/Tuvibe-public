@@ -11,6 +11,7 @@ import {
 import {
   Timeline as TimelineIcon,
   NotificationsActive,
+  AccountCircle,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import PostsFeed from "../components/Posts/PostsFeed";
@@ -163,6 +164,31 @@ export default function Timeline({ user }) {
                           }}
                         />
                       </Badge>
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <Tooltip title="Profile" arrow>
+                  <span>
+                    <IconButton
+                      onClick={() => navigate("/profile")}
+                      sx={{
+                        backgroundColor: "rgba(212, 175, 55, 0.12)",
+                        border: "1px solid rgba(212, 175, 55, 0.3)",
+                        "&:hover": {
+                          backgroundColor: "rgba(212, 175, 55, 0.22)",
+                        },
+                        flexShrink: 0,
+                        width: { xs: "36px", sm: "40px" },
+                        height: { xs: "36px", sm: "40px" },
+                        p: { xs: 0.75, sm: 1 },
+                      }}
+                    >
+                      <AccountCircle
+                        sx={{
+                          color: "#D4AF37",
+                          fontSize: { xs: "1.25rem", sm: "1.5rem" },
+                        }}
+                      />
                     </IconButton>
                   </span>
                 </Tooltip>
