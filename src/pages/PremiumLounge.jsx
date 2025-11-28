@@ -115,8 +115,9 @@ export default function PremiumLounge({ user }) {
     }
 
     // Don't fetch if user is regular - should be handled by early return
-    if (isRegularUser) {
+    if (isRegularUser || user?.category === "Regular") {
       setLoading(false);
+      fetchingRef.current = false;
       return;
     }
 
@@ -186,8 +187,13 @@ export default function PremiumLounge({ user }) {
             navigate("/");
           });
         } else if (response.status === 403 && data.requiresUpgrade) {
-          // Regular user trying to access Premium Lounge - should not happen but handle gracefully
-          navigate("/explore");
+          // Regular user trying to access Premium Lounge - don't navigate away, let benefits dialog show
+          setLoading(false);
+          setUsers([]);
+          fetchingRef.current = false;
+          lastFetchedRef.current = { category: null, tab: null };
+          // Benefits dialog will be shown by useEffect hook for regular users
+          return;
         } else {
           Swal.fire({
             icon: "error",
