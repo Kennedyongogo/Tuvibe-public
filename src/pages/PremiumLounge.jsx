@@ -83,14 +83,43 @@ export default function PremiumLounge({ user }) {
 
   const isRegularUser = user?.category === "Regular";
   const isSmallScreen = useMediaQuery("(max-width:600px)");
+  const [userCategoryConfirmed, setUserCategoryConfirmed] = useState(false);
+
+  // Determine user category from user prop or localStorage
+  const getUserCategory = useCallback(() => {
+    if (user?.category) {
+      return user.category;
+    }
+    try {
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
+        const parsedUser = JSON.parse(storedUser);
+        return parsedUser.category;
+      }
+    } catch (err) {
+      console.error("Error parsing user from localStorage:", err);
+    }
+    return null;
+  }, [user?.category]);
+
+  const confirmedIsRegularUser = useMemo(() => {
+    const category = getUserCategory();
+    return category === "Regular";
+  }, [getUserCategory]);
 
   // Handle regular user - automatically open upgrade dialog
   useEffect(() => {
-    if (isRegularUser) {
+    const category = getUserCategory();
+    if (category === "Regular") {
       setBenefitsDialogOpen(true);
       setUpgradeDialogOpen(false);
+      setLoading(false);
+      setUserCategoryConfirmed(true);
+    } else if (category && category !== "Regular") {
+      // Premium user confirmed
+      setUserCategoryConfirmed(true);
     }
-  }, [isRegularUser]);
+  }, [getUserCategory]);
 
   const categories = [
     { label: "Sugar Mummy", value: "Sugar Mummy" },
@@ -300,22 +329,11 @@ export default function PremiumLounge({ user }) {
 
   useEffect(() => {
     // Check localStorage as fallback if user prop is not available yet
-    let userCategory = user?.category;
-
-    if (!userCategory) {
-      try {
-        const storedUser = localStorage.getItem("user");
-        if (storedUser) {
-          const parsedUser = JSON.parse(storedUser);
-          userCategory = parsedUser.category;
-        }
-      } catch (err) {
-        console.error("Error parsing user from localStorage:", err);
-      }
-    }
+    const userCategory = getUserCategory();
 
     // Only fetch premium users if user is premium (not regular)
     if (userCategory && userCategory !== "Regular") {
+      setUserCategoryConfirmed(true);
       fetchPremiumUsers();
       if (localStorage.getItem("token")) {
         fetchFavorites();
@@ -328,15 +346,21 @@ export default function PremiumLounge({ user }) {
       setUsers([]); // Clear users array
       fetchingRef.current = false; // Reset fetching flag
       lastFetchedRef.current = { category: null, tab: null }; // Reset last fetched
+      setUserCategoryConfirmed(true);
     } else {
       // No user category found - user might still be loading
       // Set loading to false after brief delay to avoid indefinite loading
       const timeout = setTimeout(() => {
         setLoading(false);
+        // If still no category after delay, check again
+        const finalCategory = getUserCategory();
+        if (finalCategory === "Regular" || !finalCategory) {
+          setUserCategoryConfirmed(true);
+        }
       }, 1000);
       return () => clearTimeout(timeout);
     }
-  }, [selectedTab, user?.category, fetchPremiumUsers, fetchUnreadNotificationCount, fetchMyLookingForPost]); // Only depend on category, not entire user object
+  }, [selectedTab, getUserCategory, fetchPremiumUsers, fetchUnreadNotificationCount, fetchMyLookingForPost]); // Only depend on category, not entire user object
 
   // Poll for unread notification count every 30 seconds
   useEffect(() => {
@@ -683,10 +707,10 @@ export default function PremiumLounge({ user }) {
     >
       {/* Premium benefits dialog for regular users */}
       <Dialog
-        open={isRegularUser && benefitsDialogOpen}
+        open={confirmedIsRegularUser && benefitsDialogOpen}
         onClose={() => {
           setBenefitsDialogOpen(false);
-          if (isRegularUser) {
+          if (confirmedIsRegularUser) {
             navigate("/explore");
           }
         }}
@@ -839,17 +863,17 @@ export default function PremiumLounge({ user }) {
 
       {/* Upgrade Dialog - always render for regular users, controlled by open prop */}
       <UpgradeDialog
-        open={isRegularUser && upgradeDialogOpen}
+        open={confirmedIsRegularUser && upgradeDialogOpen}
         onClose={() => {
           setUpgradeDialogOpen(false);
-          if (isRegularUser) {
+          if (confirmedIsRegularUser) {
             navigate("/explore");
           }
         }}
       />
 
       {/* Main Premium Lounge content - only shown for premium users */}
-      {!isRegularUser && (
+      {userCategoryConfirmed && !confirmedIsRegularUser && (
         <Box>
           {/* Header */}
           <Box sx={{ mb: 4 }}>
@@ -1806,7 +1830,7 @@ export default function PremiumLounge({ user }) {
       )}
 
       {/* Show loading state while checking user status */}
-      {!user && loading && (
+      {(!userCategoryConfirmed || (loading && !confirmedIsRegularUser)) && (
         <Box
           sx={{
             display: "flex",
