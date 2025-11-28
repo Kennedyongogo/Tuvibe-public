@@ -84,6 +84,7 @@ export default function PremiumLounge({ user }) {
   const isRegularUser = user?.category === "Regular";
   const isSmallScreen = useMediaQuery("(max-width:600px)");
   const [userCategoryConfirmed, setUserCategoryConfirmed] = useState(false);
+  const [localStorageUpdateTrigger, setLocalStorageUpdateTrigger] = useState(0);
 
   // Determine user category from user prop or localStorage
   const getUserCategory = useCallback(() => {
@@ -100,7 +101,7 @@ export default function PremiumLounge({ user }) {
       console.error("Error parsing user from localStorage:", err);
     }
     return null;
-  }, [user?.category]);
+  }, [user?.category, localStorageUpdateTrigger]);
 
   const confirmedIsRegularUser = useMemo(() => {
     const category = getUserCategory();
@@ -216,12 +217,30 @@ export default function PremiumLounge({ user }) {
             navigate("/");
           });
         } else if (response.status === 403 && data.requiresUpgrade) {
-          // Regular user trying to access Premium Lounge - don't navigate away, let benefits dialog show
+          // Server says user is Regular - update localStorage and show upgrade dialog
           setLoading(false);
           setUsers([]);
           fetchingRef.current = false;
           lastFetchedRef.current = { category: null, tab: null };
-          // Benefits dialog will be shown by useEffect hook for regular users
+          
+          // Update localStorage to match server state
+          try {
+            const storedUser = localStorage.getItem("user");
+            if (storedUser) {
+              const parsedUser = JSON.parse(storedUser);
+              parsedUser.category = "Regular";
+              localStorage.setItem("user", JSON.stringify(parsedUser));
+              // Trigger re-evaluation of getUserCategory
+              setLocalStorageUpdateTrigger((prev) => prev + 1);
+            }
+          } catch (err) {
+            console.error("Error updating user category in localStorage:", err);
+          }
+          
+          // Re-evaluate and show upgrade dialog
+          setUserCategoryConfirmed(true);
+          setBenefitsDialogOpen(true);
+          setUpgradeDialogOpen(false);
           return;
         } else {
           Swal.fire({
