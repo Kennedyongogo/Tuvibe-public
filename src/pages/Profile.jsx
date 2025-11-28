@@ -2411,6 +2411,84 @@ export default function Profile({ user, setUser }) {
                     </IconButton>
                   </span>
                 </Tooltip>
+                {!isEditing ? (
+                  <Button
+                    startIcon={<Edit />}
+                    onClick={handleEdit}
+                    variant="contained"
+                    sx={{
+                      background: "linear-gradient(135deg, #D4AF37, #B8941F)",
+                      color: "#1a1a1a",
+                      fontWeight: 600,
+                      textTransform: "none",
+                      borderRadius: "12px",
+                      px: { xs: 1.5, sm: 2 },
+                      py: { xs: 0.75, sm: 1 },
+                      fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                      "&:hover": {
+                        background: "linear-gradient(135deg, #B8941F, #D4AF37)",
+                        transform: "translateY(-2px)",
+                        boxShadow: "0 8px 24px rgba(212, 175, 55, 0.3)",
+                      },
+                    }}
+                  >
+                    Edit Profile
+                  </Button>
+                ) : (
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    sx={{ flexShrink: 0 }}
+                  >
+                    <Button
+                      startIcon={<Cancel />}
+                      onClick={handleCancel}
+                      variant="outlined"
+                      sx={{
+                        borderColor: "rgba(26, 26, 26, 0.3)",
+                        color: "rgba(26, 26, 26, 0.7)",
+                        fontWeight: 600,
+                        textTransform: "none",
+                        borderRadius: "12px",
+                        px: { xs: 1.5, sm: 2 },
+                        py: { xs: 0.75, sm: 1 },
+                        fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                        "&:hover": {
+                          borderColor: "rgba(26, 26, 26, 0.5)",
+                          backgroundColor: "rgba(26, 26, 26, 0.05)",
+                        },
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      startIcon={loading ? <CircularProgress size={16} /> : <Save />}
+                      onClick={handleSave}
+                      variant="contained"
+                      disabled={loading}
+                      sx={{
+                        background: "linear-gradient(135deg, #D4AF37, #B8941F)",
+                        color: "#1a1a1a",
+                        fontWeight: 600,
+                        textTransform: "none",
+                        borderRadius: "12px",
+                        px: { xs: 1.5, sm: 2 },
+                        py: { xs: 0.75, sm: 1 },
+                        fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                        "&:hover": {
+                          background: "linear-gradient(135deg, #B8941F, #D4AF37)",
+                          transform: "translateY(-2px)",
+                          boxShadow: "0 8px 24px rgba(212, 175, 55, 0.3)",
+                        },
+                        "&:disabled": {
+                          background: "rgba(212, 175, 55, 0.3)",
+                        },
+                      }}
+                    >
+                      Save
+                    </Button>
+                  </Stack>
+                )}
               </Box>
             </Box>
             <Typography
@@ -2425,106 +2503,6 @@ export default function Profile({ user, setUser }) {
             </Typography>
           </Box>
         </Box>
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: { xs: "column", sm: "row" },
-            justifyContent: "flex-end",
-            alignItems: { xs: "stretch", sm: "center" },
-            gap: { xs: 2, sm: 0 },
-          }}
-        >
-          {!isEditing ? (
-            <Button
-              startIcon={<Edit />}
-              onClick={handleEdit}
-              variant="contained"
-              fullWidth={false}
-              sx={{
-                background: "linear-gradient(135deg, #D4AF37, #B8941F)",
-                color: "#1a1a1a",
-                fontWeight: 600,
-                textTransform: "none",
-                borderRadius: "12px",
-                px: { xs: 2, sm: 3 },
-                py: { xs: 1, sm: 1.25 },
-                width: { xs: "100%", sm: "auto" },
-                "&:hover": {
-                  background: "linear-gradient(135deg, #B8941F, #D4AF37)",
-                  transform: "translateY(-2px)",
-                  boxShadow: "0 8px 24px rgba(212, 175, 55, 0.3)",
-                },
-              }}
-            >
-              Edit Profile
-            </Button>
-          ) : (
-            <Stack
-              direction={{ xs: "column", sm: "row" }}
-              spacing={2}
-              sx={{ width: { xs: "100%", sm: "auto" } }}
-            >
-              <Button
-                startIcon={<Cancel />}
-                onClick={handleCancel}
-                variant="outlined"
-                fullWidth={false}
-                sx={{
-                  borderColor: "rgba(26, 26, 26, 0.3)",
-                  color: "rgba(26, 26, 26, 0.7)",
-                  fontWeight: 600,
-                  textTransform: "none",
-                  borderRadius: "12px",
-                  px: { xs: 2, sm: 3 },
-                  py: { xs: 1, sm: 1.25 },
-                  width: { xs: "100%", sm: "auto" },
-                  "&:hover": {
-                    borderColor: "rgba(26, 26, 26, 0.5)",
-                    backgroundColor: "rgba(26, 26, 26, 0.05)",
-                  },
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                startIcon={loading ? <CircularProgress size={20} /> : <Save />}
-                onClick={handleSave}
-                variant="contained"
-                disabled={loading}
-                fullWidth={false}
-                sx={{
-                  background: "linear-gradient(135deg, #D4AF37, #B8941F)",
-                  color: "#1a1a1a",
-                  fontWeight: 600,
-                  textTransform: "none",
-                  borderRadius: "12px",
-                  px: { xs: 2, sm: 3 },
-                  py: { xs: 1, sm: 1.25 },
-                  width: { xs: "100%", sm: "auto" },
-                  "&:hover": {
-                    background: "linear-gradient(135deg, #B8941F, #D4AF37)",
-                    transform: "translateY(-2px)",
-                    boxShadow: "0 8px 24px rgba(212, 175, 55, 0.3)",
-                  },
-                  "&:disabled": {
-                    background: "rgba(212, 175, 55, 0.3)",
-                  },
-                }}
-              >
-                Save Changes
-              </Button>
-            </Stack>
-          )}
-        </Box>
-        <Typography
-          variant="body1"
-          sx={{
-            color: "rgba(26, 26, 26, 0.7)",
-            fontSize: { xs: "0.875rem", sm: "1rem" },
-          }}
-        >
-          Manage your profile information and preferences
-        </Typography>
       </Box>
 
       <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
