@@ -38,6 +38,7 @@ import {
   AutoAwesome,
   PhotoCamera,
   Security,
+  Explore,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
@@ -139,6 +140,10 @@ export default function HeroSection() {
     setTermsChecked(false);
     handleRegisterClose();
     navigate("/");
+  };
+
+  const handleExplore = () => {
+    navigate("/pricing");
   };
 
   const handlePhotoChange = (e) => {
@@ -1300,6 +1305,110 @@ export default function HeroSection() {
                 }}
               >
                 Sign In
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={
+                  <Explore
+                    sx={{
+                      fontSize: { xs: "1.1rem", md: "1.25rem" },
+                      transition: "transform 0.3s ease",
+                    }}
+                  />
+                }
+                onClick={handleExplore}
+                fullWidth
+                sx={{
+                  position: "relative",
+                  zIndex: 3,
+                  color: "rgba(0, 0, 0, 0.9)",
+                  borderColor: "rgba(255, 255, 255, 0.5)",
+                  borderWidth: "2px",
+                  fontSize: { xs: "0.95rem", sm: "1.05rem", md: "1.15rem" },
+                  fontWeight: 700,
+                  letterSpacing: "0.5px",
+                  px: { xs: 2.5, md: 3.5 },
+                  py: { xs: 1.5, md: 1.75 },
+                  borderRadius: "16px",
+                  textTransform: "none",
+                  // Enhanced glassmorphism with subtle glow
+                  backdropFilter: "blur(20px)",
+                  WebkitBackdropFilter: "blur(20px)",
+                  backgroundColor: "rgba(255, 255, 255, 0.25)",
+                  boxShadow: `
+                    0 10px 40px rgba(0, 0, 0, 0.15),
+                    0 0 0 1px rgba(255, 255, 255, 0.3) inset,
+                    0 2px 0 rgba(255, 255, 255, 0.6) inset,
+                    0 -1px 8px rgba(0, 0, 0, 0.1) inset,
+                    0 0 20px rgba(255, 215, 0, 0.1)
+                  `,
+                  transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                  overflow: "hidden",
+                  "&::before": {
+                    content: '""',
+                    position: "absolute",
+                    top: 0,
+                    left: "-100%",
+                    width: "100%",
+                    height: "100%",
+                    background:
+                      "linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent)",
+                    transition: "left 0.6s ease",
+                  },
+                  "&::after": {
+                    content: '""',
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    width: 0,
+                    height: 0,
+                    borderRadius: "50%",
+                    background:
+                      "radial-gradient(circle, rgba(255, 215, 0, 0.2) 0%, transparent 70%)",
+                    transform: "translate(-50%, -50%)",
+                    transition: "width 0.6s ease, height 0.6s ease",
+                  },
+                  "&:hover": {
+                    backgroundColor: "rgba(255, 255, 255, 0.45)",
+                    borderColor: "rgba(255, 255, 255, 0.8)",
+                    borderWidth: "2px",
+                    transform: "translateY(-2px) scale(1.02)",
+                    boxShadow: `
+                      0 0 30px rgba(255, 215, 0, 0.4),
+                      0 15px 50px rgba(0, 0, 0, 0.2),
+                      0 0 0 1px rgba(255, 255, 255, 0.4) inset,
+                      0 3px 0 rgba(255, 255, 255, 0.7) inset,
+                      0 -1px 12px rgba(0, 0, 0, 0.15) inset,
+                      0 0 30px rgba(255, 215, 0, 0.2)
+                    `,
+                    "&::before": {
+                      left: "100%",
+                    },
+                    "&::after": {
+                      width: "300px",
+                      height: "300px",
+                    },
+                    "& .MuiButton-startIcon": {
+                      transform: "translateX(5px) scale(1.2)",
+                    },
+                  },
+                  "&:active": {
+                    transform: "translateY(0) scale(1)",
+                    boxShadow: `
+                      0 0 20px rgba(255, 215, 0, 0.3),
+                      0 8px 30px rgba(0, 0, 0, 0.15),
+                      0 0 0 1px rgba(255, 255, 255, 0.3) inset,
+                      0 1px 0 rgba(255, 255, 255, 0.5) inset
+                    `,
+                  },
+                  "& .MuiButton-startIcon": {
+                    marginRight: { xs: "8px", md: "10px" },
+                    marginLeft: 0,
+                    transition: "transform 0.4s ease",
+                  },
+                }}
+              >
+                Explore
               </Button>
             </Box>
           </Box>
