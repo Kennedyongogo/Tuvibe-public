@@ -53,6 +53,28 @@ export default function Pricing() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     setIsLoggedIn(Boolean(token));
+
+    // Auto-select tab based on user's category for better UX
+    if (token) {
+      try {
+        const savedUser = localStorage.getItem("user");
+        if (savedUser) {
+          const user = JSON.parse(savedUser);
+          if (user && user.category) {
+            // Find the index of the user's category in the categories array
+            const categoryIndex = categories.findIndex(
+              (cat) => cat === user.category
+            );
+            // If category found, set the tab to that index
+            if (categoryIndex !== -1) {
+              setSelectedTab(categoryIndex);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error parsing user from localStorage:", error);
+      }
+    }
   }, []);
 
   return (

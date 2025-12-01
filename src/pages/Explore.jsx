@@ -330,58 +330,13 @@ export default function Explore({ user }) {
     try {
       setUnlocking((prev) => ({ ...prev, [targetUserId]: true }));
 
-      // First get the cost
-      const costResponse = await fetch(
-        `/api/chat/cost?target_user_id=${targetUserId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      const costData = await costResponse.json();
-
-      if (!costData.success) {
-        throw new Error(costData.message || "Failed to get chat cost");
-      }
-
-      const cost = Number(costData.data.cost || 0);
-      const isFreeUnlock = cost === 0;
-
-      // Check user balance only when tokens are required
-      const user = JSON.parse(localStorage.getItem("user") || "{}");
-      if (!isFreeUnlock && Number(user.token_balance || 0) < cost) {
-        Swal.fire({
-          icon: "warning",
-          title: "Insufficient Tokens",
-          html: `<p>You need ${cost} tokens (${formatKshFromTokens(cost)}) to unlock this contact.</p><p>Your balance: ${user.token_balance || 0} tokens</p>`,
-          confirmButtonText: "Buy Tokens",
-          cancelButtonText: "Cancel",
-          showCancelButton: true,
-          confirmButtonColor: "#D4AF37",
-          didOpen: () => {
-            const swal = document.querySelector(".swal2-popup");
-            if (swal) {
-              swal.style.borderRadius = "20px";
-            }
-          },
-        }).then((result) => {
-          if (result.isConfirmed) {
-            navigate("/wallet");
-          }
-        });
-        return;
-      }
-
-      // Confirm unlock
+      // Confirm unlock (subscription-based, no cost)
       const confirmResult = await Swal.fire({
         icon: "question",
         title: "Unlock WhatsApp Contact?",
-        html: isFreeUnlock
-          ? `<p><strong>Good news!</strong> This unlock is free for premium users.</p>`
-          : `<p>This will cost you <strong>${cost} tokens</strong> (${formatKshFromTokens(cost)})</p><p>Your balance: ${user.token_balance || 0} tokens</p>`,
+        html: `<p>This will use one of your daily WhatsApp contact unlocks from your subscription plan.</p>`,
         showCancelButton: true,
-        confirmButtonText: isFreeUnlock ? "Unlock for Free" : "Unlock",
+        confirmButtonText: "Unlock",
         cancelButtonText: "Cancel",
         confirmButtonColor: "#D4AF37",
         didOpen: () => {
@@ -407,18 +362,51 @@ export default function Explore({ user }) {
       const unlockData = await unlockResponse.json();
 
       if (!unlockResponse.ok) {
+        // Handle subscription-related errors
+        if (unlockResponse.status === 402) {
+          // No active subscription
+          Swal.fire({
+            icon: "warning",
+            title: "Subscription Required",
+            html: `<p>${unlockData.message || "Active subscription required to unlock WhatsApp contacts."}</p><p>Please subscribe to a plan to continue.</p>`,
+            confirmButtonText: "View Plans",
+            cancelButtonText: "Cancel",
+            showCancelButton: true,
+            confirmButtonColor: "#D4AF37",
+            didOpen: () => {
+              const swal = document.querySelector(".swal2-popup");
+              if (swal) {
+                swal.style.borderRadius = "20px";
+              }
+            },
+          }).then((result) => {
+            if (result.isConfirmed) {
+              navigate("/pricing");
+            }
+          });
+          return;
+        } else if (unlockResponse.status === 429) {
+          // Daily limit reached
+          Swal.fire({
+            icon: "info",
+            title: "Daily Limit Reached",
+            html: `<p>${unlockData.message || "Daily WhatsApp contacts limit reached for your plan."}</p><p>Your daily limit will reset tomorrow.</p>`,
+            confirmButtonText: "OK",
+            confirmButtonColor: "#D4AF37",
+            didOpen: () => {
+              const swal = document.querySelector(".swal2-popup");
+              if (swal) {
+                swal.style.borderRadius = "20px";
+              }
+            },
+          });
+          return;
+        }
         throw new Error(unlockData.message || "Failed to unlock contact");
       }
 
       if (unlockData.success && unlockData.data) {
-        // Update user balance in localStorage
-        if (!isFreeUnlock) {
-          const updatedUser = {
-            ...user,
-            token_balance: (Number(user.token_balance || 0) - cost).toFixed(2),
-          };
-          localStorage.setItem("user", JSON.stringify(updatedUser));
-        }
+        // No token balance updates needed - subscription-based system
 
         // Check if current user is premium and target user is premium
         const premiumCategories = [
@@ -550,12 +538,35 @@ export default function Explore({ user }) {
       }
     } catch (error) {
       console.error("Unlock error:", error);
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: error.message || "Failed to unlock contact",
-        confirmButtonColor: "#D4AF37",
-      });
+      // Check if error is subscription-related
+      if (error.message && error.message.includes("subscription")) {
+        Swal.fire({
+          icon: "warning",
+          title: "Subscription Required",
+          html: `<p>${error.message}</p><p>Please subscribe to a plan to unlock WhatsApp contacts.</p>`,
+          confirmButtonText: "View Plans",
+          cancelButtonText: "Cancel",
+          showCancelButton: true,
+          confirmButtonColor: "#D4AF37",
+          didOpen: () => {
+            const swal = document.querySelector(".swal2-popup");
+            if (swal) {
+              swal.style.borderRadius = "20px";
+            }
+          },
+        }).then((result) => {
+          if (result.isConfirmed) {
+            navigate("/pricing");
+          }
+        });
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: error.message || "Failed to unlock contact",
+          confirmButtonColor: "#D4AF37",
+        });
+      }
     } finally {
       setUnlocking((prev) => ({ ...prev, [targetUserId]: false }));
     }
