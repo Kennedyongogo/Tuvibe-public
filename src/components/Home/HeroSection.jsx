@@ -76,6 +76,7 @@ export default function HeroSection() {
     gender: "",
     birthYear: "",
     bio: "",
+    category: "Regular",
   });
   const [phoneError, setPhoneError] = useState("");
   const [birthYearError, setBirthYearError] = useState("");
@@ -120,6 +121,7 @@ export default function HeroSection() {
       gender: "",
       birthYear: "",
       bio: "",
+      category: "Regular",
     });
     setPhoneError("");
     setBirthYearError("");
@@ -474,6 +476,7 @@ export default function HeroSection() {
       password: formData.password,
     };
     if (formData.gender) submitData.gender = formData.gender;
+    if (formData.category) submitData.category = formData.category;
     if (normalizedBirthYear !== null) {
       submitData.birth_year = normalizedBirthYear;
     }
@@ -520,6 +523,8 @@ export default function HeroSection() {
           formDataToSend.append("email", formData.email);
           formDataToSend.append("password", formData.password);
           if (formData.gender) formDataToSend.append("gender", formData.gender);
+          if (formData.category)
+            formDataToSend.append("category", formData.category);
           if (normalizedBirthYear !== null) {
             formDataToSend.append("birth_year", normalizedBirthYear);
           }
@@ -929,7 +934,6 @@ export default function HeroSection() {
           },
         }}
       />
-
 
       {/* Content Overlay */}
       <Box
@@ -2385,9 +2389,42 @@ export default function HeroSection() {
                     textAlign: "center",
                   }}
                 >
-                  Step 2 of 2: Upload your profile photo to complete
-                  registration.
+                  Step 2 of 2: Choose your category and upload your profile
+                  photo to complete registration.
                 </Alert>
+                <FormControl fullWidth>
+                  <InputLabel sx={{ "&.Mui-focused": { color: "#D4AF37" } }}>
+                    Category
+                  </InputLabel>
+                  <Select
+                    value={formData.category}
+                    onChange={handleInputChange("category")}
+                    label="Category"
+                    sx={{
+                      borderRadius: "12px",
+                      "& .MuiSelect-select": {
+                        py: 1.5,
+                        lineHeight: 1.5,
+                      },
+                      "& .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "rgba(212, 175, 55, 0.3)",
+                      },
+                      "&:hover .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "rgba(212, 175, 55, 0.6)",
+                      },
+                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "#D4AF37",
+                        borderWidth: "2px",
+                      },
+                    }}
+                  >
+                    <MenuItem value="Regular">Regular</MenuItem>
+                    <MenuItem value="Sugar Mummy">Sugar Mummy</MenuItem>
+                    <MenuItem value="Sponsor">Sponsor</MenuItem>
+                    <MenuItem value="Ben 10">Ben 10</MenuItem>
+                    <MenuItem value="Urban Chics">Urban Chics</MenuItem>
+                  </Select>
+                </FormControl>
                 <TextField
                   label="Bio"
                   name="bio"

@@ -20,7 +20,6 @@ import Dashboard from "../pages/Dashboard";
 import Profile from "../pages/Profile";
 import Explore from "../pages/Explore";
 import Wallet from "../pages/Wallet";
-import PremiumLounge from "../pages/PremiumLounge";
 import Market from "../pages/Market";
 import Reports from "../pages/Reports";
 import Notifications from "../pages/Notifications";
@@ -473,7 +472,6 @@ function PageRoutes() {
               element={<Dashboard user={user} setUser={setUser} />}
             />
             <Route path="explore" element={<Explore user={user} />} />
-            <Route path="premium" element={<PremiumLounge user={user} />} />
             <Route path="market" element={<Market user={user} />} />
             <Route
               path="wallet"

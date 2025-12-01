@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -15,7 +15,12 @@ import {
   Button,
   Chip,
 } from "@mui/material";
-import { AttachMoney, FormatQuote, ArrowBack, CheckCircle } from "@mui/icons-material";
+import {
+  AttachMoney,
+  FormatQuote,
+  ArrowBack,
+  CheckCircle,
+} from "@mui/icons-material";
 import { Avatar, Divider } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 
@@ -30,17 +35,38 @@ const categories = [
 export default function Pricing() {
   const navigate = useNavigate();
   const [selectedTab, setSelectedTab] = useState(0);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   const handleTabChange = (event, newValue) => {
     setSelectedTab(newValue);
   };
 
   const handleGoBack = () => {
-    navigate("/");
+    const token = localStorage.getItem("token");
+    if (token) {
+      navigate("/home");
+    } else {
+      navigate("/");
+    }
   };
 
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    setIsLoggedIn(Boolean(token));
+  }, []);
+
   return (
-    <Box sx={{ maxWidth: 1200, mx: "auto", py: 3 }}>
+    <Box
+      sx={{
+        width: "100%",
+        minHeight: "100vh",
+        px: { xs: 2, sm: 3, md: 4 },
+        py: 3,
+        backgroundColor: "#ffffff",
+        boxSizing: "border-box",
+        overflowX: "hidden",
+      }}
+    >
       <Box
         sx={{
           display: "flex",
@@ -51,7 +77,15 @@ export default function Pricing() {
           mb: 3,
         }}
       >
-        <Box sx={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 2 }}>
+        <Box
+          sx={{
+            flex: 1,
+            minWidth: 0,
+            display: "flex",
+            alignItems: "center",
+            gap: 2,
+          }}
+        >
           <IconButton
             onClick={handleGoBack}
             sx={{
@@ -197,11 +231,18 @@ export default function Pricing() {
             }}
           >
             {/* Silver Package */}
-            <Box sx={{ flex: { xs: "1 1 100%", sm: "1 1 50%" }, display: "flex", minWidth: 0 }}>
+            <Box
+              sx={{
+                flex: { xs: "1 1 100%", sm: "1 1 50%" },
+                display: "flex",
+                minWidth: 0,
+              }}
+            >
               <Card
                 sx={{
                   borderRadius: "16px",
-                  background: "linear-gradient(135deg, rgba(192, 192, 192, 0.1) 0%, rgba(255, 255, 255, 0.9) 100%)",
+                  background:
+                    "linear-gradient(135deg, rgba(192, 192, 192, 0.1) 0%, rgba(255, 255, 255, 0.9) 100%)",
                   border: "2px solid rgba(192, 192, 192, 0.4)",
                   boxShadow: "0 4px 20px rgba(192, 192, 192, 0.2)",
                   width: "100%",
@@ -216,7 +257,14 @@ export default function Pricing() {
                   },
                 }}
               >
-                <CardContent sx={{ p: { xs: 2.5, sm: 3 }, flex: 1, display: "flex", flexDirection: "column" }}>
+                <CardContent
+                  sx={{
+                    p: { xs: 2.5, sm: 3 },
+                    flex: 1,
+                    display: "flex",
+                    flexDirection: "column",
+                  }}
+                >
                   <Box sx={{ textAlign: "center", mb: 3 }}>
                     <Chip
                       label="Silver Package"
@@ -253,101 +301,382 @@ export default function Pricing() {
                   </Box>
 
                   <Box
-                    component="ul"
                     sx={{
-                      flex: 1,
-                      pl: 0,
-                      m: 0,
-                      listStyle: "none",
                       display: "flex",
                       flexDirection: "column",
-                      gap: 1.5,
+                      gap: 2.5,
+                      flex: 1,
                     }}
                   >
-                    {selectedTab === 0 ? (
-                      <>
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                          <CheckCircle sx={{ color: "#D4AF37", fontSize: "1.25rem", mt: 0.25, flexShrink: 0 }} />
-                          <Typography sx={{ color: "rgba(0, 0, 0, 0.75)", fontSize: { xs: "0.875rem", sm: "0.9375rem" }, lineHeight: 1.6 }}>
-                            Unlock 25 WhatsApp contacts daily
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                          <CheckCircle sx={{ color: "#D4AF37", fontSize: "1.25rem", mt: 0.25, flexShrink: 0 }} />
-                          <Typography sx={{ color: "rgba(0, 0, 0, 0.75)", fontSize: { xs: "0.875rem", sm: "0.9375rem" }, lineHeight: 1.6 }}>
-                            3 free "who viewed your profile" daily
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                          <CheckCircle sx={{ color: "#D4AF37", fontSize: "1.25rem", mt: 0.25, flexShrink: 0 }} />
-                          <Typography sx={{ color: "rgba(0, 0, 0, 0.75)", fontSize: { xs: "0.875rem", sm: "0.9375rem" }, lineHeight: 1.6 }}>
-                            5 free premium profiles unlock daily
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                          <CheckCircle sx={{ color: "#D4AF37", fontSize: "1.25rem", mt: 0.25, flexShrink: 0 }} />
-                          <Typography sx={{ color: "rgba(0, 0, 0, 0.75)", fontSize: { xs: "0.875rem", sm: "0.9375rem" }, lineHeight: 1.6 }}>
-                            Access to 40 favorite profiles
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                          <CheckCircle sx={{ color: "#D4AF37", fontSize: "1.25rem", mt: 0.25, flexShrink: 0 }} />
-                          <Typography sx={{ color: "rgba(0, 0, 0, 0.75)", fontSize: { xs: "0.875rem", sm: "0.9375rem" }, lineHeight: 1.6 }}>
-                            Access to 50 unlocked profiles
-                          </Typography>
-                        </Box>
-                      </>
-                    ) : (
-                      <>
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                          <CheckCircle sx={{ color: "#D4AF37", fontSize: "1.25rem", mt: 0.25, flexShrink: 0 }} />
-                          <Typography sx={{ color: "rgba(0, 0, 0, 0.75)", fontSize: { xs: "0.875rem", sm: "0.9375rem" }, lineHeight: 1.6 }}>
-                            Unlock 35 WhatsApp contacts daily
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                          <CheckCircle sx={{ color: "#D4AF37", fontSize: "1.25rem", mt: 0.25, flexShrink: 0 }} />
-                          <Typography sx={{ color: "rgba(0, 0, 0, 0.75)", fontSize: { xs: "0.875rem", sm: "0.9375rem" }, lineHeight: 1.6 }}>
-                            Two free 1hr – profile boost daily targeting one category
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                          <CheckCircle sx={{ color: "#D4AF37", fontSize: "1.25rem", mt: 0.25, flexShrink: 0 }} />
-                          <Typography sx={{ color: "rgba(0, 0, 0, 0.75)", fontSize: { xs: "0.875rem", sm: "0.9375rem" }, lineHeight: 1.6 }}>
-                            6 free "who viewed your profile" daily
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                          <CheckCircle sx={{ color: "#D4AF37", fontSize: "1.25rem", mt: 0.25, flexShrink: 0 }} />
-                          <Typography sx={{ color: "rgba(0, 0, 0, 0.75)", fontSize: { xs: "0.875rem", sm: "0.9375rem" }, lineHeight: 1.6 }}>
-                            10 free premium profiles unlock daily
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                          <CheckCircle sx={{ color: "#D4AF37", fontSize: "1.25rem", mt: 0.25, flexShrink: 0 }} />
-                          <Typography sx={{ color: "rgba(0, 0, 0, 0.75)", fontSize: { xs: "0.875rem", sm: "0.9375rem" }, lineHeight: 1.6 }}>
-                            Access to 60 favorite profiles
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                          <CheckCircle sx={{ color: "#D4AF37", fontSize: "1.25rem", mt: 0.25, flexShrink: 0 }} />
-                          <Typography sx={{ color: "rgba(0, 0, 0, 0.75)", fontSize: { xs: "0.875rem", sm: "0.9375rem" }, lineHeight: 1.6 }}>
-                            Access to 60 unlocked profiles
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                          <CheckCircle sx={{ color: "#D4AF37", fontSize: "1.25rem", mt: 0.25, flexShrink: 0 }} />
-                          <Typography sx={{ color: "rgba(0, 0, 0, 0.75)", fontSize: { xs: "0.875rem", sm: "0.9375rem" }, lineHeight: 1.6 }}>
-                            Private profile mode (hide some details from non-premium users)
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                          <CheckCircle sx={{ color: "#D4AF37", fontSize: "1.25rem", mt: 0.25, flexShrink: 0 }} />
-                          <Typography sx={{ color: "rgba(0, 0, 0, 0.75)", fontSize: { xs: "0.875rem", sm: "0.9375rem" }, lineHeight: 1.6 }}>
-                            Premium lounge silver badge
-                          </Typography>
-                        </Box>
-                      </>
+                    <Box
+                      component="ul"
+                      sx={{
+                        flex: 1,
+                        pl: 0,
+                        m: 0,
+                        listStyle: "none",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 1.5,
+                      }}
+                    >
+                      {selectedTab === 0 ? (
+                        <>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1.5,
+                            }}
+                          >
+                            <CheckCircle
+                              sx={{
+                                color: "#D4AF37",
+                                fontSize: "1.25rem",
+                                mt: 0.25,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Typography
+                              sx={{
+                                color: "rgba(0, 0, 0, 0.75)",
+                                fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                                lineHeight: 1.6,
+                              }}
+                            >
+                              Unlock 25 WhatsApp contacts daily
+                            </Typography>
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1.5,
+                            }}
+                          >
+                            <CheckCircle
+                              sx={{
+                                color: "#D4AF37",
+                                fontSize: "1.25rem",
+                                mt: 0.25,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Typography
+                              sx={{
+                                color: "rgba(0, 0, 0, 0.75)",
+                                fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                                lineHeight: 1.6,
+                              }}
+                            >
+                              3 free "who viewed your profile" daily
+                            </Typography>
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1.5,
+                            }}
+                          >
+                            <CheckCircle
+                              sx={{
+                                color: "#D4AF37",
+                                fontSize: "1.25rem",
+                                mt: 0.25,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Typography
+                              sx={{
+                                color: "rgba(0, 0, 0, 0.75)",
+                                fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                                lineHeight: 1.6,
+                              }}
+                            >
+                              5 free premium profiles unlock daily
+                            </Typography>
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1.5,
+                            }}
+                          >
+                            <CheckCircle
+                              sx={{
+                                color: "#D4AF37",
+                                fontSize: "1.25rem",
+                                mt: 0.25,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Typography
+                              sx={{
+                                color: "rgba(0, 0, 0, 0.75)",
+                                fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                                lineHeight: 1.6,
+                              }}
+                            >
+                              Access to 40 favorite profiles
+                            </Typography>
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1.5,
+                            }}
+                          >
+                            <CheckCircle
+                              sx={{
+                                color: "#D4AF37",
+                                fontSize: "1.25rem",
+                                mt: 0.25,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Typography
+                              sx={{
+                                color: "rgba(0, 0, 0, 0.75)",
+                                fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                                lineHeight: 1.6,
+                              }}
+                            >
+                              Access to 50 unlocked profiles
+                            </Typography>
+                          </Box>
+                        </>
+                      ) : (
+                        <>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1.5,
+                            }}
+                          >
+                            <CheckCircle
+                              sx={{
+                                color: "#D4AF37",
+                                fontSize: "1.25rem",
+                                mt: 0.25,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Typography
+                              sx={{
+                                color: "rgba(0, 0, 0, 0.75)",
+                                fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                                lineHeight: 1.6,
+                              }}
+                            >
+                              Unlock 35 WhatsApp contacts daily
+                            </Typography>
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1.5,
+                            }}
+                          >
+                            <CheckCircle
+                              sx={{
+                                color: "#D4AF37",
+                                fontSize: "1.25rem",
+                                mt: 0.25,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Typography
+                              sx={{
+                                color: "rgba(0, 0, 0, 0.75)",
+                                fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                                lineHeight: 1.6,
+                              }}
+                            >
+                              Two free 1hr – profile boost daily targeting one
+                              category
+                            </Typography>
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1.5,
+                            }}
+                          >
+                            <CheckCircle
+                              sx={{
+                                color: "#D4AF37",
+                                fontSize: "1.25rem",
+                                mt: 0.25,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Typography
+                              sx={{
+                                color: "rgba(0, 0, 0, 0.75)",
+                                fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                                lineHeight: 1.6,
+                              }}
+                            >
+                              6 free "who viewed your profile" daily
+                            </Typography>
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1.5,
+                            }}
+                          >
+                            <CheckCircle
+                              sx={{
+                                color: "#D4AF37",
+                                fontSize: "1.25rem",
+                                mt: 0.25,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Typography
+                              sx={{
+                                color: "rgba(0, 0, 0, 0.75)",
+                                fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                                lineHeight: 1.6,
+                              }}
+                            >
+                              10 free premium profiles unlock daily
+                            </Typography>
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1.5,
+                            }}
+                          >
+                            <CheckCircle
+                              sx={{
+                                color: "#D4AF37",
+                                fontSize: "1.25rem",
+                                mt: 0.25,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Typography
+                              sx={{
+                                color: "rgba(0, 0, 0, 0.75)",
+                                fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                                lineHeight: 1.6,
+                              }}
+                            >
+                              Access to 60 favorite profiles
+                            </Typography>
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1.5,
+                            }}
+                          >
+                            <CheckCircle
+                              sx={{
+                                color: "#D4AF37",
+                                fontSize: "1.25rem",
+                                mt: 0.25,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Typography
+                              sx={{
+                                color: "rgba(0, 0, 0, 0.75)",
+                                fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                                lineHeight: 1.6,
+                              }}
+                            >
+                              Access to 60 unlocked profiles
+                            </Typography>
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1.5,
+                            }}
+                          >
+                            <CheckCircle
+                              sx={{
+                                color: "#D4AF37",
+                                fontSize: "1.25rem",
+                                mt: 0.25,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Typography
+                              sx={{
+                                color: "rgba(0, 0, 0, 0.75)",
+                                fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                                lineHeight: 1.6,
+                              }}
+                            >
+                              Private profile mode (hide some details from
+                              non-premium users)
+                            </Typography>
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1.5,
+                            }}
+                          >
+                            <CheckCircle
+                              sx={{
+                                color: "#D4AF37",
+                                fontSize: "1.25rem",
+                                mt: 0.25,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Typography
+                              sx={{
+                                color: "rgba(0, 0, 0, 0.75)",
+                                fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                                lineHeight: 1.6,
+                              }}
+                            >
+                              Premium lounge silver badge
+                            </Typography>
+                          </Box>
+                        </>
+                      )}
+                    </Box>
+                    {isLoggedIn && (
+                      <Button
+                        variant="contained"
+                        fullWidth
+                        sx={{
+                          mt: "auto",
+                          borderRadius: "999px",
+                          textTransform: "none",
+                          fontWeight: 700,
+                          py: 1.25,
+                          background:
+                            "linear-gradient(90deg, #D4AF37 0%, #B8941F 100%)",
+                          boxShadow: "0 4px 10px rgba(212, 175, 55, 0.4)",
+                          "&:hover": {
+                            background:
+                              "linear-gradient(90deg, #B8941F 0%, #D4AF37 100%)",
+                            boxShadow: "0 6px 16px rgba(212, 175, 55, 0.5)",
+                          },
+                        }}
+                      >
+                        Subscribe
+                      </Button>
                     )}
                   </Box>
                 </CardContent>
@@ -355,11 +684,18 @@ export default function Pricing() {
             </Box>
 
             {/* Gold Package */}
-            <Box sx={{ flex: { xs: "1 1 100%", sm: "1 1 50%" }, display: "flex", minWidth: 0 }}>
+            <Box
+              sx={{
+                flex: { xs: "1 1 100%", sm: "1 1 50%" },
+                display: "flex",
+                minWidth: 0,
+              }}
+            >
               <Card
                 sx={{
                   borderRadius: "16px",
-                  background: "linear-gradient(135deg, rgba(212, 175, 55, 0.15) 0%, rgba(255, 255, 255, 0.9) 100%)",
+                  background:
+                    "linear-gradient(135deg, rgba(212, 175, 55, 0.15) 0%, rgba(255, 255, 255, 0.9) 100%)",
                   border: "2px solid rgba(212, 175, 55, 0.5)",
                   boxShadow: "0 4px 20px rgba(212, 175, 55, 0.25)",
                   width: "100%",
@@ -374,7 +710,14 @@ export default function Pricing() {
                   },
                 }}
               >
-                <CardContent sx={{ p: { xs: 2.5, sm: 3 }, flex: 1, display: "flex", flexDirection: "column" }}>
+                <CardContent
+                  sx={{
+                    p: { xs: 2.5, sm: 3 },
+                    flex: 1,
+                    display: "flex",
+                    flexDirection: "column",
+                  }}
+                >
                   <Box sx={{ textAlign: "center", mb: 3 }}>
                     <Chip
                       label="Gold Package"
@@ -414,119 +757,459 @@ export default function Pricing() {
                   </Box>
 
                   <Box
-                    component="ul"
                     sx={{
-                      flex: 1,
-                      pl: 0,
-                      m: 0,
-                      listStyle: "none",
                       display: "flex",
                       flexDirection: "column",
-                      gap: 1.5,
+                      gap: 2.5,
+                      flex: 1,
                     }}
                   >
-                    {selectedTab === 0 ? (
-                      <>
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                          <CheckCircle sx={{ color: "#D4AF37", fontSize: "1.25rem", mt: 0.25, flexShrink: 0 }} />
-                          <Typography sx={{ color: "rgba(0, 0, 0, 0.75)", fontSize: { xs: "0.875rem", sm: "0.9375rem" }, lineHeight: 1.6 }}>
-                            Unlimited WhatsApp contacts daily
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                          <CheckCircle sx={{ color: "#D4AF37", fontSize: "1.25rem", mt: 0.25, flexShrink: 0 }} />
-                          <Typography sx={{ color: "rgba(0, 0, 0, 0.75)", fontSize: { xs: "0.875rem", sm: "0.9375rem" }, lineHeight: 1.6 }}>
-                            Three free 2hr – profile boost daily targeting three categories
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                          <CheckCircle sx={{ color: "#D4AF37", fontSize: "1.25rem", mt: 0.25, flexShrink: 0 }} />
-                          <Typography sx={{ color: "rgba(0, 0, 0, 0.75)", fontSize: { xs: "0.875rem", sm: "0.9375rem" }, lineHeight: 1.6 }}>
-                            Unlimited premium profiles unlock daily
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                          <CheckCircle sx={{ color: "#D4AF37", fontSize: "1.25rem", mt: 0.25, flexShrink: 0 }} />
-                          <Typography sx={{ color: "rgba(0, 0, 0, 0.75)", fontSize: { xs: "0.875rem", sm: "0.9375rem" }, lineHeight: 1.6 }}>
-                            Access to unlimited saved profiles
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                          <CheckCircle sx={{ color: "#D4AF37", fontSize: "1.25rem", mt: 0.25, flexShrink: 0 }} />
-                          <Typography sx={{ color: "rgba(0, 0, 0, 0.75)", fontSize: { xs: "0.875rem", sm: "0.9375rem" }, lineHeight: 1.6 }}>
-                            Gold Verification badge
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                          <CheckCircle sx={{ color: "#D4AF37", fontSize: "1.25rem", mt: 0.25, flexShrink: 0 }} />
-                          <Typography sx={{ color: "rgba(0, 0, 0, 0.75)", fontSize: { xs: "0.875rem", sm: "0.9375rem" }, lineHeight: 1.6 }}>
-                            Free 4-hour access to incognito mode daily (View profiles without appearing on others viewer list)
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                          <CheckCircle sx={{ color: "#D4AF37", fontSize: "1.25rem", mt: 0.25, flexShrink: 0 }} />
-                          <Typography sx={{ color: "rgba(0, 0, 0, 0.75)", fontSize: { xs: "0.875rem", sm: "0.9375rem" }, lineHeight: 1.6 }}>
-                            5 daily suggested Matches list
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                          <CheckCircle sx={{ color: "#D4AF37", fontSize: "1.25rem", mt: 0.25, flexShrink: 0 }} />
-                          <Typography sx={{ color: "rgba(0, 0, 0, 0.75)", fontSize: { xs: "0.875rem", sm: "0.9375rem" }, lineHeight: 1.6 }}>
-                            Unlimited "who viewed your profile" daily
-                          </Typography>
-                        </Box>
-                      </>
-                    ) : (
-                      <>
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                          <CheckCircle sx={{ color: "#D4AF37", fontSize: "1.25rem", mt: 0.25, flexShrink: 0 }} />
-                          <Typography sx={{ color: "rgba(0, 0, 0, 0.75)", fontSize: { xs: "0.875rem", sm: "0.9375rem" }, lineHeight: 1.6 }}>
-                            Unlimited WhatsApp contacts daily
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                          <CheckCircle sx={{ color: "#D4AF37", fontSize: "1.25rem", mt: 0.25, flexShrink: 0 }} />
-                          <Typography sx={{ color: "rgba(0, 0, 0, 0.75)", fontSize: { xs: "0.875rem", sm: "0.9375rem" }, lineHeight: 1.6 }}>
-                            Four free 3hr – profile boost daily targeting all categories
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                          <CheckCircle sx={{ color: "#D4AF37", fontSize: "1.25rem", mt: 0.25, flexShrink: 0 }} />
-                          <Typography sx={{ color: "rgba(0, 0, 0, 0.75)", fontSize: { xs: "0.875rem", sm: "0.9375rem" }, lineHeight: 1.6 }}>
-                            Unlimited premium profiles unlock daily
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                          <CheckCircle sx={{ color: "#D4AF37", fontSize: "1.25rem", mt: 0.25, flexShrink: 0 }} />
-                          <Typography sx={{ color: "rgba(0, 0, 0, 0.75)", fontSize: { xs: "0.875rem", sm: "0.9375rem" }, lineHeight: 1.6 }}>
-                            Access to unlimited saved profiles
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                          <CheckCircle sx={{ color: "#D4AF37", fontSize: "1.25rem", mt: 0.25, flexShrink: 0 }} />
-                          <Typography sx={{ color: "rgba(0, 0, 0, 0.75)", fontSize: { xs: "0.875rem", sm: "0.9375rem" }, lineHeight: 1.6 }}>
-                            Gold Verification badge
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                          <CheckCircle sx={{ color: "#D4AF37", fontSize: "1.25rem", mt: 0.25, flexShrink: 0 }} />
-                          <Typography sx={{ color: "rgba(0, 0, 0, 0.75)", fontSize: { xs: "0.875rem", sm: "0.9375rem" }, lineHeight: 1.6 }}>
-                            Free 8-hour access to incognito mode daily (View profiles without appearing on others viewer list)
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                          <CheckCircle sx={{ color: "#D4AF37", fontSize: "1.25rem", mt: 0.25, flexShrink: 0 }} />
-                          <Typography sx={{ color: "rgba(0, 0, 0, 0.75)", fontSize: { xs: "0.875rem", sm: "0.9375rem" }, lineHeight: 1.6 }}>
-                            10 daily suggested Matches list
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                          <CheckCircle sx={{ color: "#D4AF37", fontSize: "1.25rem", mt: 0.25, flexShrink: 0 }} />
-                          <Typography sx={{ color: "rgba(0, 0, 0, 0.75)", fontSize: { xs: "0.875rem", sm: "0.9375rem" }, lineHeight: 1.6 }}>
-                            Unlimited "who viewed your profile" daily
-                          </Typography>
-                        </Box>
-                      </>
+                    <Box
+                      component="ul"
+                      sx={{
+                        flex: 1,
+                        pl: 0,
+                        m: 0,
+                        listStyle: "none",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 1.5,
+                      }}
+                    >
+                      {selectedTab === 0 ? (
+                        <>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1.5,
+                            }}
+                          >
+                            <CheckCircle
+                              sx={{
+                                color: "#D4AF37",
+                                fontSize: "1.25rem",
+                                mt: 0.25,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Typography
+                              sx={{
+                                color: "rgba(0, 0, 0, 0.75)",
+                                fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                                lineHeight: 1.6,
+                              }}
+                            >
+                              Unlimited WhatsApp contacts daily
+                            </Typography>
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1.5,
+                            }}
+                          >
+                            <CheckCircle
+                              sx={{
+                                color: "#D4AF37",
+                                fontSize: "1.25rem",
+                                mt: 0.25,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Typography
+                              sx={{
+                                color: "rgba(0, 0, 0, 0.75)",
+                                fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                                lineHeight: 1.6,
+                              }}
+                            >
+                              Three free 2hr – profile boost daily targeting
+                              three categories
+                            </Typography>
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1.5,
+                            }}
+                          >
+                            <CheckCircle
+                              sx={{
+                                color: "#D4AF37",
+                                fontSize: "1.25rem",
+                                mt: 0.25,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Typography
+                              sx={{
+                                color: "rgba(0, 0, 0, 0.75)",
+                                fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                                lineHeight: 1.6,
+                              }}
+                            >
+                              Unlimited premium profiles unlock daily
+                            </Typography>
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1.5,
+                            }}
+                          >
+                            <CheckCircle
+                              sx={{
+                                color: "#D4AF37",
+                                fontSize: "1.25rem",
+                                mt: 0.25,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Typography
+                              sx={{
+                                color: "rgba(0, 0, 0, 0.75)",
+                                fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                                lineHeight: 1.6,
+                              }}
+                            >
+                              Access to unlimited saved profiles
+                            </Typography>
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1.5,
+                            }}
+                          >
+                            <CheckCircle
+                              sx={{
+                                color: "#D4AF37",
+                                fontSize: "1.25rem",
+                                mt: 0.25,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Typography
+                              sx={{
+                                color: "rgba(0, 0, 0, 0.75)",
+                                fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                                lineHeight: 1.6,
+                              }}
+                            >
+                              Gold Verification badge
+                            </Typography>
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1.5,
+                            }}
+                          >
+                            <CheckCircle
+                              sx={{
+                                color: "#D4AF37",
+                                fontSize: "1.25rem",
+                                mt: 0.25,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Typography
+                              sx={{
+                                color: "rgba(0, 0, 0, 0.75)",
+                                fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                                lineHeight: 1.6,
+                              }}
+                            >
+                              Free 4-hour access to incognito mode daily (View
+                              profiles without appearing on others viewer list)
+                            </Typography>
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1.5,
+                            }}
+                          >
+                            <CheckCircle
+                              sx={{
+                                color: "#D4AF37",
+                                fontSize: "1.25rem",
+                                mt: 0.25,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Typography
+                              sx={{
+                                color: "rgba(0, 0, 0, 0.75)",
+                                fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                                lineHeight: 1.6,
+                              }}
+                            >
+                              5 daily suggested Matches list
+                            </Typography>
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1.5,
+                            }}
+                          >
+                            <CheckCircle
+                              sx={{
+                                color: "#D4AF37",
+                                fontSize: "1.25rem",
+                                mt: 0.25,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Typography
+                              sx={{
+                                color: "rgba(0, 0, 0, 0.75)",
+                                fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                                lineHeight: 1.6,
+                              }}
+                            >
+                              Unlimited "who viewed your profile" daily
+                            </Typography>
+                          </Box>
+                        </>
+                      ) : (
+                        <>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1.5,
+                            }}
+                          >
+                            <CheckCircle
+                              sx={{
+                                color: "#D4AF37",
+                                fontSize: "1.25rem",
+                                mt: 0.25,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Typography
+                              sx={{
+                                color: "rgba(0, 0, 0, 0.75)",
+                                fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                                lineHeight: 1.6,
+                              }}
+                            >
+                              Unlimited WhatsApp contacts daily
+                            </Typography>
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1.5,
+                            }}
+                          >
+                            <CheckCircle
+                              sx={{
+                                color: "#D4AF37",
+                                fontSize: "1.25rem",
+                                mt: 0.25,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Typography
+                              sx={{
+                                color: "rgba(0, 0, 0, 0.75)",
+                                fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                                lineHeight: 1.6,
+                              }}
+                            >
+                              Four free 3hr – profile boost daily targeting all
+                              categories
+                            </Typography>
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1.5,
+                            }}
+                          >
+                            <CheckCircle
+                              sx={{
+                                color: "#D4AF37",
+                                fontSize: "1.25rem",
+                                mt: 0.25,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Typography
+                              sx={{
+                                color: "rgba(0, 0, 0, 0.75)",
+                                fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                                lineHeight: 1.6,
+                              }}
+                            >
+                              Unlimited premium profiles unlock daily
+                            </Typography>
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1.5,
+                            }}
+                          >
+                            <CheckCircle
+                              sx={{
+                                color: "#D4AF37",
+                                fontSize: "1.25rem",
+                                mt: 0.25,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Typography
+                              sx={{
+                                color: "rgba(0, 0, 0, 0.75)",
+                                fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                                lineHeight: 1.6,
+                              }}
+                            >
+                              Access to unlimited saved profiles
+                            </Typography>
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1.5,
+                            }}
+                          >
+                            <CheckCircle
+                              sx={{
+                                color: "#D4AF37",
+                                fontSize: "1.25rem",
+                                mt: 0.25,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Typography
+                              sx={{
+                                color: "rgba(0, 0, 0, 0.75)",
+                                fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                                lineHeight: 1.6,
+                              }}
+                            >
+                              Gold Verification badge
+                            </Typography>
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1.5,
+                            }}
+                          >
+                            <CheckCircle
+                              sx={{
+                                color: "#D4AF37",
+                                fontSize: "1.25rem",
+                                mt: 0.25,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Typography
+                              sx={{
+                                color: "rgba(0, 0, 0, 0.75)",
+                                fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                                lineHeight: 1.6,
+                              }}
+                            >
+                              Free 8-hour access to incognito mode daily (View
+                              profiles without appearing on others viewer list)
+                            </Typography>
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1.5,
+                            }}
+                          >
+                            <CheckCircle
+                              sx={{
+                                color: "#D4AF37",
+                                fontSize: "1.25rem",
+                                mt: 0.25,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Typography
+                              sx={{
+                                color: "rgba(0, 0, 0, 0.75)",
+                                fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                                lineHeight: 1.6,
+                              }}
+                            >
+                              10 daily suggested Matches list
+                            </Typography>
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1.5,
+                            }}
+                          >
+                            <CheckCircle
+                              sx={{
+                                color: "#D4AF37",
+                                fontSize: "1.25rem",
+                                mt: 0.25,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Typography
+                              sx={{
+                                color: "rgba(0, 0, 0, 0.75)",
+                                fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                                lineHeight: 1.6,
+                              }}
+                            >
+                              Unlimited "who viewed your profile" daily
+                            </Typography>
+                          </Box>
+                        </>
+                      )}
+                    </Box>
+                    {isLoggedIn && (
+                      <Button
+                        variant="contained"
+                        fullWidth
+                        sx={{
+                          mt: "auto",
+                          borderRadius: "999px",
+                          textTransform: "none",
+                          fontWeight: 700,
+                          py: 1.25,
+                          background:
+                            "linear-gradient(90deg, #D4AF37 0%, #B8941F 100%)",
+                          boxShadow: "0 4px 10px rgba(212, 175, 55, 0.4)",
+                          "&:hover": {
+                            background:
+                              "linear-gradient(90deg, #B8941F 0%, #D4AF37 100%)",
+                            boxShadow: "0 6px 16px rgba(212, 175, 55, 0.5)",
+                          },
+                        }}
+                      >
+                        Subscribe
+                      </Button>
                     )}
                   </Box>
                 </CardContent>
@@ -650,8 +1333,8 @@ export default function Pricing() {
                   }}
                 >
                   "TuVibe has been an amazing platform for connecting with
-                  genuine people. The Regular plan gave me everything I needed to
-                  start my journey, and I've made some great connections!"
+                  genuine people. The Regular plan gave me everything I needed
+                  to start my journey, and I've made some great connections!"
                 </Typography>
               </Paper>
             </Box>
@@ -803,4 +1486,3 @@ export default function Pricing() {
     </Box>
   );
 }
-

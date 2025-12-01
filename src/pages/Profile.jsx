@@ -49,8 +49,6 @@ import {
   Cancel as CancelIcon,
   HowToReg,
   Delete,
-  Visibility,
-  VisibilityOff,
   ChevronLeft,
   ChevronRight,
   Add,
@@ -64,21 +62,39 @@ import { useNavigate } from "react-router-dom";
 import { getDisplayInitial, getDisplayName } from "../utils/userDisplay";
 
 // Photo card component with image loading state
-const GalleryPhotoCard = ({ photo, photoUrl, index, isApproved, isPending, isRejected, isCurrentProfilePhoto, onSelect, isSelecting, isSelected }) => {
+const GalleryPhotoCard = ({
+  photo,
+  photoUrl,
+  index,
+  isApproved,
+  isPending,
+  isRejected,
+  isCurrentProfilePhoto,
+  onSelect,
+  isSelecting,
+  isSelected,
+}) => {
   const [imageError, setImageError] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
 
   return (
-    <Grid item xs={6} sm={4} md={3} key={`photo-${index}-${photo.path}`} sx={{ display: "flex", justifyContent: "center" }}>
+    <Grid
+      item
+      xs={6}
+      sm={4}
+      md={3}
+      key={`photo-${index}-${photo.path}`}
+      sx={{ display: "flex", justifyContent: "center" }}
+    >
       <Tooltip
         title={
           isApproved
             ? "Click to set as profile picture"
             : isPending
-            ? "Pending approval - cannot be used yet"
-            : isRejected
-            ? "Rejected - cannot be used"
-            : "Cannot be used as profile picture"
+              ? "Pending approval - cannot be used yet"
+              : isRejected
+                ? "Rejected - cannot be used"
+                : "Cannot be used as profile picture"
         }
         arrow
       >
@@ -88,14 +104,16 @@ const GalleryPhotoCard = ({ photo, photoUrl, index, isApproved, isPending, isRej
             cursor: isApproved && !isSelecting ? "pointer" : "not-allowed",
             borderRadius: "16px",
             overflow: "hidden",
-            border: isCurrentProfilePhoto || isSelected
-              ? "4px solid #D4AF37"
-              : isApproved
-              ? "3px solid rgba(212, 175, 55, 0.7)"
-              : "2px solid rgba(0, 0, 0, 0.3)",
-            boxShadow: isCurrentProfilePhoto || isSelected
-              ? "0 8px 24px rgba(212, 175, 55, 0.4)"
-              : "0 4px 12px rgba(212, 175, 55, 0.2)",
+            border:
+              isCurrentProfilePhoto || isSelected
+                ? "4px solid #D4AF37"
+                : isApproved
+                  ? "3px solid rgba(212, 175, 55, 0.7)"
+                  : "2px solid rgba(0, 0, 0, 0.3)",
+            boxShadow:
+              isCurrentProfilePhoto || isSelected
+                ? "0 8px 24px rgba(212, 175, 55, 0.4)"
+                : "0 4px 12px rgba(212, 175, 55, 0.2)",
             transition: "all 0.3s ease",
             opacity: isApproved && !isSelecting ? 1 : isSelecting ? 0.6 : 0.7,
             bgcolor: "rgba(255, 255, 255, 0.9)",
@@ -103,13 +121,14 @@ const GalleryPhotoCard = ({ photo, photoUrl, index, isApproved, isPending, isRej
             height: "150px",
             margin: "0 auto",
             pointerEvents: isSelecting ? "none" : "auto",
-            "&:hover": isApproved && !isSelecting
-              ? {
-                  transform: "translateY(-4px)",
-                  boxShadow: "0 12px 32px rgba(212, 175, 55, 0.3)",
-                  borderColor: "#D4AF37",
-                }
-              : {},
+            "&:hover":
+              isApproved && !isSelecting
+                ? {
+                    transform: "translateY(-4px)",
+                    boxShadow: "0 12px 32px rgba(212, 175, 55, 0.3)",
+                    borderColor: "#D4AF37",
+                  }
+                : {},
           }}
           onClick={() => {
             if (isApproved && !isSelecting) {
@@ -429,10 +448,6 @@ export default function Profile({ user, setUser }) {
   const [isLocationTracking, setIsLocationTracking] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState(null);
   const [requestingVerification, setRequestingVerification] = useState(false);
-  const [lookingForPosts, setLookingForPosts] = useState([]);
-  const [loadingPosts, setLoadingPosts] = useState(false);
-  const [editingPostId, setEditingPostId] = useState(null);
-  const [postContent, setPostContent] = useState("");
   const [formData, setFormData] = useState({
     name: user?.name || "",
     username: user?.username || "",
@@ -453,7 +468,8 @@ export default function Profile({ user, setUser }) {
   const [loadingBoostStatus, setLoadingBoostStatus] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
-  const [gallerySelectionDialogOpen, setGallerySelectionDialogOpen] = useState(false);
+  const [gallerySelectionDialogOpen, setGallerySelectionDialogOpen] =
+    useState(false);
   const [selectingProfilePhoto, setSelectingProfilePhoto] = useState(false);
   const [selectedPhotoPath, setSelectedPhotoPath] = useState(null);
 
@@ -492,7 +508,6 @@ export default function Profile({ user, setUser }) {
       const rejectedPhotos = validPhotos.filter(
         (photo) => photo.moderation_status === "rejected"
       );
-
     }
   }, [gallerySelectionDialogOpen, user?.photos]);
 
@@ -641,140 +656,10 @@ export default function Profile({ user, setUser }) {
     fetchVerificationStatus();
   }, [user]);
 
-  // Check if user is verified premium
+  // Check if user is in a premium category
   const isPremiumCategory =
     user?.category &&
     ["Sugar Mummy", "Sponsor", "Ben 10", "Urban Chics"].includes(user.category);
-  const isVerifiedPremium = isPremiumCategory && user?.isVerified;
-
-  // Fetch "Looking For" posts (only for verified premium users)
-  useEffect(() => {
-    const fetchLookingForPosts = async () => {
-      if (!isVerifiedPremium) return;
-
-      const token = localStorage.getItem("token");
-      if (!token) return;
-
-      try {
-        setLoadingPosts(true);
-        const response = await fetch("/api/looking-for-posts/mine", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        });
-        const data = await response.json();
-        if (data.success) {
-          setLookingForPosts(data.data || []);
-        }
-      } catch (err) {
-        // Failed to fetch Looking For posts
-      } finally {
-        setLoadingPosts(false);
-      }
-    };
-
-    fetchLookingForPosts();
-  }, [isVerifiedPremium]);
-
-  // Handle update post
-  const handleUpdatePost = async (postId) => {
-    if (!postContent.trim()) return;
-
-    const token = localStorage.getItem("token");
-    try {
-      setLoadingPosts(true);
-      const response = await fetch(`/api/looking-for-posts/${postId}`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ content: postContent.trim() }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setLookingForPosts((prev) =>
-          prev.map((post) => (post.id === postId ? data.data : post))
-        );
-        setPostContent("");
-        setEditingPostId(null);
-        Swal.fire({
-          icon: "success",
-          title: "Updated!",
-          text: "Your post has been updated",
-          timer: 1500,
-          showConfirmButton: false,
-          confirmButtonColor: "#D4AF37",
-        });
-      } else {
-        throw new Error(data.message || "Failed to update post");
-      }
-    } catch (err) {
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: err.message || "Failed to update post",
-        confirmButtonColor: "#D4AF37",
-      });
-    } finally {
-      setLoadingPosts(false);
-    }
-  };
-
-  // Handle delete post
-  const handleDeletePost = async (postId) => {
-    const result = await Swal.fire({
-      icon: "warning",
-      title: "Delete Post?",
-      text: "Are you sure you want to delete this post?",
-      showCancelButton: true,
-      confirmButtonText: "Delete",
-      cancelButtonText: "Cancel",
-      confirmButtonColor: "#d33",
-      cancelButtonColor: "#D4AF37",
-    });
-
-    if (!result.isConfirmed) return;
-
-    const token = localStorage.getItem("token");
-    try {
-      setLoadingPosts(true);
-      const response = await fetch(`/api/looking-for-posts/${postId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setLookingForPosts((prev) => prev.filter((post) => post.id !== postId));
-        Swal.fire({
-          icon: "success",
-          title: "Deleted!",
-          text: "Post has been deleted",
-          timer: 1500,
-          showConfirmButton: false,
-          confirmButtonColor: "#D4AF37",
-        });
-      } else {
-        throw new Error(data.message || "Failed to delete post");
-      }
-    } catch (err) {
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: err.message || "Failed to delete post",
-        confirmButtonColor: "#D4AF37",
-      });
-    } finally {
-      setLoadingPosts(false);
-    }
-  };
 
   // Handle verification request
   const handleRequestVerification = async () => {
@@ -1163,7 +1048,7 @@ export default function Profile({ user, setUser }) {
         });
         return;
       }
-      
+
       // If not in edit mode, upload directly
       if (!isEditing) {
         handlePhotoUploadDirect(file);
@@ -1173,7 +1058,7 @@ export default function Profile({ user, setUser }) {
         }
         return;
       }
-      
+
       // If in edit mode, set for preview and save later
       setPhotoFile(file);
       // Create preview
@@ -1211,9 +1096,7 @@ export default function Profile({ user, setUser }) {
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(
-          data.message || "Failed to update profile picture"
-        );
+        throw new Error(data.message || "Failed to update profile picture");
       }
 
       // Update user state
@@ -1235,9 +1118,10 @@ export default function Profile({ user, setUser }) {
       await Swal.fire({
         icon: "success",
         title: "Profile Picture Updated!",
-        text: data.data?.photo_moderation_status === "pending"
-          ? "Your profile picture has been uploaded and is pending approval. It will be visible to others once approved."
-          : "Your profile picture has been updated successfully.",
+        text:
+          data.data?.photo_moderation_status === "pending"
+            ? "Your profile picture has been uploaded and is pending approval. It will be visible to others once approved."
+            : "Your profile picture has been updated successfully.",
         timer: data.data?.photo_moderation_status === "pending" ? 4000 : 2000,
         showConfirmButton: false,
         confirmButtonColor: "#D4AF37",
@@ -1264,8 +1148,7 @@ export default function Profile({ user, setUser }) {
             title.style.color = "#1a1a1a";
             title.style.fontWeight = "700";
             title.style.fontSize = "1.5rem";
-            title.style.background =
-              "linear-gradient(45deg, #D4AF37, #B8941F)";
+            title.style.background = "linear-gradient(45deg, #D4AF37, #B8941F)";
             title.style.webkitBackgroundClip = "text";
             title.style.webkitTextFillColor = "transparent";
             title.style.backgroundClip = "text";
@@ -1276,7 +1159,9 @@ export default function Profile({ user, setUser }) {
       Swal.fire({
         icon: "error",
         title: "Upload Failed",
-        text: error.message || "Failed to upload profile picture. Please try again.",
+        text:
+          error.message ||
+          "Failed to upload profile picture. Please try again.",
         confirmButtonColor: "#D4AF37",
         customClass: {
           popup: "swal2-popup-high-z",
@@ -1323,9 +1208,7 @@ export default function Profile({ user, setUser }) {
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(
-          data.message || "Failed to update profile picture"
-        );
+        throw new Error(data.message || "Failed to update profile picture");
       }
 
       // Update user state
@@ -1348,8 +1231,8 @@ export default function Profile({ user, setUser }) {
       setSelectedPhotoPath(null);
 
       // Small delay to ensure dialog closes before showing alert
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
       await Swal.fire({
         icon: "success",
         title: "Profile Picture Updated!",
@@ -1380,8 +1263,7 @@ export default function Profile({ user, setUser }) {
             title.style.color = "#1a1a1a";
             title.style.fontWeight = "700";
             title.style.fontSize = "1.5rem";
-            title.style.background =
-              "linear-gradient(45deg, #D4AF37, #B8941F)";
+            title.style.background = "linear-gradient(45deg, #D4AF37, #B8941F)";
             title.style.webkitBackgroundClip = "text";
             title.style.webkitTextFillColor = "transparent";
             title.style.backgroundClip = "text";
@@ -1392,7 +1274,9 @@ export default function Profile({ user, setUser }) {
       Swal.fire({
         icon: "error",
         title: "Update Failed",
-        text: error.message || "Failed to update profile picture. Please try again.",
+        text:
+          error.message ||
+          "Failed to update profile picture. Please try again.",
         confirmButtonColor: "#D4AF37",
         customClass: {
           popup: "swal2-popup-high-z",
@@ -1417,8 +1301,7 @@ export default function Profile({ user, setUser }) {
             title.style.color = "#1a1a1a";
             title.style.fontWeight = "700";
             title.style.fontSize = "1.5rem";
-            title.style.background =
-              "linear-gradient(45deg, #D4AF37, #B8941F)";
+            title.style.background = "linear-gradient(45deg, #D4AF37, #B8941F)";
             title.style.webkitBackgroundClip = "text";
             title.style.webkitTextFillColor = "transparent";
             title.style.backgroundClip = "text";
@@ -2435,11 +2318,7 @@ export default function Profile({ user, setUser }) {
                     Edit Profile
                   </Button>
                 ) : (
-                  <Stack
-                    direction="row"
-                    spacing={1}
-                    sx={{ flexShrink: 0 }}
-                  >
+                  <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
                     <Button
                       startIcon={<Cancel />}
                       onClick={handleCancel}
@@ -2462,7 +2341,9 @@ export default function Profile({ user, setUser }) {
                       Cancel
                     </Button>
                     <Button
-                      startIcon={loading ? <CircularProgress size={16} /> : <Save />}
+                      startIcon={
+                        loading ? <CircularProgress size={16} /> : <Save />
+                      }
                       onClick={handleSave}
                       variant="contained"
                       disabled={loading}
@@ -2476,7 +2357,8 @@ export default function Profile({ user, setUser }) {
                         py: { xs: 0.75, sm: 1 },
                         fontSize: { xs: "0.75rem", sm: "0.875rem" },
                         "&:hover": {
-                          background: "linear-gradient(135deg, #B8941F, #D4AF37)",
+                          background:
+                            "linear-gradient(135deg, #B8941F, #D4AF37)",
                           transform: "translateY(-2px)",
                           boxShadow: "0 8px 24px rgba(212, 175, 55, 0.3)",
                         },
@@ -2655,46 +2537,46 @@ export default function Profile({ user, setUser }) {
                   </Box>
                 )}
               {/* Profile picture change buttons - bottom right when IN edit mode */}
-            {isEditing && (
-              <Box
-                sx={{
-                  position: "absolute",
-                  bottom: 0,
-                  right: 0,
-                  display: "flex",
-                  gap: 0.5,
-                }}
-              >
-                <Tooltip title="Upload New Photo">
-                  <IconButton
-                    onClick={handlePhotoClick}
-                    sx={{
-                      bgcolor: "#D4AF37",
-                      color: "#1a1a1a",
-                      "&:hover": {
-                        bgcolor: "#B8941F",
-                      },
-                    }}
-                  >
-                    <PhotoCamera />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Select from Gallery">
-                  <IconButton
-                    onClick={handleSelectFromGallery}
-                    sx={{
-                      bgcolor: "#D4AF37",
-                      color: "#1a1a1a",
-                      "&:hover": {
-                        bgcolor: "#B8941F",
-                      },
-                    }}
-                  >
-                    <Image />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-            )}
+              {isEditing && (
+                <Box
+                  sx={{
+                    position: "absolute",
+                    bottom: 0,
+                    right: 0,
+                    display: "flex",
+                    gap: 0.5,
+                  }}
+                >
+                  <Tooltip title="Upload New Photo">
+                    <IconButton
+                      onClick={handlePhotoClick}
+                      sx={{
+                        bgcolor: "#D4AF37",
+                        color: "#1a1a1a",
+                        "&:hover": {
+                          bgcolor: "#B8941F",
+                        },
+                      }}
+                    >
+                      <PhotoCamera />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Select from Gallery">
+                    <IconButton
+                      onClick={handleSelectFromGallery}
+                      sx={{
+                        bgcolor: "#D4AF37",
+                        color: "#1a1a1a",
+                        "&:hover": {
+                          bgcolor: "#B8941F",
+                        },
+                      }}
+                    >
+                      <Image />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+              )}
             </Box>
             {/* Help text for pending/rejected photo */}
             {!isEditing &&
@@ -3548,191 +3430,6 @@ export default function Profile({ user, setUser }) {
                   ? "Requesting..."
                   : "Request Verification"}
               </Button>
-            )}
-          </Box>
-        )}
-
-        {/* "Looking For" Posts Section - Only for Verified Premium Users */}
-        {isVerifiedPremium && (
-          <Box sx={{ mb: 3 }}>
-            <Divider sx={{ my: 2, borderColor: "rgba(212, 175, 55, 0.2)" }} />
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                mb: 2,
-              }}
-            >
-              <Typography
-                variant="h6"
-                sx={{
-                  fontWeight: 700,
-                  color: "#1a1a1a",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                  fontSize: { xs: "1rem", sm: "1.125rem" },
-                }}
-              >
-                <Visibility sx={{ color: "#D4AF37" }} />
-                Looking For
-              </Typography>
-            </Box>
-
-            {/* Edit Post Form */}
-            {editingPostId && (
-              <Card
-                sx={{
-                  p: 2,
-                  mb: 2,
-                  borderRadius: "12px",
-                  background: "rgba(212, 175, 55, 0.05)",
-                  border: "1px solid rgba(212, 175, 55, 0.2)",
-                }}
-              >
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={4}
-                  placeholder="What are you looking for? (e.g., 'Looking for someone mature and fun to connect with...')"
-                  value={postContent}
-                  onChange={(e) => setPostContent(e.target.value)}
-                  sx={{ mb: 2 }}
-                />
-                <Stack direction="row" spacing={1} justifyContent="flex-end">
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={() => {
-                      setEditingPostId(null);
-                      setPostContent("");
-                    }}
-                    sx={{
-                      borderColor: "rgba(212, 175, 55, 0.5)",
-                      color: "#1a1a1a",
-                      textTransform: "none",
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    variant="contained"
-                    size="small"
-                    onClick={() => handleUpdatePost(editingPostId)}
-                    disabled={loadingPosts || !postContent.trim()}
-                    sx={{
-                      background: "linear-gradient(135deg, #D4AF37, #B8941F)",
-                      color: "#1a1a1a",
-                      textTransform: "none",
-                      "&:disabled": {
-                        background: "rgba(212, 175, 55, 0.3)",
-                      },
-                    }}
-                  >
-                    {loadingPosts ? (
-                      <CircularProgress size={16} color="inherit" />
-                    ) : (
-                      "Update"
-                    )}
-                  </Button>
-                </Stack>
-              </Card>
-            )}
-
-            {/* Posts List */}
-            {loadingPosts ? (
-              <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
-                <CircularProgress size={24} sx={{ color: "#D4AF37" }} />
-              </Box>
-            ) : lookingForPosts.length === 0 ? (
-              <Card
-                sx={{
-                  p: 3,
-                  textAlign: "center",
-                  borderRadius: "12px",
-                  background: "rgba(212, 175, 55, 0.05)",
-                  border: "1px dashed rgba(212, 175, 55, 0.3)",
-                }}
-              >
-                <Visibility
-                  sx={{
-                    fontSize: 48,
-                    color: "rgba(212, 175, 55, 0.5)",
-                    mb: 1,
-                  }}
-                />
-                <Typography
-                  variant="body2"
-                  sx={{ color: "rgba(26, 26, 26, 0.6)" }}
-                >
-                  No posts yet. Create your first "Looking For" post from the
-                  Premium Lounge.
-                </Typography>
-              </Card>
-            ) : (
-              <Stack spacing={2}>
-                {lookingForPosts.map((post) => (
-                  <Card
-                    key={post.id}
-                    sx={{
-                      p: 2,
-                      borderRadius: "12px",
-                      background:
-                        "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)",
-                      border: "1px solid rgba(212, 175, 55, 0.2)",
-                    }}
-                  >
-                    <Typography
-                      variant="body1"
-                      sx={{
-                        color: "#1a1a1a",
-                        mb: 1,
-                        whiteSpace: "pre-wrap",
-                      }}
-                    >
-                      {post.content}
-                    </Typography>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                      }}
-                    >
-                      <Typography
-                        variant="caption"
-                        sx={{ color: "rgba(26, 26, 26, 0.5)" }}
-                      >
-                        {new Date(post.createdAt).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </Typography>
-                      <Stack direction="row" spacing={1}>
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            setEditingPostId(post.id);
-                            setPostContent(post.content);
-                          }}
-                          sx={{ color: "#D4AF37" }}
-                        >
-                          <Edit fontSize="small" />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleDeletePost(post.id)}
-                          sx={{ color: "#F44336" }}
-                        >
-                          <Delete fontSize="small" />
-                        </IconButton>
-                      </Stack>
-                    </Box>
-                  </Card>
-                ))}
-              </Stack>
             )}
           </Box>
         )}
@@ -4775,22 +4472,22 @@ export default function Profile({ user, setUser }) {
                   if (!photo || !photo.path) {
                     return null;
                   }
-                    
-                    const photoUrl = photo.path.startsWith("/uploads/")
-                      ? photo.path
-                      : `/uploads/${photo.path}`;
-                    const isCurrentProfilePhoto =
-                      user?.photo === photo.path ||
-                      (user?.photo &&
-                        (user.photo.startsWith("/uploads/")
-                          ? user.photo === photoUrl
-                          : `/uploads/${user.photo}` === photoUrl));
-                  
+
+                  const photoUrl = photo.path.startsWith("/uploads/")
+                    ? photo.path
+                    : `/uploads/${photo.path}`;
+                  const isCurrentProfilePhoto =
+                    user?.photo === photo.path ||
+                    (user?.photo &&
+                      (user.photo.startsWith("/uploads/")
+                        ? user.photo === photoUrl
+                        : `/uploads/${user.photo}` === photoUrl));
+
                   const isApproved = photo.moderation_status === "approved";
                   const isPending = photo.moderation_status === "pending";
                   const isRejected = photo.moderation_status === "rejected";
 
-                    return (
+                  return (
                     <GalleryPhotoCard
                       key={`photo-${index}-${photo.path}`}
                       photo={photo}
@@ -4804,9 +4501,9 @@ export default function Profile({ user, setUser }) {
                       isSelecting={selectingProfilePhoto}
                       isSelected={selectedPhotoPath === photo.path}
                     />
-                    );
-                  })}
-                </Grid>
+                  );
+                })}
+              </Grid>
             );
           })()}
         </DialogContent>

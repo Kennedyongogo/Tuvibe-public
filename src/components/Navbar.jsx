@@ -18,6 +18,7 @@ import {
   BottomNavigationAction,
   Paper,
   Tooltip,
+  Button,
 } from "@mui/material";
 import {
   Home,
@@ -25,7 +26,6 @@ import {
   Logout,
   Store,
   Wallet,
-  Star,
   GridView,
   Report,
   Lock,
@@ -65,12 +65,6 @@ export default function Navbar({
       icon: <Explore />,
       path: "/explore",
       mobileLabel: "Explore",
-    },
-    {
-      text: "Premium Lounge",
-      icon: <Star />,
-      path: "/premium",
-      mobileLabel: "Premium",
     },
     {
       text: "TuVibe Market",
@@ -374,6 +368,28 @@ export default function Navbar({
           <Box sx={{ flexGrow: 1 }} />
           {!isSuspended && (
             <>
+              <Button
+                variant="contained"
+                onClick={() => navigate("/pricing")}
+                sx={{
+                  mr: 2,
+                  borderRadius: "999px",
+                  textTransform: "none",
+                  fontWeight: 700,
+                  px: 2.5,
+                  py: 0.75,
+                  background:
+                    "linear-gradient(90deg, #D4AF37 0%, #B8941F 100%)",
+                  boxShadow: "0 4px 10px rgba(212, 175, 55, 0.3)",
+                  "&:hover": {
+                    background:
+                      "linear-gradient(90deg, #B8941F 0%, #D4AF37 100%)",
+                    boxShadow: "0 6px 16px rgba(212, 175, 55, 0.4)",
+                  },
+                }}
+              >
+                Subscribe
+              </Button>
               <Box
                 sx={{
                   display: "flex",
