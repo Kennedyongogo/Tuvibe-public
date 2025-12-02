@@ -278,7 +278,7 @@ export default function Pricing() {
         }
       };
 
-      window.PaystackPop.setup({
+      const handler = window.PaystackPop.setup({
         key: PAYSTACK_PUBLIC_KEY,
         email: JSON.parse(localStorage.getItem("user") || "{}").email,
         amount: Math.round(responseAmount * 100),
@@ -307,7 +307,7 @@ export default function Pricing() {
         },
       });
 
-      window.PaystackPop.openIframe();
+      handler.openIframe();
     } catch (error) {
       console.error("Upgrade error:", error);
       setSubscribing(false);
