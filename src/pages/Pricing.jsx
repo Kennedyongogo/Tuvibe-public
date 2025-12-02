@@ -199,7 +199,12 @@ export default function Pricing() {
         bypassed,
         authorization_url,
         proratedAmount: responseAmount,
+        reference,
       } = data;
+
+      if (!bypassed && !reference) {
+        throw new Error("Payment reference not received from server");
+      }
 
       if (bypassed) {
         setSubscribing(false);
@@ -278,12 +283,24 @@ export default function Pricing() {
         }
       };
 
+      // Get user email safely
+      const userData = JSON.parse(localStorage.getItem("user") || "{}");
+      if (!userData?.email) {
+        throw new Error("User email not found. Please re-login and try again.");
+      }
+
+      // Validate and convert amount to Paystack format (kobo)
+      const upgradeAmount = Math.round(responseAmount * 100);
+      if (!Number.isFinite(upgradeAmount) || upgradeAmount <= 0) {
+        throw new Error("Invalid upgrade amount calculated");
+      }
+
       const handler = window.PaystackPop.setup({
         key: PAYSTACK_PUBLIC_KEY,
-        email: JSON.parse(localStorage.getItem("user") || "{}").email,
-        amount: Math.round(responseAmount * 100),
+        email: userData.email,
+        amount: upgradeAmount,
         currency: "KES",
-        ref: data.reference,
+        ref: reference,
         metadata: {
           custom_fields: [
             {
@@ -595,6 +612,10 @@ export default function Pricing() {
 
       const { reference, bypassed, subscription, authorization_url } = data;
 
+      if (!bypassed && !reference) {
+        throw new Error("Payment reference not received from server");
+      }
+
       if (bypassed) {
         setSubscribing(false);
         Swal.fire({
@@ -674,10 +695,23 @@ export default function Pricing() {
         }
       };
 
+      // Validate and convert amount to Paystack format (kobo)
+      const paystackAmountRaw = data.paystack_amount;
+      const fallbackAmount = Math.round(amount * 100);
+      const paystackAmountNumber =
+        Number.isFinite(Number(paystackAmountRaw)) &&
+        Number(paystackAmountRaw) > 0
+          ? Number(paystackAmountRaw)
+          : fallbackAmount;
+
+      if (!Number.isFinite(paystackAmountNumber) || paystackAmountNumber <= 0) {
+        throw new Error("Invalid payment amount received from server");
+      }
+
       const handler = window.PaystackPop.setup({
         key: PAYSTACK_PUBLIC_KEY,
         email: currentUser.email,
-        amount: data.paystack_amount,
+        amount: paystackAmountNumber,
         currency: data.currency || "KES",
         ref: reference,
         metadata: {
