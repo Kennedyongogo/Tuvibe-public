@@ -35,6 +35,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import Swal from "sweetalert2";
 import PublicResetPasswordDialog from "./Account/PublicResetPasswordDialog";
 import { getDisplayInitial, getDisplayName } from "../utils/userDisplay";
+import IncognitoToggle from "./IncognitoToggle";
 
 const drawerWidth = 260;
 
@@ -49,6 +50,7 @@ export default function Navbar({
   const [anchorEl, setAnchorEl] = useState(null);
   const [bottomNavValue, setBottomNavValue] = useState(0);
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
+  const [subscription, setSubscription] = useState(null);
   const prevPathnameRef = useRef(location.pathname);
   const anchorElRef = useRef(null);
 
@@ -119,6 +121,38 @@ export default function Navbar({
       setBottomNavValue(activeIndex);
     }
   }, [location.pathname]);
+
+  // Fetch subscription status
+  useEffect(() => {
+    const fetchSubscription = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setSubscription(null);
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/subscriptions/status", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data = await response.json();
+
+        if (data.success && data.data?.hasSubscription && data.data.subscription) {
+          setSubscription(data.data.subscription);
+        } else {
+          setSubscription(null);
+        }
+      } catch (error) {
+        console.error("Error fetching subscription:", error);
+        setSubscription(null);
+      }
+    };
+
+    fetchSubscription();
+  }, [user]);
 
   const handleLogout = async () => {
     // Close menu first to prevent interference
@@ -368,6 +402,9 @@ export default function Navbar({
           <Box sx={{ flexGrow: 1 }} />
           {!isSuspended && (
             <>
+              {subscription?.plan === "Gold" && subscription?.status === "active" && (
+                <IncognitoToggle user={user} subscription={subscription} />
+              )}
               <Button
                 variant="contained"
                 onClick={() => navigate("/pricing")}

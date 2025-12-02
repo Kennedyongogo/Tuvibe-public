@@ -47,6 +47,7 @@ import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import ViewProfile from "../components/ViewProfile";
 import UpgradeDialog from "../components/UpgradeDialog";
+import IncognitoBanner from "../components/IncognitoBanner";
 import { formatKshFromTokens } from "../utils/pricing";
 import { getDisplayInitial, getDisplayName } from "../utils/userDisplay";
 
@@ -64,6 +65,11 @@ export default function Explore({ user }) {
   const [viewingUserId, setViewingUserId] = useState(null);
   const [currentImageIndex, setCurrentImageIndex] = useState({}); // Track current image index for each user
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [incognitoStatus, setIncognitoStatus] = useState({
+    active: false,
+    remaining_minutes: 0,
+    expires_at: null,
+  });
 
   // Filters
   const [filters, setFilters] = useState({
@@ -249,6 +255,62 @@ export default function Explore({ user }) {
 
     return () => clearInterval(interval);
   }, [fetchUnreadNotificationCount]);
+
+  // Fetch incognito status
+  useEffect(() => {
+    const fetchIncognitoStatus = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setIncognitoStatus({ active: false, remaining_minutes: 0, expires_at: null });
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/subscriptions/incognito/status", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data = await response.json();
+        if (data.success) {
+          setIncognitoStatus(data.data);
+        }
+      } catch (error) {
+        console.error("Error fetching incognito status:", error);
+      }
+    };
+
+    fetchIncognitoStatus();
+
+    // Poll every 30 seconds if active
+    if (incognitoStatus.active) {
+      const interval = setInterval(fetchIncognitoStatus, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [incognitoStatus.active]);
+
+  // Update countdown every minute when active
+  useEffect(() => {
+    if (!incognitoStatus.active || !incognitoStatus.expires_at) return;
+
+    const interval = setInterval(() => {
+      const now = new Date();
+      const expiresAt = new Date(incognitoStatus.expires_at);
+      const remaining = Math.max(0, Math.round((expiresAt - now) / 60000));
+
+      if (remaining <= 0) {
+        setIncognitoStatus((prev) => ({ ...prev, active: false, remaining_minutes: 0 }));
+      } else {
+        setIncognitoStatus((prev) => ({
+          ...prev,
+          remaining_minutes: remaining,
+        }));
+      }
+    }, 60000); // Every minute
+
+    return () => clearInterval(interval);
+  }, [incognitoStatus.active, incognitoStatus.expires_at]);
 
   // Auto-transition images for each user
   useEffect(() => {
@@ -1030,6 +1092,11 @@ export default function Explore({ user }) {
           )}
         </Box>
       </Card>
+
+      {/* Incognito Banner */}
+      {incognitoStatus.active && (
+        <IncognitoBanner remainingMinutes={incognitoStatus.remaining_minutes} />
+      )}
 
       {/* Results Count */}
       {/* {!loading && (
