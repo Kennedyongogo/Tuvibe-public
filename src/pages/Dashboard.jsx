@@ -486,6 +486,65 @@ export default function Dashboard({ user, setUser }) {
     [resetBoostForm]
   );
 
+  // Check subscription before opening boost dialog
+  const handleBoostButtonClick = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      Swal.fire({
+        icon: "warning",
+        title: "Login Required",
+        text: "Please login to boost your profile",
+        confirmButtonColor: "#D4AF37",
+      });
+      return;
+    }
+
+    try {
+      // Check subscription by attempting to get premium stats
+      // This will return 403 if no subscription, 200 if subscription exists
+      const response = await fetch("/api/premium/stats/overview", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.status === 403) {
+        // No active subscription
+        Swal.fire({
+          icon: "warning",
+          title: "Subscription Required",
+          html: `<p>${data.message || "Active subscription required to boost your profile."}</p><p>Please subscribe to a plan to continue.</p>`,
+          confirmButtonText: "View Plans",
+          cancelButtonText: "Cancel",
+          showCancelButton: true,
+          confirmButtonColor: "#D4AF37",
+          didOpen: () => {
+            const swal = document.querySelector(".swal2-popup");
+            if (swal) {
+              swal.style.borderRadius = "20px";
+            }
+          },
+        }).then((result) => {
+          if (result.isConfirmed) {
+            navigate("/pricing");
+          }
+        });
+        return;
+      }
+
+      // If we get here, user has subscription - open the dialog
+      // Note: The backend will still validate boost availability when they try to boost
+      openBoostDialog(true);
+    } catch (error) {
+      console.error("Error checking boost availability:", error);
+      // On error, still try to open dialog (let backend handle validation)
+      openBoostDialog(true);
+    }
+  }, [navigate, openBoostDialog]);
+
   const showBoostDialogAlert = useCallback(
     async (options) => {
       const wasOpen = boostDialogOpen;
@@ -599,6 +658,37 @@ export default function Dashboard({ user, setUser }) {
         font-size: 0.8rem !important;
         padding: 8px 18px !important;
         border-radius: 10px !important;
+      }
+    `;
+    document.head.appendChild(style);
+  }, []);
+
+  // Remove focus outlines from buttons and tabs
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const styleId = "remove-focus-outline-styles";
+    if (document.getElementById(styleId)) return;
+    const style = document.createElement("style");
+    style.id = styleId;
+    style.textContent = `
+      button:focus,
+      button:focus-visible,
+      .MuiButton-root:focus,
+      .MuiButton-root:focus-visible,
+      .MuiIconButton-root:focus,
+      .MuiIconButton-root:focus-visible,
+      .MuiTab-root:focus,
+      .MuiTab-root:focus-visible,
+      .MuiCard-root:focus,
+      .MuiCard-root:focus-visible {
+        outline: none !important;
+        box-shadow: none !important;
+      }
+      button:focus-visible,
+      .MuiButton-root:focus-visible,
+      .MuiIconButton-root:focus-visible,
+      .MuiTab-root:focus-visible {
+        outline: none !important;
       }
     `;
     document.head.appendChild(style);
@@ -1033,15 +1123,76 @@ export default function Dashboard({ user, setUser }) {
 
       const data = await response.json();
 
+      // Handle subscription-related errors
       if (response.status === 402) {
-        Swal.fire({
-          icon: "warning",
-          title: "Insufficient Tokens",
-          text: data.message || "You do not have enough tokens for this boost.",
-          confirmButtonColor: "#D4AF37",
-        });
+        // No active subscription required
         programmaticBoostCloseRef.current = false;
         openBoostDialog(false);
+        Swal.fire({
+          icon: "warning",
+          title: "Subscription Required",
+          html: `<p>${data.message || "Active subscription required to boost your profile."}</p><p>Please subscribe to a plan to continue.</p>`,
+          confirmButtonText: "View Plans",
+          cancelButtonText: "Cancel",
+          showCancelButton: true,
+          confirmButtonColor: "#D4AF37",
+          didOpen: () => {
+            const swal = document.querySelector(".swal2-popup");
+            if (swal) {
+              swal.style.borderRadius = "20px";
+            }
+          },
+        }).then((result) => {
+          if (result.isConfirmed) {
+            navigate("/pricing");
+          }
+        });
+        return;
+      }
+
+      if (response.status === 403) {
+        // Boost not available for current plan
+        programmaticBoostCloseRef.current = false;
+        openBoostDialog(false);
+        Swal.fire({
+          icon: "info",
+          title: "Boost Not Available",
+          html: `<p>${data.message || "Profile boosts are not available for your subscription plan."}</p><p>Upgrade to a plan that includes profile boosts to use this feature.</p>`,
+          confirmButtonText: "View Plans",
+          cancelButtonText: "Cancel",
+          showCancelButton: true,
+          confirmButtonColor: "#D4AF37",
+          didOpen: () => {
+            const swal = document.querySelector(".swal2-popup");
+            if (swal) {
+              swal.style.borderRadius = "20px";
+            }
+          },
+        }).then((result) => {
+          if (result.isConfirmed) {
+            navigate("/pricing");
+          }
+        });
+        return;
+      }
+
+      if (response.status === 429) {
+        // Daily limit reached
+        programmaticBoostCloseRef.current = false;
+        openBoostDialog(false);
+        Swal.fire({
+          icon: "info",
+          title: "Daily Limit Reached",
+          html: `<p>${data.message || "Daily profile boost limit reached for your plan."}</p><p>Your daily limit will reset tomorrow.</p>`,
+          confirmButtonText: "OK",
+          confirmButtonColor: "#D4AF37",
+          didOpen: () => {
+            const swal = document.querySelector(".swal2-popup");
+            if (swal) {
+              swal.style.borderRadius = "20px";
+            }
+          },
+        });
         return;
       }
 
@@ -1666,6 +1817,26 @@ export default function Dashboard({ user, setUser }) {
         maxWidth: "100%",
         overflowX: "hidden",
         boxSizing: "border-box",
+        "& button:focus, & button:focus-visible": {
+          outline: "none",
+          boxShadow: "none",
+        },
+        "& .MuiButton-root:focus, & .MuiButton-root:focus-visible": {
+          outline: "none",
+          boxShadow: "none",
+        },
+        "& .MuiIconButton-root:focus, & .MuiIconButton-root:focus-visible": {
+          outline: "none",
+          boxShadow: "none",
+        },
+        "& .MuiTab-root:focus, & .MuiTab-root:focus-visible": {
+          outline: "none",
+          boxShadow: "none",
+        },
+        "& .MuiCard-root:focus, & .MuiCard-root:focus-visible": {
+          outline: "none",
+          boxShadow: "none",
+        },
       }}
     >
       {/* Welcome Section */}
@@ -1797,7 +1968,7 @@ export default function Dashboard({ user, setUser }) {
                 zIndex: -1,
               },
             }}
-            onClick={() => openBoostDialog(true)}
+            onClick={handleBoostButtonClick}
             disabled={boosting}
           >
             Boost Profile
@@ -2393,22 +2564,72 @@ export default function Dashboard({ user, setUser }) {
                       sx={{
                         display: "flex",
                         alignItems: "center",
-                        gap: 0.5,
+                        gap: 1,
                         mb: 1,
+                        flexWrap: "wrap",
                       }}
                     >
                       <Box sx={{ display: "flex", flexDirection: "column" }}>
-                        <Typography
-                          variant="subtitle2"
+                        <Box
                           sx={{
-                            fontWeight: 700,
-                            color: "#1a1a1a",
-                            fontSize: "0.9rem",
-                            lineHeight: 1.2,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 0.5,
+                            flexWrap: "wrap",
                           }}
                         >
-                          {displayName}
-                        </Typography>
+                          <Typography
+                            variant="subtitle2"
+                            sx={{
+                              fontWeight: 700,
+                              color: "#1a1a1a",
+                              fontSize: "0.9rem",
+                              lineHeight: 1.2,
+                            }}
+                          >
+                            {displayName}
+                          </Typography>
+                          {featuredUser.isVerified && (
+                            <Chip
+                              icon={
+                                <Verified
+                                  sx={{
+                                    fontSize: "0.875rem !important",
+                                    color:
+                                      featuredUser.badgeType === "silver"
+                                        ? "#C0C0C0"
+                                        : "#D4AF37",
+                                  }}
+                                />
+                              }
+                              label={
+                                featuredUser.badgeType === "silver"
+                                  ? "Premium Silver"
+                                  : featuredUser.badgeType === "gold"
+                                    ? "Gold Verified"
+                                    : "Verified"
+                              }
+                              size="small"
+                              sx={{
+                                bgcolor:
+                                  featuredUser.badgeType === "silver"
+                                    ? "rgba(192, 192, 192, 0.15)"
+                                    : "rgba(212, 175, 55, 0.15)",
+                                color: "#1a1a1a",
+                                fontWeight: 600,
+                                fontSize: "0.65rem",
+                                height: 20,
+                                border:
+                                  featuredUser.badgeType === "silver"
+                                    ? "1px solid rgba(192, 192, 192, 0.3)"
+                                    : "1px solid rgba(212, 175, 55, 0.3)",
+                                "& .MuiChip-icon": {
+                                  marginLeft: "6px",
+                                },
+                              }}
+                            />
+                          )}
+                        </Box>
                         {displayUsername && (
                           <Typography
                             variant="caption"
@@ -2421,9 +2642,6 @@ export default function Dashboard({ user, setUser }) {
                           </Typography>
                         )}
                       </Box>
-                      {featuredUser.isVerified && (
-                        <Verified sx={{ fontSize: 16, color: "#D4AF37" }} />
-                      )}
                     </Box>
                     <Box
                       sx={{

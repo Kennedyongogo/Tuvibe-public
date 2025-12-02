@@ -26,7 +26,13 @@ import Notifications from "../pages/Notifications";
 import Timeline from "../pages/Timeline";
 import SuspensionGate from "./Suspension/SuspensionGate";
 import SuspensionAppealModal from "./Suspension/SuspensionAppealModal";
+import RatingPromptDialog from "./RatingPromptDialog";
 import useServerSentEvents from "../hooks/useServerSentEvents";
+import {
+  getRatingPromptStatus,
+  submitRatingTestimonial,
+  dismissRatingPrompt,
+} from "../utils/ratingPrompt";
 
 function PageRoutes() {
   const navigate = useNavigate();
@@ -40,6 +46,9 @@ function PageRoutes() {
   const initialSuspensionCheckRef = useRef(true);
   const prevUserIdRef = useRef(null);
   const [appealOpen, setAppealOpen] = useState(false);
+  const [ratingPromptOpen, setRatingPromptOpen] = useState(false);
+  const [ratingPromptLoading, setRatingPromptLoading] = useState(false);
+  const [ratingPromptInfo, setRatingPromptInfo] = useState(null);
 
   const authToken = useMemo(() => localStorage.getItem("token"), [user]);
 
@@ -271,6 +280,83 @@ function PageRoutes() {
     handleUserUpdated,
   ]);
 
+  const checkRatingPrompt = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token || !user) {
+      setRatingPromptOpen(false);
+      setRatingPromptInfo(null);
+      return;
+    }
+
+    try {
+      const data = await getRatingPromptStatus(token);
+      setRatingPromptInfo(data);
+      setRatingPromptOpen(Boolean(data?.shouldPrompt));
+    } catch (error) {
+      console.error("[PageRoutes] rating prompt check failed:", error);
+      setRatingPromptOpen(false);
+    }
+  }, [user]);
+
+  const handleRatingSubmit = useCallback(async ({ rating, testimonial }) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setRatingPromptOpen(false);
+      return;
+    }
+    try {
+      setRatingPromptLoading(true);
+      await submitRatingTestimonial({ token, rating, testimonial });
+      setRatingPromptOpen(false);
+      setRatingPromptInfo({
+        shouldPrompt: false,
+        hasSubmitted: true,
+        daysUntilNextPrompt: null,
+      });
+      Swal.fire({
+        title: "Thank you!",
+        text: "Your rating helps us make TuVibe better.",
+        icon: "success",
+        confirmButtonColor: "#D4AF37",
+      });
+    } catch (error) {
+      console.error("[PageRoutes] rating submit failed:", error);
+      Swal.fire({
+        title: "Something went wrong",
+        text: error.message || "Failed to submit rating. Please try again.",
+        icon: "error",
+        confirmButtonColor: "#D4AF37",
+      });
+    } finally {
+      setRatingPromptLoading(false);
+    }
+  }, []);
+
+  const handleRatingDismiss = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setRatingPromptOpen(false);
+      return;
+    }
+    try {
+      setRatingPromptLoading(true);
+      const data = await dismissRatingPrompt(token);
+      setRatingPromptInfo((prev) => ({
+        ...(prev || {}),
+        shouldPrompt: false,
+        hasSubmitted: false,
+        daysUntilNextPrompt: 3,
+        nextPromptDate: data?.nextPromptDate,
+      }));
+      setRatingPromptOpen(false);
+    } catch (error) {
+      console.error("[PageRoutes] rating dismiss failed:", error);
+      setRatingPromptOpen(false);
+    } finally {
+      setRatingPromptLoading(false);
+    }
+  }, []);
+
   // Get SSE endpoint URL - memoize to prevent unnecessary reconnections
   const sseUrl = useMemo(() => {
     const isDev = import.meta.env.DEV;
@@ -303,14 +389,17 @@ function PageRoutes() {
       // Fetch suspension status in background - don't block UI
       // Only block if we detect a suspension (shouldGate = false)
       fetchSuspensionStatus(false);
+      checkRatingPrompt();
     } else {
       setSuspension(null);
       setAppealOpen(false);
       setSuspensionReady(true);
       initialSuspensionCheckRef.current = false;
       prevUserIdRef.current = null;
+      setRatingPromptOpen(false);
+      setRatingPromptInfo(null);
     }
-  }, [user, fetchSuspensionStatus]);
+  }, [user, fetchSuspensionStatus, checkRatingPrompt]);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -498,6 +587,13 @@ function PageRoutes() {
         token={authToken}
         sseConnection={sseConnection}
         onSuspensionUpdated={handleSuspensionUpdated}
+      />
+      <RatingPromptDialog
+        open={ratingPromptOpen}
+        submitting={ratingPromptLoading}
+        onDismiss={handleRatingDismiss}
+        onSubmit={handleRatingSubmit}
+        daysUntilNextPrompt={ratingPromptInfo?.daysUntilNextPrompt ?? null}
       />
     </Box>
   );

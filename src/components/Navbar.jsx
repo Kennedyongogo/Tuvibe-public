@@ -25,7 +25,7 @@ import {
   Explore,
   Logout,
   Store,
-  Wallet,
+  Person,
   GridView,
   Report,
   Lock,
@@ -73,10 +73,10 @@ export default function Navbar({
       mobileLabel: "Market",
     },
     {
-      text: "Token Wallet",
-      icon: <Wallet />,
-      path: "/wallet",
-      mobileLabel: "Wallet",
+      text: "Profile",
+      icon: <Person />,
+      path: "/profile",
+      mobileLabel: "Profile",
     },
   ];
   const menuItems = isSuspended ? [] : baseMenuItems;

@@ -222,7 +222,7 @@ export default function PremiumLounge({ user }) {
           setUsers([]);
           fetchingRef.current = false;
           lastFetchedRef.current = { category: null, tab: null };
-          
+
           // Update localStorage to match server state
           try {
             const storedUser = localStorage.getItem("user");
@@ -236,7 +236,7 @@ export default function PremiumLounge({ user }) {
           } catch (err) {
             console.error("Error updating user category in localStorage:", err);
           }
-          
+
           // Re-evaluate and show upgrade dialog
           setUserCategoryConfirmed(true);
           setBenefitsDialogOpen(true);
@@ -379,7 +379,13 @@ export default function PremiumLounge({ user }) {
       }, 1000);
       return () => clearTimeout(timeout);
     }
-  }, [selectedTab, getUserCategory, fetchPremiumUsers, fetchUnreadNotificationCount, fetchMyLookingForPost]); // Only depend on category, not entire user object
+  }, [
+    selectedTab,
+    getUserCategory,
+    fetchPremiumUsers,
+    fetchUnreadNotificationCount,
+    fetchMyLookingForPost,
+  ]); // Only depend on category, not entire user object
 
   // Poll for unread notification count every 30 seconds
   useEffect(() => {
@@ -687,6 +693,57 @@ export default function PremiumLounge({ user }) {
         });
 
         const data = await response.json();
+
+        if (!response.ok) {
+          // Handle subscription-related errors
+          if (response.status === 402) {
+            // No active subscription
+            Swal.fire({
+              icon: "warning",
+              title: "Subscription Required",
+              html: `<p>${data.message || "Active subscription required to add favourites."}</p><p>Please subscribe to a plan to continue.</p>`,
+              confirmButtonText: "View Plans",
+              cancelButtonText: "Cancel",
+              showCancelButton: true,
+              confirmButtonColor: "#D4AF37",
+              didOpen: () => {
+                const swal = document.querySelector(".swal2-popup");
+                if (swal) {
+                  swal.style.borderRadius = "20px";
+                }
+              },
+            }).then((result) => {
+              if (result.isConfirmed) {
+                navigate("/pricing");
+              }
+            });
+            return;
+          } else if (response.status === 429) {
+            // Maximum favorites reached
+            Swal.fire({
+              icon: "info",
+              title: "Maximum Favorites Reached",
+              html: `<p>${data.message || "You have reached the maximum favourites allowed for your plan."}</p><p>Please upgrade your plan to add more favorites.</p>`,
+              confirmButtonText: "View Plans",
+              cancelButtonText: "OK",
+              showCancelButton: true,
+              confirmButtonColor: "#D4AF37",
+              didOpen: () => {
+                const swal = document.querySelector(".swal2-popup");
+                if (swal) {
+                  swal.style.borderRadius = "20px";
+                }
+              },
+            }).then((result) => {
+              if (result.isConfirmed) {
+                navigate("/pricing");
+              }
+            });
+            return;
+          }
+          throw new Error(data.message || "Failed to add favorite");
+        }
+
         if (data.success) {
           setFavorites((prev) => ({
             ...prev,
@@ -696,6 +753,12 @@ export default function PremiumLounge({ user }) {
       }
     } catch (error) {
       console.error("Favorite error:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: error.message || "Failed to update favorite",
+        confirmButtonColor: "#D4AF37",
+      });
     } finally {
       setFavoriting((prev) => ({ ...prev, [userId]: false }));
     }
@@ -926,7 +989,13 @@ export default function PremiumLounge({ user }) {
                       minWidth: 0,
                     }}
                   >
-                    <Star sx={{ fontSize: { xs: 32, sm: 40 }, color: "#D4AF37", flexShrink: 0 }} />
+                    <Star
+                      sx={{
+                        fontSize: { xs: 32, sm: 40 },
+                        color: "#D4AF37",
+                        flexShrink: 0,
+                      }}
+                    />
                     <Typography
                       variant="h4"
                       sx={{
@@ -1040,7 +1109,12 @@ export default function PremiumLounge({ user }) {
                 boxShadow: "0 2px 12px rgba(212, 175, 55, 0.15)",
               }}
             >
-              <CardContent sx={{ p: { xs: 1.5, sm: 1.5 }, "&:last-child": { pb: { xs: 1.5, sm: 1.5 } } }}>
+              <CardContent
+                sx={{
+                  p: { xs: 1.5, sm: 1.5 },
+                  "&:last-child": { pb: { xs: 1.5, sm: 1.5 } },
+                }}
+              >
                 <Box
                   sx={{
                     display: "flex",
@@ -1095,7 +1169,8 @@ export default function PremiumLounge({ user }) {
                         mt: 0.25,
                       }}
                     >
-                      Post what you're looking for to attract premium matches (you can create multiple posts)
+                      Post what you're looking for to attract premium matches
+                      (you can create multiple posts)
                     </Typography>
                   </Box>
                   <Button
@@ -1106,8 +1181,7 @@ export default function PremiumLounge({ user }) {
                       setPostDialogOpen(true);
                     }}
                     sx={{
-                      background:
-                        "linear-gradient(135deg, #D4AF37, #B8941F)",
+                      background: "linear-gradient(135deg, #D4AF37, #B8941F)",
                       color: "#1a1a1a",
                       fontWeight: 600,
                       textTransform: "none",
@@ -1117,8 +1191,7 @@ export default function PremiumLounge({ user }) {
                       fontSize: { xs: "0.75rem", sm: "0.875rem" },
                       minHeight: { xs: "36px", sm: "40px" },
                       "&:hover": {
-                        background:
-                          "linear-gradient(135deg, #B8941F, #D4AF37)",
+                        background: "linear-gradient(135deg, #B8941F, #D4AF37)",
                       },
                     }}
                   >
@@ -1604,9 +1677,7 @@ export default function PremiumLounge({ user }) {
                             },
                           }}
                         >
-                          {unlocking[userData.id]
-                            ? "Unlocking..."
-                            : "Chat"}
+                          {unlocking[userData.id] ? "Unlocking..." : "Chat"}
                         </Button>
                       </Tooltip>
                     </Stack>
@@ -1787,7 +1858,8 @@ export default function PremiumLounge({ user }) {
                   display: "block",
                 }}
               >
-                This post will be visible to other premium users in the Premium Lounge
+                This post will be visible to other premium users in the Premium
+                Lounge
               </Typography>
             </DialogContent>
             <DialogActions
@@ -1836,7 +1908,10 @@ export default function PremiumLounge({ user }) {
               >
                 {posting ? (
                   <>
-                    <CircularProgress size={16} sx={{ mr: 1, color: "#1a1a1a" }} />
+                    <CircularProgress
+                      size={16}
+                      sx={{ mr: 1, color: "#1a1a1a" }}
+                    />
                     Posting...
                   </>
                 ) : (

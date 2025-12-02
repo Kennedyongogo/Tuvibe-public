@@ -408,83 +408,11 @@ export default function Explore({ user }) {
       if (unlockData.success && unlockData.data) {
         // No token balance updates needed - subscription-based system
 
-        // Check if current user is premium and target user is premium
-        const premiumCategories = [
-          "Sugar Mummy",
-          "Sponsor",
-          "Ben 10",
-          "Urban Chics",
-        ];
-        const isCurrentUserPremium =
-          user?.category &&
-          premiumCategories.includes(user.category) &&
-          user?.isVerified;
-
-        // Find the target user in the users list to check if they're premium
-        const targetUserData = users.find((u) => u.id === targetUserId);
-        const isTargetUserPremium =
-          targetUserData?.category &&
-          premiumCategories.includes(targetUserData.category) &&
-          targetUserData?.isVerified;
-
-        // If both are premium users, redirect to Premium Lounge
-        if (isCurrentUserPremium && isTargetUserPremium) {
-          Swal.fire({
-            icon: "success",
-            title: "Contact Unlocked!",
-            html: `
-              <div style="text-align: center;">
-                <p style="margin-bottom: 12px; font-size: 1rem;">You can now chat with <strong>${targetUserName}</strong> via WhatsApp</p>
-                <p style="margin-bottom: 8px; color: rgba(26, 26, 26, 0.7); font-size: 0.9rem;">Phone Number:</p>
-                <p style="margin-bottom: 16px; font-size: 1.1rem; font-weight: 600; color: #D4AF37;">${unlockData.data.phone}</p>
-                <p style="margin-bottom: 12px; font-size: 0.9rem; color: rgba(26, 26, 26, 0.7);">Redirecting to Premium Lounge...</p>
-              </div>
-            `,
-            showConfirmButton: true,
-            confirmButtonText: "Go to Premium Lounge",
-            showCancelButton: true,
-            cancelButtonText: "Open WhatsApp",
-            confirmButtonColor: "#D4AF37",
-            cancelButtonColor: "rgba(26, 26, 26, 0.3)",
-            didOpen: () => {
-              const swal = document.querySelector(".swal2-popup");
-              if (swal) {
-                swal.style.borderRadius = "20px";
-              }
-              const container = document.querySelector(".swal2-container");
-              if (container) {
-                container.style.backgroundColor = "rgba(0, 0, 0, 0.4)";
-              }
-            },
-            willClose: () => {
-              // Ensure smooth transition
-              const container = document.querySelector(".swal2-container");
-              if (container) {
-                container.style.transition = "opacity 0.15s ease-out";
-              }
-            },
-          }).then((result) => {
-            if (result.isConfirmed) {
-              // Small delay for smooth transition
-              setTimeout(() => {
-                navigate("/premium");
-              }, 50);
-            } else if (result.dismiss === Swal.DismissReason.cancel) {
-              // Open WhatsApp (app on mobile, web on desktop)
-              window.location.href = unlockData.data.whatsapp_link;
-            } else {
-              // User closed the dialog, still redirect to Premium Lounge
-              setTimeout(() => {
-                navigate("/premium");
-              }, 50);
-            }
-          });
-        } else {
-          // Show success dialog with phone number and WhatsApp link (original behavior)
-          Swal.fire({
-            icon: "success",
-            title: "Contact Unlocked!",
-            html: `
+        // Show success dialog with phone number and WhatsApp link
+        Swal.fire({
+          icon: "success",
+          title: "Contact Unlocked!",
+          html: `
               <div style="text-align: center;">
                 <p style="margin-bottom: 12px; font-size: 1rem;">You can now chat with <strong>${targetUserName}</strong> via WhatsApp</p>
                 <p style="margin-bottom: 8px; color: rgba(26, 26, 26, 0.7); font-size: 0.9rem;">Phone Number:</p>
@@ -498,43 +426,42 @@ export default function Explore({ user }) {
                 </p>
               </div>
             `,
-            showConfirmButton: true,
-            confirmButtonText: "Open WhatsApp",
-            showCancelButton: true,
-            cancelButtonText: "Copy Number",
-            confirmButtonColor: "#D4AF37",
-            cancelButtonColor: "rgba(26, 26, 26, 0.3)",
-            didOpen: () => {
-              const swal = document.querySelector(".swal2-popup");
-              if (swal) {
-                swal.style.borderRadius = "20px";
-              }
-            },
-          }).then((result) => {
-            if (result.isConfirmed) {
-              // Open WhatsApp (app on mobile, web on desktop)
-              window.location.href = unlockData.data.whatsapp_link;
-            } else if (result.dismiss === Swal.DismissReason.cancel) {
-              // Copy phone number to clipboard
-              navigator.clipboard.writeText(unlockData.data.phone).then(() => {
-                Swal.fire({
-                  icon: "success",
-                  title: "Copied!",
-                  text: "Phone number copied to clipboard",
-                  timer: 1500,
-                  showConfirmButton: false,
-                  confirmButtonColor: "#D4AF37",
-                  didOpen: () => {
-                    const swal = document.querySelector(".swal2-popup");
-                    if (swal) {
-                      swal.style.borderRadius = "20px";
-                    }
-                  },
-                });
-              });
+          showConfirmButton: true,
+          confirmButtonText: "Open WhatsApp",
+          showCancelButton: true,
+          cancelButtonText: "Copy Number",
+          confirmButtonColor: "#D4AF37",
+          cancelButtonColor: "rgba(26, 26, 26, 0.3)",
+          didOpen: () => {
+            const swal = document.querySelector(".swal2-popup");
+            if (swal) {
+              swal.style.borderRadius = "20px";
             }
-          });
-        }
+          },
+        }).then((result) => {
+          if (result.isConfirmed) {
+            // Open WhatsApp (app on mobile, web on desktop)
+            window.location.href = unlockData.data.whatsapp_link;
+          } else if (result.dismiss === Swal.DismissReason.cancel) {
+            // Copy phone number to clipboard
+            navigator.clipboard.writeText(unlockData.data.phone).then(() => {
+              Swal.fire({
+                icon: "success",
+                title: "Copied!",
+                text: "Phone number copied to clipboard",
+                timer: 1500,
+                showConfirmButton: false,
+                confirmButtonColor: "#D4AF37",
+                didOpen: () => {
+                  const swal = document.querySelector(".swal2-popup");
+                  if (swal) {
+                    swal.style.borderRadius = "20px";
+                  }
+                },
+              });
+            });
+          }
+        });
       }
     } catch (error) {
       console.error("Unlock error:", error);
@@ -621,6 +548,56 @@ export default function Explore({ user }) {
 
         const data = await response.json();
 
+        if (!response.ok) {
+          // Handle subscription-related errors
+          if (response.status === 402) {
+            // No active subscription
+            Swal.fire({
+              icon: "warning",
+              title: "Subscription Required",
+              html: `<p>${data.message || "Active subscription required to add favourites."}</p><p>Please subscribe to a plan to continue.</p>`,
+              confirmButtonText: "View Plans",
+              cancelButtonText: "Cancel",
+              showCancelButton: true,
+              confirmButtonColor: "#D4AF37",
+              didOpen: () => {
+                const swal = document.querySelector(".swal2-popup");
+                if (swal) {
+                  swal.style.borderRadius = "20px";
+                }
+              },
+            }).then((result) => {
+              if (result.isConfirmed) {
+                navigate("/pricing");
+              }
+            });
+            return;
+          } else if (response.status === 429) {
+            // Maximum favorites reached
+            Swal.fire({
+              icon: "info",
+              title: "Maximum Favorites Reached",
+              html: `<p>${data.message || "You have reached the maximum favourites allowed for your plan."}</p><p>Please upgrade your plan to add more favorites.</p>`,
+              confirmButtonText: "View Plans",
+              cancelButtonText: "OK",
+              showCancelButton: true,
+              confirmButtonColor: "#D4AF37",
+              didOpen: () => {
+                const swal = document.querySelector(".swal2-popup");
+                if (swal) {
+                  swal.style.borderRadius = "20px";
+                }
+              },
+            }).then((result) => {
+              if (result.isConfirmed) {
+                navigate("/pricing");
+              }
+            });
+            return;
+          }
+          throw new Error(data.message || "Failed to add favorite");
+        }
+
         if (data.success) {
           setFavorites((prev) => ({
             ...prev,
@@ -633,7 +610,7 @@ export default function Explore({ user }) {
       Swal.fire({
         icon: "error",
         title: "Error",
-        text: "Failed to update favorite",
+        text: error.message || "Failed to update favorite",
         confirmButtonColor: "#D4AF37",
       });
     } finally {
@@ -1312,19 +1289,34 @@ export default function Explore({ user }) {
                               <Verified
                                 sx={{
                                   fontSize: "0.875rem !important",
-                                  color: "#D4AF37",
+                                  color:
+                                    userData.badgeType === "silver"
+                                      ? "#C0C0C0"
+                                      : "#D4AF37",
                                 }}
                               />
                             }
-                            label="Verified"
+                            label={
+                              userData.badgeType === "silver"
+                                ? "Premium Silver"
+                                : userData.badgeType === "gold"
+                                  ? "Gold Verified"
+                                  : "Verified"
+                            }
                             size="small"
                             sx={{
-                              bgcolor: "rgba(212, 175, 55, 0.15)",
+                              bgcolor:
+                                userData.badgeType === "silver"
+                                  ? "rgba(192, 192, 192, 0.15)"
+                                  : "rgba(212, 175, 55, 0.15)",
                               color: "#1a1a1a",
                               fontWeight: 600,
                               fontSize: { xs: "0.65rem", sm: "0.7rem" },
                               height: { xs: "20px", sm: "22px" },
-                              border: "1px solid rgba(212, 175, 55, 0.3)",
+                              border:
+                                userData.badgeType === "silver"
+                                  ? "1px solid rgba(192, 192, 192, 0.3)"
+                                  : "1px solid rgba(212, 175, 55, 0.3)",
                               "& .MuiChip-icon": {
                                 marginLeft: "6px",
                               },
@@ -1533,14 +1525,76 @@ export default function Explore({ user }) {
                         variant="outlined"
                         size="small"
                         fullWidth
-                        onClick={() => {
+                        onClick={async () => {
                           // Navigate to profile page - if user is viewing own profile, show it
-                          // Otherwise show public profile view dialog
                           if (user?.id === userData.id) {
                             navigate("/profile");
-                          } else {
+                            return;
+                          }
+
+                          // Check subscription before viewing other profiles
+                          const token = localStorage.getItem("token");
+                          if (!token) {
+                            Swal.fire({
+                              icon: "warning",
+                              title: "Login Required",
+                              text: "Please login to view profiles",
+                              confirmButtonColor: "#D4AF37",
+                            });
+                            return;
+                          }
+
+                          try {
+                            // Check subscription by attempting to get premium stats
+                            // This will return 403 if no subscription, 200 if subscription exists
+                            const response = await fetch(
+                              "/api/premium/stats/overview",
+                              {
+                                headers: {
+                                  Authorization: `Bearer ${token}`,
+                                  "Content-Type": "application/json",
+                                },
+                              }
+                            );
+
+                            if (response.status === 403) {
+                              Swal.fire({
+                                icon: "warning",
+                                title: "Subscription Required",
+                                html: `<p>Active subscription required to view profiles.</p><p>Please subscribe to a plan to continue.</p>`,
+                                confirmButtonText: "View Plans",
+                                cancelButtonText: "Cancel",
+                                showCancelButton: true,
+                                confirmButtonColor: "#D4AF37",
+                                didOpen: () => {
+                                  const swal =
+                                    document.querySelector(".swal2-popup");
+                                  if (swal) {
+                                    swal.style.borderRadius = "20px";
+                                  }
+                                },
+                              }).then((result) => {
+                                if (result.isConfirmed) {
+                                  navigate("/pricing");
+                                }
+                              });
+                              return;
+                            }
+
+                            // If we get here, user has subscription - open the profile view
                             setViewingUserId(userData.id);
                             setViewProfileOpen(true);
+                          } catch (error) {
+                            console.error(
+                              "Error checking subscription:",
+                              error
+                            );
+                            Swal.fire({
+                              icon: "error",
+                              title: "Error",
+                              text: "Failed to verify subscription. Please try again.",
+                              confirmButtonColor: "#D4AF37",
+                            });
                           }
                         }}
                         sx={{
@@ -1571,18 +1625,10 @@ export default function Explore({ user }) {
                             )
                           }
                           onClick={() => {
-                            // If both users are premium, navigate directly to Premium Lounge
-                            if (
-                              isPremiumUser(user) &&
-                              isPremiumUser(userData)
-                            ) {
-                              navigate("/premium");
-                            } else {
-                              handleWhatsAppUnlock(
-                                userData.id,
-                                getDisplayName(userData, { fallback: "Member" })
-                              );
-                            }
+                            handleWhatsAppUnlock(
+                              userData.id,
+                              getDisplayName(userData, { fallback: "Member" })
+                            );
                           }}
                           disabled={unlocking[userData.id]}
                           sx={{
@@ -1603,9 +1649,7 @@ export default function Explore({ user }) {
                             },
                           }}
                         >
-                          {isPremiumUser(user) && isPremiumUser(userData)
-                            ? "Chat with me in Premium Lounge"
-                            : "Chat"}
+                          Chat
                         </Button>
                       </Tooltip>
                     </Stack>

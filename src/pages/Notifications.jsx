@@ -29,6 +29,8 @@ import {
   AutoStories,
   Delete,
   AccountCircle,
+  CreditCard,
+  Warning,
 } from "@mui/icons-material";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
@@ -620,7 +622,25 @@ export default function Notifications({ user }) {
     if (title?.includes("Story")) {
       return <AutoStories sx={{ color: "#D4AF37" }} />;
     }
+    if (title?.includes("Subscription") || title?.includes("Expiring") || title?.includes("Expired")) {
+      return title?.includes("Expired") ? (
+        <Warning sx={{ color: "#d32f2f" }} />
+      ) : (
+        <CreditCard sx={{ color: "#D4AF37" }} />
+      );
+    }
     return <NotificationsActive sx={{ color: "#D4AF37" }} />;
+  };
+
+  const handleNotificationClick = (notification) => {
+    // If it's a subscription notification, navigate to pricing page
+    if (
+      notification.title?.includes("Subscription") ||
+      notification.title?.includes("Expiring") ||
+      notification.title?.includes("Expired")
+    ) {
+      navigate("/pricing");
+    }
   };
 
   const formatTimeAgo = (dateString) => {
@@ -1064,6 +1084,11 @@ export default function Notifications({ user }) {
               <React.Fragment key={notification.id}>
                 <Paper
                   elevation={0}
+                  onClick={() => {
+                    if (!selectionMode) {
+                      handleNotificationClick(notification);
+                    }
+                  }}
                   sx={{
                     mb: { xs: 0.5, sm: 1 },
                     backgroundColor: selectedIds.has(notification.id)
@@ -1079,6 +1104,13 @@ export default function Notifications({ user }) {
                     transform: deletingIds.has(notification.id)
                       ? "scale(0.95)"
                       : "scale(1)",
+                    cursor:
+                      (notification.title?.includes("Subscription") ||
+                        notification.title?.includes("Expiring") ||
+                        notification.title?.includes("Expired")) &&
+                      !selectionMode
+                        ? "pointer"
+                        : "default",
                     "&:hover": {
                       backgroundColor: selectedIds.has(notification.id)
                         ? "rgba(212, 175, 55, 0.2)"

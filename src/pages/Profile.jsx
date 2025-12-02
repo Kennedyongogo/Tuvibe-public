@@ -562,6 +562,41 @@ export default function Profile({ user, setUser }) {
     };
   }, [user?.latitude, user?.longitude]);
 
+  // Fetch fresh user data on mount to ensure badgeType is included
+  useEffect(() => {
+    const fetchUserData = async () => {
+      const token = localStorage.getItem("token");
+      if (!token || !user) return;
+
+      try {
+        const response = await fetch("/api/public/me", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data) {
+            // Update user state with fresh data including badgeType
+            if (setUser) {
+              setUser(data.data);
+            }
+            // Also update localStorage
+            localStorage.setItem("user", JSON.stringify(data.data));
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch user data:", error);
+      }
+    };
+
+    // Fetch fresh user data when component mounts to ensure badgeType is included
+    fetchUserData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
+
   // Sync scroll position and validate photo index when photos change
   useEffect(() => {
     // Calculate total photos
@@ -2710,12 +2745,38 @@ export default function Profile({ user, setUser }) {
           >
             {user?.isVerified && (
               <Chip
-                icon={<Verified sx={{ color: "#D4AF37 !important" }} />}
-                label="Verified"
+                icon={
+                  <Verified
+                    sx={{
+                      fontSize: "0.875rem !important",
+                      color:
+                        user.badgeType === "silver"
+                          ? "#C0C0C0"
+                          : "#D4AF37",
+                    }}
+                  />
+                }
+                label={
+                  user.badgeType === "silver"
+                    ? "Premium Silver"
+                    : user.badgeType === "gold"
+                      ? "Gold Verified"
+                      : "Verified"
+                }
                 sx={{
-                  bgcolor: "rgba(212, 175, 55, 0.15)",
+                  bgcolor:
+                    user.badgeType === "silver"
+                      ? "rgba(192, 192, 192, 0.15)"
+                      : "rgba(212, 175, 55, 0.15)",
                   color: "#1a1a1a",
                   fontWeight: 600,
+                  border:
+                    user.badgeType === "silver"
+                      ? "1px solid rgba(192, 192, 192, 0.3)"
+                      : "1px solid rgba(212, 175, 55, 0.3)",
+                  "& .MuiChip-icon": {
+                    marginLeft: "6px",
+                  },
                 }}
               />
             )}

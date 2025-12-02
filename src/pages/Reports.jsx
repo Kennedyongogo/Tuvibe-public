@@ -854,6 +854,7 @@ export default function Reports({ user }) {
             display: "flex",
             alignItems: "center",
             gap: 1,
+            pb: 2.5,
           }}
         >
           <Report />
@@ -861,7 +862,7 @@ export default function Reports({ user }) {
         </DialogTitle>
         <DialogContent
           sx={{
-            pt: 3,
+            pt: 6,
             "& .MuiTypography-root": {
               fontSize: {
                 xs: "0.65rem",
@@ -922,7 +923,7 @@ export default function Reports({ user }) {
             },
           }}
         >
-          <Stack spacing={3}>
+          <Stack spacing={3} sx={{ mt: 2 }}>
             <FormControl fullWidth required>
               <InputLabel>Category</InputLabel>
               <Select

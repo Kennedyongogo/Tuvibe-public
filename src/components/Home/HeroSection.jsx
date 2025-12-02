@@ -2090,10 +2090,15 @@ export default function HeroSection() {
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
             fontWeight: 700,
-            fontSize: { xs: "1.5rem", sm: "1.75rem" },
+            fontSize: { xs: "1.1rem", sm: "1.75rem" },
+            letterSpacing: { xs: "0.2px", sm: "normal" },
             textAlign: "center",
             pb: 1,
             pt: { xs: 2, sm: 2.5 },
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            px: { xs: 1, sm: 0 },
           }}
         >
           Create Account{" "}

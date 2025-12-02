@@ -57,6 +57,31 @@ export default function ViewProfile({ open, onClose, userId, user }) {
 
       const data = await response.json();
 
+      if (response.status === 402) {
+        // Subscription required
+        Swal.fire({
+          icon: "warning",
+          title: "Subscription Required",
+          html: `<p>Active subscription required to view profiles.</p><p>Please subscribe to a plan to continue.</p>`,
+          confirmButtonText: "View Plans",
+          cancelButtonText: "Cancel",
+          showCancelButton: true,
+          confirmButtonColor: "#D4AF37",
+          didOpen: () => {
+            const swal = document.querySelector(".swal2-popup");
+            if (swal) {
+              swal.style.borderRadius = "20px";
+            }
+          },
+        }).then((result) => {
+          if (result.isConfirmed) {
+            window.location.href = "/pricing";
+          }
+        });
+        onClose();
+        return;
+      }
+
       if (data.success) {
         setProfileUser(data.data);
         // Track profile view
@@ -385,9 +410,9 @@ export default function ViewProfile({ open, onClose, userId, user }) {
                           key={`gallery-img-${index}`}
                           component="img"
                           src={image}
-                        loading="lazy"
-                        decoding="async"
-                        fetchpriority="low"
+                          loading="lazy"
+                          decoding="async"
+                          fetchpriority="low"
                           alt={`Gallery photo ${index + 1}`}
                           sx={{
                             position: "absolute",
