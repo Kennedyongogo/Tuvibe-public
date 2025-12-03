@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { fetchJSON } from "../utils/fetchWithTimeout";
 import {
   Box,
   Typography,
@@ -137,21 +138,18 @@ export default function Explore({ user }) {
         queryParams.append("radius", radius.toString());
       }
 
-      const headers = {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      };
-
+      const headers = {};
       if (token) {
         headers.Authorization = `Bearer ${token}`;
       }
 
-      const response = await fetch(`/api/public?${queryParams}`, {
+      const { data } = await fetchJSON(`/api/public?${queryParams}`, {
         method: "GET",
         headers,
+        timeout: 15000, // 15 seconds for user search
+        priority: "high", // High priority - main content
+        maxRetries: 1,
       });
-
-      const data = await response.json();
 
       if (data.success) {
         setUsers(data.data || []);
@@ -187,12 +185,16 @@ export default function Explore({ user }) {
       }
     } catch (error) {
       console.error("Error fetching users:", error);
+      const errorMessage = error.message.includes("timeout")
+        ? "Request timed out. Please check your connection and try again."
+        : "Failed to load users. Please try again.";
       Swal.fire({
         icon: "error",
         title: "Error",
-        text: "Failed to load users. Please try again.",
+        text: errorMessage,
         confirmButtonColor: "#D4AF37",
       });
+      setUsers([]); // Set empty on error
     } finally {
       setLoading(false);
     }
@@ -203,12 +205,14 @@ export default function Explore({ user }) {
     if (!token) return;
 
     try {
-      const response = await fetch("/api/favourites", {
+      const { data } = await fetchJSON("/api/favourites", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        timeout: 10000,
+        priority: "low", // Low priority - background data
+        maxRetries: 1,
       });
-      const data = await response.json();
       if (data.success) {
         const favMap = {};
         data.data.forEach((fav) => {
@@ -218,6 +222,7 @@ export default function Explore({ user }) {
       }
     } catch (error) {
       console.error("Error fetching favorites:", error);
+      // Silently fail - favorites are not critical
     }
   }, []);
 
@@ -227,14 +232,14 @@ export default function Explore({ user }) {
     if (!token) return;
 
     try {
-      const response = await fetch("/api/notifications/stats", {
+      const { data } = await fetchJSON("/api/notifications/stats", {
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
         },
+        timeout: 8000, // 8 seconds for notifications
+        priority: "low", // Low priority - don't block page load
+        maxRetries: 1,
       });
-
-      const data = await response.json();
       if (data.success && data.data) {
         setUnreadNotificationCount(data.data.unread || 0);
       }
@@ -277,18 +282,23 @@ export default function Explore({ user }) {
       }
 
       try {
-        const response = await fetch("/api/subscriptions/incognito/status", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        const data = await response.json();
+        const { data } = await fetchJSON(
+          "/api/subscriptions/incognito/status",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            timeout: 8000,
+            priority: "low", // Low priority - background feature
+            maxRetries: 1,
+          }
+        );
         if (data.success) {
           setIncognitoStatus(data.data);
         }
       } catch (error) {
         console.error("Error fetching incognito status:", error);
+        // Silently fail - incognito status is not critical
       }
     };
 

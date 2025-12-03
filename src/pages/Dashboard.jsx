@@ -71,6 +71,7 @@ import StoriesFeed from "../components/Stories/StoriesFeed";
 import StoryViewer from "../components/Stories/StoryViewer";
 import StoryCreator from "../components/Stories/StoryCreator";
 import ErrorBoundary from "../components/ErrorBoundary";
+import { fetchJSON, fetchQueued } from "../utils/fetchWithTimeout";
 
 const goldShine = keyframes`
   0% {
@@ -429,19 +430,21 @@ export default function Dashboard({ user, setUser }) {
     if (!token) return;
 
     try {
-      const response = await fetch("/api/notifications/stats", {
+      const { data } = await fetchJSON("/api/notifications/stats", {
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
         },
+        timeout: 8000, // 8 seconds for notifications
+        priority: "low", // Low priority - don't block page load
+        maxRetries: 1,
       });
 
-      const data = await response.json();
       if (data.success && data.data) {
         setUnreadNotificationCount(data.data.unread || 0);
       }
     } catch (error) {
       console.error("Error fetching notification count:", error);
+      // Don't show error to user for background updates
     }
   }, []);
 
@@ -454,13 +457,14 @@ export default function Dashboard({ user, setUser }) {
     }
 
     try {
-      const response = await fetch("/api/subscriptions/status", {
+      const { data } = await fetchJSON("/api/subscriptions/status", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        timeout: 10000, // 10 seconds
+        priority: "high", // High priority - needed for boost features
+        maxRetries: 2,
       });
-
-      const data = await response.json();
 
       if (
         data.success &&
@@ -476,6 +480,7 @@ export default function Dashboard({ user, setUser }) {
     } catch (error) {
       console.error("Error fetching subscription:", error);
       setSubscription(null);
+      setBoostHoursInfo(null);
     }
   }, []);
 
@@ -640,13 +645,17 @@ export default function Dashboard({ user, setUser }) {
       return;
     }
     try {
-      const response = await fetch("/api/premium/stats/overview", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-      const data = await response.json();
+      const { response, data } = await fetchJSON(
+        "/api/premium/stats/overview",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          timeout: 15000, // 15 seconds for stats (can be slow)
+          priority: "low", // Low priority - only loads when dialog opens
+          maxRetries: 1,
+        }
+      );
       if (!response.ok || !data.success) {
         setStatsError(
           data.message ||
@@ -658,7 +667,11 @@ export default function Dashboard({ user, setUser }) {
       }
     } catch (error) {
       console.error("[Dashboard] premium stats error", error);
-      setStatsError("We hit a snag fetching your stats. Please try again.");
+      setStatsError(
+        error.message.includes("timeout")
+          ? "Request timed out. Please check your connection and try again."
+          : "We hit a snag fetching your stats. Please try again."
+      );
       setStatsData(null);
     } finally {
       setStatsLoading(false);
@@ -716,14 +729,17 @@ export default function Dashboard({ user, setUser }) {
     try {
       // Check subscription by attempting to get premium stats
       // This will return 403 if no subscription, 200 if subscription exists
-      const response = await fetch("/api/premium/stats/overview", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      const data = await response.json();
+      const { response, data } = await fetchJSON(
+        "/api/premium/stats/overview",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          timeout: 10000,
+          priority: "high",
+          maxRetries: 1,
+        }
+      );
 
       if (response.status === 403) {
         // No active subscription
@@ -962,8 +978,11 @@ export default function Dashboard({ user, setUser }) {
   const fetchFeaturedItems = useCallback(async () => {
     try {
       setLoadingFeatured(true);
-      const response = await fetch("/api/market");
-      const data = await response.json();
+      const { data } = await fetchJSON("/api/market", {
+        timeout: 12000, // 12 seconds for market items
+        priority: "medium",
+        maxRetries: 1,
+      });
 
       if (data.success) {
         // Filter and get only featured items, limit to 6
@@ -971,9 +990,12 @@ export default function Dashboard({ user, setUser }) {
           .filter((item) => item.is_featured)
           .slice(0, 6);
         setFeaturedItems(featured);
+      } else {
+        setFeaturedItems([]); // Set empty on error to prevent infinite loading
       }
     } catch (err) {
       console.error("Error fetching featured items:", err);
+      setFeaturedItems([]); // Set empty on error
     } finally {
       setLoadingFeatured(false);
     }
@@ -983,24 +1005,27 @@ export default function Dashboard({ user, setUser }) {
     try {
       setLoadingFeaturedUsers(true);
       const token = localStorage.getItem("token");
-      const headers = {
-        "Content-Type": "application/json",
-      };
+      const headers = {};
       if (token) {
         headers.Authorization = `Bearer ${token}`;
       }
 
-      const response = await fetch("/api/public/featured/boosts?limit=12", {
+      const { data } = await fetchJSON("/api/public/featured/boosts?limit=12", {
         headers,
+        timeout: 12000, // 12 seconds for featured users
+        priority: "high", // High priority - main content
+        maxRetries: 1,
       });
-      const data = await response.json();
 
       if (data.success) {
         const users = data.data || [];
         setFeaturedUsers(users);
+      } else {
+        setFeaturedUsers([]); // Set empty on error
       }
     } catch (err) {
       console.error("Error fetching featured users:", err);
+      setFeaturedUsers([]); // Set empty on error
     } finally {
       setLoadingFeaturedUsers(false);
     }
@@ -1305,11 +1330,10 @@ export default function Dashboard({ user, setUser }) {
 
       setBoosting(true);
 
-      const response = await fetch("/api/tokens/boost", {
+      const { response, data } = await fetchJSON("/api/tokens/boost", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           targetCategory: boostCategory,
@@ -1319,9 +1343,10 @@ export default function Dashboard({ user, setUser }) {
           targetRadiusKm: sanitizedBoostRadiusKm,
           durationHours: hours,
         }),
+        timeout: 15000, // 15 seconds for boost creation
+        priority: "high",
+        maxRetries: 1,
       });
-
-      const data = await response.json();
 
       // Handle subscription-related errors
       if (response.status === 402) {
@@ -1404,10 +1429,24 @@ export default function Dashboard({ user, setUser }) {
 
       const createdBoost = data.data?.boost || null;
 
-      const meResponse = await fetch("/api/public/me", {
+      // Update user data (non-blocking, low priority)
+      fetchJSON("/api/public/me", {
         headers: { Authorization: `Bearer ${token}` },
-      });
-      const meData = await meResponse.json();
+        timeout: 8000,
+        priority: "low",
+        maxRetries: 0, // Don't retry user update
+      })
+        .then(({ data: meData }) => {
+          if (meData.success && typeof setUser === "function") {
+            setUser(meData.data);
+          }
+        })
+        .catch(() => {
+          // Silently fail user update
+        });
+
+      // Use createdBoost data for immediate update
+      const meData = { success: true, data: user };
       if (meData.success && typeof setUser === "function") {
         setUser(meData.data);
       } else if (typeof setUser === "function") {
@@ -1705,22 +1744,22 @@ export default function Dashboard({ user, setUser }) {
 
       setBoosting(true);
 
-      const response = await fetch(
+      const { response, data } = await fetchJSON(
         `/api/tokens/boost/${boostToUse.id}/extend`,
         {
           method: "PATCH",
           headers: {
             Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
           },
           body: JSON.stringify({
             additionalHours: hours,
             targetRadiusKm: extensionRadiusKm,
           }),
+          timeout: 15000, // 15 seconds for boost extension
+          priority: "high",
+          maxRetries: 1,
         }
       );
-
-      const data = await response.json();
 
       if (response.status === 402) {
         // Subscription required
@@ -1776,10 +1815,24 @@ export default function Dashboard({ user, setUser }) {
 
       const updatedBoost = data.data?.boost || null;
 
-      const meResponse = await fetch("/api/public/me", {
+      // Update user data (non-blocking, low priority)
+      fetchJSON("/api/public/me", {
         headers: { Authorization: `Bearer ${token}` },
-      });
-      const meData = await meResponse.json();
+        timeout: 8000,
+        priority: "low",
+        maxRetries: 0, // Don't retry user update
+      })
+        .then(({ data: meData }) => {
+          if (meData.success && typeof setUser === "function") {
+            setUser(meData.data);
+          }
+        })
+        .catch(() => {
+          // Silently fail user update
+        });
+
+      // Use updatedBoost data for immediate update
+      const meData = { success: true, data: user };
       if (meData.success && typeof setUser === "function") {
         setUser(meData.data);
       } else if (typeof setUser === "function") {
@@ -2066,15 +2119,17 @@ export default function Dashboard({ user, setUser }) {
       params.set("lat", latForQuery);
       params.set("lng", lngForQuery);
 
-      const response = await fetch(
+      const { data } = await fetchJSON(
         `/api/public/boosts/targeted?${params.toString()}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
           },
+          timeout: 10000,
+          priority: "low", // Low priority - background feature
+          maxRetries: 1,
         }
       );
-      const data = await response.json();
       if (response.ok && data.success) {
         setTargetedBoosts(data.data?.matches || []);
         setTargetedBoostsError(null);
