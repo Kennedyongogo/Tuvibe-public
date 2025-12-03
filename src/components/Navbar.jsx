@@ -109,15 +109,15 @@ export default function Navbar({
       title: "Subscription Required",
       html: `
         <div style="text-align: left;">
-          <p style="margin-bottom: 16px; font-size: 1rem; color: #333;">
+          <p style="margin-bottom: 12px; font-size: 0.9rem; color: #333;">
             <strong>${itemName}</strong> requires an active subscription.
           </p>
-          <div style="background: #f5f5f5; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
-            <p style="margin: 0; font-size: 0.95rem; color: #666; line-height: 1.6;">
+          <div style="background: #f5f5f5; padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+            <p style="margin: 0; font-size: 0.85rem; color: #666; line-height: 1.4;">
               ${reason}
             </p>
           </div>
-          <p style="margin: 0; font-size: 0.9em; color: #333;">
+          <p style="margin: 0; font-size: 0.85em; color: #333;">
             Subscribe now to unlock all premium features and get the most out of TuVibe!
           </p>
         </div>
@@ -129,10 +129,54 @@ export default function Navbar({
       cancelButtonColor: "#666",
       didOpen: () => {
         const swal = document.querySelector(".swal2-popup");
+        const isSmallScreen = window.innerWidth <= 768;
+        
         if (swal) {
           swal.style.borderRadius = "20px";
           swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
           swal.style.boxShadow = "0 20px 60px rgba(212, 175, 55, 0.25)";
+          
+          if (isSmallScreen) {
+            swal.style.maxWidth = "90vw";
+            swal.style.width = "90vw";
+            swal.style.padding = "1rem";
+            swal.style.maxHeight = "90vh";
+            swal.style.overflowY = "auto";
+          }
+        }
+        
+        if (isSmallScreen) {
+          // Reduce icon size on mobile
+          const icon = document.querySelector(".swal2-icon");
+          if (icon) {
+            icon.style.width = "3rem";
+            icon.style.height = "3rem";
+            icon.style.marginBottom = "0.5rem";
+          }
+          // Reduce title size on mobile
+          const title = document.querySelector(".swal2-title");
+          if (title) {
+            title.style.fontSize = "1.25rem";
+            title.style.padding = "0.5rem 0";
+          }
+          // Reduce content padding on mobile
+          const content = document.querySelector(".swal2-html-container");
+          if (content) {
+            content.style.padding = "0.5rem 0";
+          }
+          // Reduce button container padding on mobile
+          const actions = document.querySelector(".swal2-actions");
+          if (actions) {
+            actions.style.marginTop = "0.75rem";
+            actions.style.padding = "0";
+          }
+          // Make buttons more compact on mobile
+          const buttons = document.querySelectorAll(".swal2-confirm, .swal2-cancel");
+          buttons.forEach(btn => {
+            btn.style.padding = "0.5rem 1rem";
+            btn.style.fontSize = "0.875rem";
+            btn.style.margin = "0.25rem";
+          });
         }
       },
     }).then((result) => {
