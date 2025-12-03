@@ -1873,12 +1873,12 @@ export default function Dashboard({ user, setUser }) {
       didOpen: () => {
         const swal = document.querySelector(".swal2-popup");
         const isSmallScreen = window.innerWidth <= 768;
-        
+
         if (swal) {
           swal.style.borderRadius = "20px";
           swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
           swal.style.boxShadow = "0 20px 60px rgba(212, 175, 55, 0.25)";
-          
+
           if (isSmallScreen) {
             swal.style.maxWidth = "90vw";
             swal.style.width = "90vw";
@@ -1887,7 +1887,7 @@ export default function Dashboard({ user, setUser }) {
             swal.style.overflowY = "auto";
           }
         }
-        
+
         if (isSmallScreen) {
           // Reduce icon size on mobile
           const icon = document.querySelector(".swal2-icon");
@@ -1914,8 +1914,10 @@ export default function Dashboard({ user, setUser }) {
             actions.style.padding = "0";
           }
           // Make buttons more compact on mobile
-          const buttons = document.querySelectorAll(".swal2-confirm, .swal2-cancel");
-          buttons.forEach(btn => {
+          const buttons = document.querySelectorAll(
+            ".swal2-confirm, .swal2-cancel"
+          );
+          buttons.forEach((btn) => {
             btn.style.padding = "0.5rem 1rem";
             btn.style.fontSize = "0.875rem";
             btn.style.margin = "0.25rem";
