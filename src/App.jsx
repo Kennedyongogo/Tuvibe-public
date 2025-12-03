@@ -63,14 +63,12 @@ function App() {
               <Route path="/" element={<Home />} />
               {/* Public pricing page - for non-logged in users (Explore button) */}
               <Route path="/explore-pricing" element={<PublicPricing />} />
-              {/* Pricing page - accessible without auth (for logged in users) */}
-              <Route path="/pricing" element={<Pricing />} />
               {/* Post detail page - accessible without auth for sharing */}
               <Route
                 path="/post/:postId"
                 element={<PostDetail user={null} />}
               />
-              {/* Authenticated routes */}
+              {/* Authenticated routes - includes pricing with navbar */}
               <Route path="/*" element={<PageRoutes />} />
             </Routes>
           </Suspense>

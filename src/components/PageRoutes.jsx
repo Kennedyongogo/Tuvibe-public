@@ -24,6 +24,7 @@ import Market from "../pages/Market";
 import Reports from "../pages/Reports";
 import Notifications from "../pages/Notifications";
 import Timeline from "../pages/Timeline";
+import Pricing from "../pages/Pricing";
 import SuspensionGate from "./Suspension/SuspensionGate";
 import SuspensionAppealModal from "./Suspension/SuspensionAppealModal";
 import RatingPromptDialog from "./RatingPromptDialog";
@@ -576,6 +577,7 @@ function PageRoutes() {
               element={<Notifications user={user} />}
             />
             <Route path="timeline" element={<Timeline user={user} />} />
+            <Route path="pricing" element={<Pricing />} />
             <Route path="*" element={<Navigate to="/home" replace />} />
           </Routes>
         )}

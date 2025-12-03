@@ -11,14 +11,12 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  IconButton,
   Button,
   Chip,
 } from "@mui/material";
 import {
   AttachMoney,
   FormatQuote,
-  ArrowBack,
   CheckCircle,
   Verified,
 } from "@mui/icons-material";
@@ -63,15 +61,6 @@ export default function Pricing() {
   };
 
   const effectiveCategoryIndex = getEffectiveCategoryIndex();
-
-  const handleGoBack = () => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      navigate("/home");
-    } else {
-      navigate("/");
-    }
-  };
 
   // Calculate prorated amount for upgrade
   const calculateProratedAmount = (currentPlan, newPlan) => {
@@ -1086,21 +1075,6 @@ export default function Pricing() {
               gap: 2,
             }}
           >
-            <IconButton
-              onClick={handleGoBack}
-              sx={{
-                color: "#D4AF37",
-                backgroundColor: "rgba(212, 175, 55, 0.1)",
-                border: "1px solid rgba(212, 175, 55, 0.3)",
-                "&:hover": {
-                  backgroundColor: "rgba(212, 175, 55, 0.2)",
-                  borderColor: "rgba(212, 175, 55, 0.5)",
-                },
-                flexShrink: 0,
-              }}
-            >
-              <ArrowBack />
-            </IconButton>
             <Typography
               variant="h4"
               sx={{
