@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { fetchJSON } from "../utils/fetchWithTimeout";
 import {
   Box,
   Drawer,
@@ -277,14 +276,13 @@ export default function Navbar({
     }
 
     try {
-      const { data } = await fetchJSON("/api/subscriptions/status", {
+      const response = await fetch("/api/subscriptions/status", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-        timeout: 10000,
-        priority: "high",
-        maxRetries: 2,
       });
+
+      const data = await response.json();
 
       if (
         data.success &&

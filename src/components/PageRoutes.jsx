@@ -28,7 +28,6 @@ import Pricing from "../pages/Pricing";
 import SuspensionGate from "./Suspension/SuspensionGate";
 import SuspensionAppealModal from "./Suspension/SuspensionAppealModal";
 import RatingPromptDialog from "./RatingPromptDialog";
-import NetworkStatus from "./NetworkStatus";
 import useServerSentEvents from "../hooks/useServerSentEvents";
 import {
   getRatingPromptStatus,
@@ -525,7 +524,6 @@ function PageRoutes() {
 
   return (
     <Box sx={{ display: "flex" }}>
-      <NetworkStatus />
       <Navbar
         user={user}
         setUser={setUser}

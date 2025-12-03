@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { fetchJSON } from "../../utils/fetchWithTimeout";
 import {
   Box,
   Typography,
@@ -46,34 +45,26 @@ export default function UserLists({
 
   // Fetch favorites
   const fetchFavorites = async () => {
-    if (!token) return;
     try {
       setLoadingFavorites(true);
-      const { data } = await fetchJSON("/api/favourites", {
+      const response = await fetch("/api/favourites", {
         headers: {
           Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-        timeout: 10000,
-        priority: "medium",
-        maxRetries: 1,
       });
+      const data = await response.json();
       if (data.success) {
         setFavorites(data.data || []);
-      } else {
-        setFavorites([]);
       }
     } catch (err) {
       console.error("Error fetching favorites:", err);
-      setFavorites([]); // Set empty on error
-      // Only show error if not a timeout (timeouts are expected on slow networks)
-      if (!err.message.includes("timeout")) {
-        Swal.fire({
-          icon: "error",
-          title: "Error",
-          text: "Failed to load favorites",
-          confirmButtonColor: "#D4AF37",
-        });
-      }
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Failed to load favorites",
+        confirmButtonColor: "#D4AF37",
+      });
     } finally {
       setLoadingFavorites(false);
     }
@@ -81,34 +72,26 @@ export default function UserLists({
 
   // Fetch unlocked chats
   const fetchUnlockedChats = async () => {
-    if (!token) return;
     try {
       setLoadingUnlocked(true);
-      const { data } = await fetchJSON("/api/chat", {
+      const response = await fetch("/api/chat", {
         headers: {
           Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-        timeout: 10000,
-        priority: "medium",
-        maxRetries: 1,
       });
+      const data = await response.json();
       if (data.success) {
         setUnlockedChats(data.data || []);
-      } else {
-        setUnlockedChats([]);
       }
     } catch (err) {
       console.error("Error fetching unlocked chats:", err);
-      setUnlockedChats([]); // Set empty on error
-      // Only show error if not a timeout
-      if (!err.message.includes("timeout")) {
-        Swal.fire({
-          icon: "error",
-          title: "Error",
-          text: "Failed to load unlocked chats",
-          confirmButtonColor: "#D4AF37",
-        });
-      }
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Failed to load unlocked chats",
+        confirmButtonColor: "#D4AF37",
+      });
     } finally {
       setLoadingUnlocked(false);
     }
