@@ -423,12 +423,28 @@ export default function Dashboard({ user, setUser }) {
     if (!token) return;
 
     try {
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
       const response = await fetch("/api/notifications/stats", {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        console.error(
+          "Error fetching notification count: HTTP",
+          response.status,
+          response.statusText
+        );
+        return;
+      }
 
       const data = await response.json();
       if (data.success && data.data) {
@@ -448,11 +464,29 @@ export default function Dashboard({ user, setUser }) {
     }
 
     try {
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
       const response = await fetch("/api/subscriptions/status", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        console.error(
+          "Error fetching subscription: HTTP",
+          response.status,
+          response.statusText
+        );
+        setSubscription(null);
+        setBoostHoursInfo(null);
+        return;
+      }
 
       const data = await response.json();
 
@@ -747,11 +781,30 @@ export default function Dashboard({ user, setUser }) {
 
     setLoadingBoostStatus(true);
     try {
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
       const response = await fetch("/api/public/boosts/status", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        console.error(
+          "Error fetching boost status: HTTP",
+          response.status,
+          response.statusText
+        );
+        setActiveBoosts([]);
+        setBoostStatusError("Unable to load your current boosts.");
+        return;
+      }
+
       const data = await response.json();
 
       if (response.ok && data.success) {
@@ -1113,7 +1166,27 @@ export default function Dashboard({ user, setUser }) {
   const fetchFeaturedItems = async () => {
     try {
       setLoadingFeatured(true);
-      const response = await fetch("/api/market");
+
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+      const response = await fetch("/api/market", {
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        console.error(
+          "Error fetching featured items: HTTP",
+          response.status,
+          response.statusText
+        );
+        setFeaturedItems([]);
+        return;
+      }
+
       const data = await response.json();
 
       if (data.success) {
@@ -1122,9 +1195,12 @@ export default function Dashboard({ user, setUser }) {
           .filter((item) => item.is_featured)
           .slice(0, 6);
         setFeaturedItems(featured);
+      } else {
+        setFeaturedItems([]);
       }
     } catch (err) {
       console.error("Error fetching featured items:", err);
+      setFeaturedItems([]);
     } finally {
       setLoadingFeatured(false);
     }
@@ -1141,17 +1217,38 @@ export default function Dashboard({ user, setUser }) {
         headers.Authorization = `Bearer ${token}`;
       }
 
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
       const response = await fetch("/api/public/featured/boosts?limit=12", {
         headers,
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        console.error(
+          "Error fetching featured users: HTTP",
+          response.status,
+          response.statusText
+        );
+        setFeaturedUsers([]);
+        return;
+      }
+
       const data = await response.json();
 
       if (data.success) {
         const users = data.data || [];
         setFeaturedUsers(users);
+      } else {
+        setFeaturedUsers([]);
       }
     } catch (err) {
       console.error("Error fetching featured users:", err);
+      setFeaturedUsers([]);
     } finally {
       setLoadingFeaturedUsers(false);
     }
@@ -1998,14 +2095,35 @@ export default function Dashboard({ user, setUser }) {
       params.set("lat", latForQuery);
       params.set("lng", lngForQuery);
 
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
       const response = await fetch(
         `/api/public/boosts/targeted?${params.toString()}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
           },
+          signal: controller.signal,
         }
       );
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        console.error(
+          "Error fetching targeted boosts: HTTP",
+          response.status,
+          response.statusText
+        );
+        setTargetedBoosts([]);
+        setTargetedBoostsError(
+          "Unable to load boosts targeting you right now."
+        );
+        return;
+      }
+
       const data = await response.json();
       if (response.ok && data.success) {
         setTargetedBoosts(data.data?.matches || []);
