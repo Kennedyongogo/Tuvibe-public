@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Box,
   Drawer,
@@ -53,6 +53,32 @@ export default function Navbar({
   const [subscription, setSubscription] = useState(null);
   const prevPathnameRef = useRef(location.pathname);
   const anchorElRef = useRef(null);
+  // Cache refs to prevent unnecessary refetches on remount
+  const subscriptionFetchedRef = useRef(false);
+  const lastSubscriptionFetchTimeRef = useRef(0);
+  const SUBSCRIPTION_CACHE_DURATION_MS = 30000; // 30 seconds cache
+  // Ref to store SSE connection to prevent recreation
+  const sseEventSourceRef = useRef(null);
+  const isMountedRef = useRef(true);
+
+  // Track component mount status
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      // Clean up SSE connection on unmount
+      if (sseEventSourceRef.current) {
+        try {
+          sseEventSourceRef.current.close();
+        } catch (e) {
+          // Ignore errors when closing
+        }
+        sseEventSourceRef.current = null;
+      }
+      // Reset fetch flags on unmount
+      subscriptionFetchedRef.current = false;
+    };
+  }, []);
 
   const baseMenuItems = [
     {
@@ -241,48 +267,101 @@ export default function Navbar({
     }
   }, [location.pathname, menuItems]);
 
-  // Fetch subscription status
+  // Fetch subscription status (with caching)
+  const fetchSubscription = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setSubscription(null);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/subscriptions/status", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (
+        data.success &&
+        data.data?.hasSubscription &&
+        data.data.subscription
+      ) {
+        setSubscription(data.data.subscription);
+      } else {
+        setSubscription(null);
+      }
+    } catch (error) {
+      console.error("Error fetching subscription:", error);
+      setSubscription(null);
+    }
+  }, []);
+
   useEffect(() => {
-    const fetchSubscription = async () => {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setSubscription(null);
-        return;
-      }
+    const now = Date.now();
+    const shouldFetch =
+      !subscriptionFetchedRef.current ||
+      now - lastSubscriptionFetchTimeRef.current >
+        SUBSCRIPTION_CACHE_DURATION_MS ||
+      !user?.id; // Always fetch if user changes
 
-      try {
-        const response = await fetch("/api/subscriptions/status", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        const data = await response.json();
-
-        if (
-          data.success &&
-          data.data?.hasSubscription &&
-          data.data.subscription
-        ) {
-          setSubscription(data.data.subscription);
-        } else {
-          setSubscription(null);
-        }
-      } catch (error) {
-        console.error("Error fetching subscription:", error);
-        setSubscription(null);
-      }
-    };
-
-    fetchSubscription();
-  }, [user]);
+    if (shouldFetch && user?.id) {
+      fetchSubscription();
+      subscriptionFetchedRef.current = true;
+      lastSubscriptionFetchTimeRef.current = now;
+    } else if (!user?.id) {
+      setSubscription(null);
+      subscriptionFetchedRef.current = false;
+    }
+  }, [user?.id, fetchSubscription]);
 
   // Set up SSE for real-time subscription updates
   useEffect(() => {
-    if (!user?.id) return;
+    if (!isMountedRef.current || !user?.id) {
+      // Clean up if user is not available
+      if (sseEventSourceRef.current) {
+        try {
+          sseEventSourceRef.current.close();
+        } catch (e) {
+          // Ignore errors when closing
+        }
+        sseEventSourceRef.current = null;
+      }
+      return;
+    }
 
     const token = localStorage.getItem("token");
-    if (!token) return;
+    if (!token) {
+      if (sseEventSourceRef.current) {
+        try {
+          sseEventSourceRef.current.close();
+        } catch (e) {
+          // Ignore errors when closing
+        }
+        sseEventSourceRef.current = null;
+      }
+      return;
+    }
+
+    // Only create new connection if one doesn't exist or is closed/error state
+    if (sseEventSourceRef.current) {
+      const readyState = sseEventSourceRef.current.readyState;
+      if (
+        readyState === EventSource.OPEN ||
+        readyState === EventSource.CONNECTING
+      ) {
+        return; // Connection already exists and is open or connecting
+      }
+      // Connection is closed, clean it up before creating new one
+      try {
+        sseEventSourceRef.current.close();
+      } catch (e) {
+        // Ignore errors when closing
+      }
+      sseEventSourceRef.current = null;
+    }
 
     let sseEventSource = null;
 
@@ -296,8 +375,10 @@ export default function Navbar({
         : `${protocol}//${host}${apiPort ? `:${apiPort}` : ""}/api/sse/events?token=${encodeURIComponent(token)}`;
 
       sseEventSource = new EventSource(sseUrl);
+      sseEventSourceRef.current = sseEventSource;
 
       sseEventSource.addEventListener("subscription:created", (event) => {
+        if (!isMountedRef.current) return;
         try {
           const data = JSON.parse(event.data);
           console.log(
@@ -308,24 +389,7 @@ export default function Navbar({
             setSubscription(data.subscription);
           } else {
             // Refetch to get full subscription data
-            fetch("/api/subscriptions/status", {
-              headers: { Authorization: `Bearer ${token}` },
-            })
-              .then((res) => res.json())
-              .then((data) => {
-                if (
-                  data.success &&
-                  data.data?.hasSubscription &&
-                  data.data.subscription
-                ) {
-                  setSubscription(data.data.subscription);
-                } else {
-                  setSubscription(null);
-                }
-              })
-              .catch((err) =>
-                console.error("Error refetching subscription:", err)
-              );
+            fetchSubscription();
           }
         } catch (err) {
           console.error(
@@ -336,6 +400,7 @@ export default function Navbar({
       });
 
       sseEventSource.addEventListener("subscription:updated", (event) => {
+        if (!isMountedRef.current) return;
         try {
           const data = JSON.parse(event.data);
           console.log(
@@ -346,24 +411,7 @@ export default function Navbar({
             setSubscription(data.subscription);
           } else {
             // Refetch to get full subscription data
-            fetch("/api/subscriptions/status", {
-              headers: { Authorization: `Bearer ${token}` },
-            })
-              .then((res) => res.json())
-              .then((data) => {
-                if (
-                  data.success &&
-                  data.data?.hasSubscription &&
-                  data.data.subscription
-                ) {
-                  setSubscription(data.data.subscription);
-                } else {
-                  setSubscription(null);
-                }
-              })
-              .catch((err) =>
-                console.error("Error refetching subscription:", err)
-              );
+            fetchSubscription();
           }
         } catch (err) {
           console.error(
@@ -374,6 +422,7 @@ export default function Navbar({
       });
 
       sseEventSource.addEventListener("subscription:expired", (event) => {
+        if (!isMountedRef.current) return;
         try {
           const data = JSON.parse(event.data);
           console.log(
@@ -381,24 +430,7 @@ export default function Navbar({
             data
           );
           // Refetch to get updated subscription status
-          fetch("/api/subscriptions/status", {
-            headers: { Authorization: `Bearer ${token}` },
-          })
-            .then((res) => res.json())
-            .then((data) => {
-              if (
-                data.success &&
-                data.data?.hasSubscription &&
-                data.data.subscription
-              ) {
-                setSubscription(data.data.subscription);
-              } else {
-                setSubscription(null);
-              }
-            })
-            .catch((err) =>
-              console.error("Error refetching subscription:", err)
-            );
+          fetchSubscription();
         } catch (err) {
           console.error(
             "❌ [Navbar] Error parsing SSE subscription:expired event:",
@@ -422,12 +454,10 @@ export default function Navbar({
     }
 
     return () => {
-      if (sseEventSource) {
-        sseEventSource.close();
-        sseEventSource = null;
-      }
+      // Cleanup will be handled by the unmount effect
+      // Don't close here to keep connection alive when user.id changes
     };
-  }, [user?.id]);
+  }, [user?.id, fetchSubscription]);
 
   const handleLogout = async () => {
     // Close menu first to prevent interference

@@ -226,6 +226,12 @@ export default function Dashboard({ user, setUser }) {
   const [storyCreated, setStoryCreated] = useState(false);
   const storiesFeedRefreshRef = React.useRef(null);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  // Cache refs to prevent unnecessary refetches on remount
+  const dataFetchedRef = useRef(false);
+  const lastFetchTimeRef = useRef(0);
+  const CACHE_DURATION_MS = 30000; // 30 seconds cache
+  // Ref to store SSE connection to prevent recreation
+  const sseEventSourceRef = useRef(null);
   const normalizedTargetCounty = useMemo(() => {
     if (!boostArea) return "";
     const normalized = normalizeCountyName(boostArea);
@@ -423,28 +429,12 @@ export default function Dashboard({ user, setUser }) {
     if (!token) return;
 
     try {
-      // Add timeout to prevent hanging
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-
       const response = await fetch("/api/notifications/stats", {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        signal: controller.signal,
       });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        console.error(
-          "Error fetching notification count: HTTP",
-          response.status,
-          response.statusText
-        );
-        return;
-      }
 
       const data = await response.json();
       if (data.success && data.data) {
@@ -464,29 +454,11 @@ export default function Dashboard({ user, setUser }) {
     }
 
     try {
-      // Add timeout to prevent hanging
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-
       const response = await fetch("/api/subscriptions/status", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-        signal: controller.signal,
       });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        console.error(
-          "Error fetching subscription: HTTP",
-          response.status,
-          response.statusText
-        );
-        setSubscription(null);
-        setBoostHoursInfo(null);
-        return;
-      }
 
       const data = await response.json();
 
@@ -513,10 +485,49 @@ export default function Dashboard({ user, setUser }) {
 
   // Set up SSE for real-time subscription updates
   useEffect(() => {
-    if (!isMountedRef.current || !user?.id) return;
+    if (!isMountedRef.current || !user?.id) {
+      // Clean up if user is not available
+      if (sseEventSourceRef.current) {
+        try {
+          sseEventSourceRef.current.close();
+        } catch (e) {
+          // Ignore errors when closing
+        }
+        sseEventSourceRef.current = null;
+      }
+      return;
+    }
 
     const token = localStorage.getItem("token");
-    if (!token) return;
+    if (!token) {
+      if (sseEventSourceRef.current) {
+        try {
+          sseEventSourceRef.current.close();
+        } catch (e) {
+          // Ignore errors when closing
+        }
+        sseEventSourceRef.current = null;
+      }
+      return;
+    }
+
+    // Only create new connection if one doesn't exist or is closed/error state
+    if (sseEventSourceRef.current) {
+      const readyState = sseEventSourceRef.current.readyState;
+      if (
+        readyState === EventSource.OPEN ||
+        readyState === EventSource.CONNECTING
+      ) {
+        return; // Connection already exists and is open or connecting
+      }
+      // Connection is closed, clean it up before creating new one
+      try {
+        sseEventSourceRef.current.close();
+      } catch (e) {
+        // Ignore errors when closing
+      }
+      sseEventSourceRef.current = null;
+    }
 
     let sseEventSource = null;
 
@@ -530,6 +541,7 @@ export default function Dashboard({ user, setUser }) {
         : `${protocol}//${host}${apiPort ? `:${apiPort}` : ""}/api/sse/events?token=${encodeURIComponent(token)}`;
 
       sseEventSource = new EventSource(sseUrl);
+      sseEventSourceRef.current = sseEventSource;
 
       // Listen for subscription created event
       sseEventSource.addEventListener("subscription:created", (event) => {
@@ -612,12 +624,10 @@ export default function Dashboard({ user, setUser }) {
     }
 
     return () => {
-      if (sseEventSource) {
-        sseEventSource.close();
-        sseEventSource = null;
-      }
+      // Cleanup will be handled by the unmount effect
+      // Don't close here to keep connection alive when user.id changes
     };
-  }, [user?.id, fetchSubscription]);
+  }, [user?.id]); // Removed fetchSubscription from dependencies to prevent recreation
 
   const fetchPremiumStats = useCallback(async () => {
     setStatsLoading(true);
@@ -781,30 +791,11 @@ export default function Dashboard({ user, setUser }) {
 
     setLoadingBoostStatus(true);
     try {
-      // Add timeout to prevent hanging
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-
       const response = await fetch("/api/public/boosts/status", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-        signal: controller.signal,
       });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        console.error(
-          "Error fetching boost status: HTTP",
-          response.status,
-          response.statusText
-        );
-        setActiveBoosts([]);
-        setBoostStatusError("Unable to load your current boosts.");
-        return;
-      }
-
       const data = await response.json();
 
       if (response.ok && data.success) {
@@ -958,18 +949,89 @@ export default function Dashboard({ user, setUser }) {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
+      // Clean up SSE connection on unmount
+      if (sseEventSourceRef.current) {
+        sseEventSourceRef.current.close();
+        sseEventSourceRef.current = null;
+      }
+      // Reset fetch flags on unmount
+      dataFetchedRef.current = false;
     };
   }, []);
 
-  // Fetch featured market items and users
+  const fetchFeaturedItems = useCallback(async () => {
+    try {
+      setLoadingFeatured(true);
+      const response = await fetch("/api/market");
+      const data = await response.json();
+
+      if (data.success) {
+        // Filter and get only featured items, limit to 6
+        const featured = (data.data || [])
+          .filter((item) => item.is_featured)
+          .slice(0, 6);
+        setFeaturedItems(featured);
+      }
+    } catch (err) {
+      console.error("Error fetching featured items:", err);
+    } finally {
+      setLoadingFeatured(false);
+    }
+  }, []);
+
+  const fetchFeaturedUsers = useCallback(async () => {
+    try {
+      setLoadingFeaturedUsers(true);
+      const token = localStorage.getItem("token");
+      const headers = {
+        "Content-Type": "application/json",
+      };
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      const response = await fetch("/api/public/featured/boosts?limit=12", {
+        headers,
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        const users = data.data || [];
+        setFeaturedUsers(users);
+      }
+    } catch (err) {
+      console.error("Error fetching featured users:", err);
+    } finally {
+      setLoadingFeaturedUsers(false);
+    }
+  }, []);
+
+  // Fetch featured market items and users (with caching to prevent refetch on remount)
   useEffect(() => {
-    fetchFeaturedItems();
-    fetchFeaturedUsers();
-    // Also fetch current boosts without blocking render
-    fetchActiveBoosts();
-    // Fetch unread notification count
-    fetchUnreadNotificationCount();
-  }, [fetchUnreadNotificationCount]);
+    const now = Date.now();
+    const shouldFetch =
+      !dataFetchedRef.current ||
+      now - lastFetchTimeRef.current > CACHE_DURATION_MS;
+
+    if (shouldFetch) {
+      fetchFeaturedItems();
+      fetchFeaturedUsers();
+      // Also fetch current boosts without blocking render
+      fetchActiveBoosts();
+      // Fetch unread notification count
+      fetchUnreadNotificationCount();
+      dataFetchedRef.current = true;
+      lastFetchTimeRef.current = now;
+    } else {
+      // Still fetch notification count as it changes frequently
+      fetchUnreadNotificationCount();
+    }
+  }, [
+    fetchFeaturedItems,
+    fetchFeaturedUsers,
+    fetchActiveBoosts,
+    fetchUnreadNotificationCount,
+  ]);
 
   // Poll for unread notification count every 30 seconds
   useEffect(() => {
@@ -1162,97 +1224,6 @@ export default function Dashboard({ user, setUser }) {
   useEffect(() => {
     resetBoostForm();
   }, [resetBoostForm]);
-
-  const fetchFeaturedItems = async () => {
-    try {
-      setLoadingFeatured(true);
-
-      // Add timeout to prevent hanging
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-
-      const response = await fetch("/api/market", {
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        console.error(
-          "Error fetching featured items: HTTP",
-          response.status,
-          response.statusText
-        );
-        setFeaturedItems([]);
-        return;
-      }
-
-      const data = await response.json();
-
-      if (data.success) {
-        // Filter and get only featured items, limit to 6
-        const featured = (data.data || [])
-          .filter((item) => item.is_featured)
-          .slice(0, 6);
-        setFeaturedItems(featured);
-      } else {
-        setFeaturedItems([]);
-      }
-    } catch (err) {
-      console.error("Error fetching featured items:", err);
-      setFeaturedItems([]);
-    } finally {
-      setLoadingFeatured(false);
-    }
-  };
-
-  const fetchFeaturedUsers = async () => {
-    try {
-      setLoadingFeaturedUsers(true);
-      const token = localStorage.getItem("token");
-      const headers = {
-        "Content-Type": "application/json",
-      };
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
-
-      // Add timeout to prevent hanging
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-
-      const response = await fetch("/api/public/featured/boosts?limit=12", {
-        headers,
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        console.error(
-          "Error fetching featured users: HTTP",
-          response.status,
-          response.statusText
-        );
-        setFeaturedUsers([]);
-        return;
-      }
-
-      const data = await response.json();
-
-      if (data.success) {
-        const users = data.data || [];
-        setFeaturedUsers(users);
-      } else {
-        setFeaturedUsers([]);
-      }
-    } catch (err) {
-      console.error("Error fetching featured users:", err);
-      setFeaturedUsers([]);
-    } finally {
-      setLoadingFeaturedUsers(false);
-    }
-  };
 
   const handleBoostProfile = async () => {
     if (!boostCategory) {
@@ -2095,35 +2066,14 @@ export default function Dashboard({ user, setUser }) {
       params.set("lat", latForQuery);
       params.set("lng", lngForQuery);
 
-      // Add timeout to prevent hanging
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-
       const response = await fetch(
         `/api/public/boosts/targeted?${params.toString()}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-          signal: controller.signal,
         }
       );
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        console.error(
-          "Error fetching targeted boosts: HTTP",
-          response.status,
-          response.statusText
-        );
-        setTargetedBoosts([]);
-        setTargetedBoostsError(
-          "Unable to load boosts targeting you right now."
-        );
-        return;
-      }
-
       const data = await response.json();
       if (response.ok && data.success) {
         setTargetedBoosts(data.data?.matches || []);

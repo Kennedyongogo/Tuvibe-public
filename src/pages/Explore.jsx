@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Box,
   Typography,
@@ -70,6 +70,13 @@ export default function Explore({ user }) {
     remaining_minutes: 0,
     expires_at: null,
   });
+  // Cache refs to prevent unnecessary refetches on remount
+  const dataFetchedRef = useRef(false);
+  const lastFetchTimeRef = useRef(0);
+  const CACHE_DURATION_MS = 30000; // 30 seconds cache
+  // Ref to store SSE connection to prevent recreation
+  const sseEventSourceRef = useRef(null);
+  const isMountedRef = useRef(true);
 
   // Filters
   const [filters, setFilters] = useState({
@@ -110,7 +117,7 @@ export default function Explore({ user }) {
     return images;
   };
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
@@ -189,9 +196,9 @@ export default function Explore({ user }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, filters, nearbyEnabled, radius]);
 
-  const fetchFavorites = async () => {
+  const fetchFavorites = useCallback(async () => {
     const token = localStorage.getItem("token");
     if (!token) return;
 
@@ -212,7 +219,7 @@ export default function Explore({ user }) {
     } catch (error) {
       console.error("Error fetching favorites:", error);
     }
-  };
+  }, []);
 
   // Fetch unread notification count
   const fetchUnreadNotificationCount = useCallback(async () => {
@@ -296,10 +303,49 @@ export default function Explore({ user }) {
 
   // Set up SSE to listen for subscription changes (for logging and potential future use)
   useEffect(() => {
-    if (!user?.id) return;
+    if (!isMountedRef.current || !user?.id) {
+      // Clean up if user is not available
+      if (sseEventSourceRef.current) {
+        try {
+          sseEventSourceRef.current.close();
+        } catch (e) {
+          // Ignore errors when closing
+        }
+        sseEventSourceRef.current = null;
+      }
+      return;
+    }
 
     const token = localStorage.getItem("token");
-    if (!token) return;
+    if (!token) {
+      if (sseEventSourceRef.current) {
+        try {
+          sseEventSourceRef.current.close();
+        } catch (e) {
+          // Ignore errors when closing
+        }
+        sseEventSourceRef.current = null;
+      }
+      return;
+    }
+
+    // Only create new connection if one doesn't exist or is closed/error state
+    if (sseEventSourceRef.current) {
+      const readyState = sseEventSourceRef.current.readyState;
+      if (
+        readyState === EventSource.OPEN ||
+        readyState === EventSource.CONNECTING
+      ) {
+        return; // Connection already exists and is open or connecting
+      }
+      // Connection is closed, clean it up before creating new one
+      try {
+        sseEventSourceRef.current.close();
+      } catch (e) {
+        // Ignore errors when closing
+      }
+      sseEventSourceRef.current = null;
+    }
 
     let sseEventSource = null;
 
@@ -313,8 +359,10 @@ export default function Explore({ user }) {
         : `${protocol}//${host}${apiPort ? `:${apiPort}` : ""}/api/sse/events?token=${encodeURIComponent(token)}`;
 
       sseEventSource = new EventSource(sseUrl);
+      sseEventSourceRef.current = sseEventSource;
 
       sseEventSource.addEventListener("subscription:created", (event) => {
+        if (!isMountedRef.current) return;
         try {
           const data = JSON.parse(event.data);
           console.log(
@@ -331,6 +379,7 @@ export default function Explore({ user }) {
       });
 
       sseEventSource.addEventListener("subscription:updated", (event) => {
+        if (!isMountedRef.current) return;
         try {
           const data = JSON.parse(event.data);
           console.log(
@@ -346,6 +395,7 @@ export default function Explore({ user }) {
       });
 
       sseEventSource.addEventListener("subscription:expired", (event) => {
+        if (!isMountedRef.current) return;
         try {
           const data = JSON.parse(event.data);
           console.log(
@@ -375,10 +425,8 @@ export default function Explore({ user }) {
     }
 
     return () => {
-      if (sseEventSource) {
-        sseEventSource.close();
-        sseEventSource = null;
-      }
+      // Cleanup will be handled by the unmount effect
+      // Don't close here to keep connection alive when user.id changes
     };
   }, [user?.id]);
 
