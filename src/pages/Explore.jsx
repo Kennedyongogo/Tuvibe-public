@@ -261,7 +261,11 @@ export default function Explore({ user }) {
     const fetchIncognitoStatus = async () => {
       const token = localStorage.getItem("token");
       if (!token) {
-        setIncognitoStatus({ active: false, remaining_minutes: 0, expires_at: null });
+        setIncognitoStatus({
+          active: false,
+          remaining_minutes: 0,
+          expires_at: null,
+        });
         return;
       }
 
@@ -290,6 +294,94 @@ export default function Explore({ user }) {
     }
   }, [incognitoStatus.active]);
 
+  // Set up SSE to listen for subscription changes (for logging and potential future use)
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    let sseEventSource = null;
+
+    try {
+      const isDev = import.meta.env.DEV;
+      const protocol = window.location.protocol;
+      const host = window.location.hostname;
+      const apiPort = isDev ? "4000" : window.location.port || "";
+      const sseUrl = isDev
+        ? `${protocol}//${host}:${apiPort}/api/sse/events?token=${encodeURIComponent(token)}`
+        : `${protocol}//${host}${apiPort ? `:${apiPort}` : ""}/api/sse/events?token=${encodeURIComponent(token)}`;
+
+      sseEventSource = new EventSource(sseUrl);
+
+      sseEventSource.addEventListener("subscription:created", (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log(
+            "📡 [Explore] SSE: Subscription created event received",
+            data
+          );
+          // Subscription checks are done dynamically via API calls, so no state update needed
+        } catch (err) {
+          console.error(
+            "❌ [Explore] Error parsing SSE subscription:created event:",
+            err
+          );
+        }
+      });
+
+      sseEventSource.addEventListener("subscription:updated", (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log(
+            "📡 [Explore] SSE: Subscription updated event received",
+            data
+          );
+        } catch (err) {
+          console.error(
+            "❌ [Explore] Error parsing SSE subscription:updated event:",
+            err
+          );
+        }
+      });
+
+      sseEventSource.addEventListener("subscription:expired", (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log(
+            "📡 [Explore] SSE: Subscription expired event received",
+            data
+          );
+        } catch (err) {
+          console.error(
+            "❌ [Explore] Error parsing SSE subscription:expired event:",
+            err
+          );
+        }
+      });
+
+      sseEventSource.onopen = () => {
+        console.log("✅ [Explore] SSE connected for subscription updates");
+      };
+
+      sseEventSource.onerror = (error) => {
+        console.warn("⚠️ [Explore] SSE error for subscription updates:", error);
+      };
+    } catch (err) {
+      console.warn(
+        "⚠️ [Explore] SSE not available for subscription updates:",
+        err
+      );
+    }
+
+    return () => {
+      if (sseEventSource) {
+        sseEventSource.close();
+        sseEventSource = null;
+      }
+    };
+  }, [user?.id]);
+
   // Update countdown every minute when active
   useEffect(() => {
     if (!incognitoStatus.active || !incognitoStatus.expires_at) return;
@@ -300,7 +392,11 @@ export default function Explore({ user }) {
       const remaining = Math.max(0, Math.round((expiresAt - now) / 60000));
 
       if (remaining <= 0) {
-        setIncognitoStatus((prev) => ({ ...prev, active: false, remaining_minutes: 0 }));
+        setIncognitoStatus((prev) => ({
+          ...prev,
+          active: false,
+          remaining_minutes: 0,
+        }));
       } else {
         setIncognitoStatus((prev) => ({
           ...prev,

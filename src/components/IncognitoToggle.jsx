@@ -7,11 +7,7 @@ import {
   Badge,
   CircularProgress,
 } from "@mui/material";
-import {
-  VisibilityOff,
-  Visibility,
-  Timer,
-} from "@mui/icons-material";
+import { VisibilityOff, Visibility, Timer } from "@mui/icons-material";
 import IncognitoDialog from "./IncognitoDialog";
 import Swal from "sweetalert2";
 
@@ -28,6 +24,69 @@ export default function IncognitoToggle({ user, subscription }) {
   // Only show for Gold plan users
   const hasIncognitoAccess =
     subscription?.plan === "Gold" && subscription?.status === "active";
+
+  // Set up SSE to listen for subscription changes
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    let sseEventSource = null;
+
+    try {
+      const isDev = import.meta.env.DEV;
+      const protocol = window.location.protocol;
+      const host = window.location.hostname;
+      const apiPort = isDev ? "4000" : window.location.port || "";
+      const sseUrl = isDev
+        ? `${protocol}//${host}:${apiPort}/api/sse/events?token=${encodeURIComponent(token)}`
+        : `${protocol}//${host}${apiPort ? `:${apiPort}` : ""}/api/sse/events?token=${encodeURIComponent(token)}`;
+
+      sseEventSource = new EventSource(sseUrl);
+
+      // Listen for subscription changes to re-check access
+      const handleSubscriptionChange = () => {
+        // Trigger re-render by updating a state that affects hasIncognitoAccess
+        // The parent component should update the subscription prop
+        console.log(
+          "📡 [IncognitoToggle] Subscription changed, access may have changed"
+        );
+      };
+
+      sseEventSource.addEventListener(
+        "subscription:created",
+        handleSubscriptionChange
+      );
+      sseEventSource.addEventListener(
+        "subscription:updated",
+        handleSubscriptionChange
+      );
+      sseEventSource.addEventListener(
+        "subscription:expired",
+        handleSubscriptionChange
+      );
+
+      sseEventSource.onopen = () => {
+        console.log(
+          "✅ [IncognitoToggle] SSE connected for subscription updates"
+        );
+      };
+
+      sseEventSource.onerror = (error) => {
+        console.warn("⚠️ [IncognitoToggle] SSE error:", error);
+      };
+    } catch (err) {
+      console.warn("⚠️ [IncognitoToggle] SSE not available:", err);
+    }
+
+    return () => {
+      if (sseEventSource) {
+        sseEventSource.close();
+        sseEventSource = null;
+      }
+    };
+  }, [user?.id]);
 
   // Fetch incognito status
   const fetchIncognitoStatus = async () => {
@@ -81,13 +140,14 @@ export default function IncognitoToggle({ user, subscription }) {
     const interval = setInterval(() => {
       const now = new Date();
       const expiresAt = new Date(incognitoStatus.expires_at);
-      const remaining = Math.max(
-        0,
-        Math.round((expiresAt - now) / 60000)
-      );
+      const remaining = Math.max(0, Math.round((expiresAt - now) / 60000));
 
       if (remaining <= 0) {
-        setIncognitoStatus((prev) => ({ ...prev, active: false, remaining_minutes: 0 }));
+        setIncognitoStatus((prev) => ({
+          ...prev,
+          active: false,
+          remaining_minutes: 0,
+        }));
         clearInterval(interval);
       } else {
         setIncognitoStatus((prev) => ({
@@ -257,4 +317,3 @@ export default function IncognitoToggle({ user, subscription }) {
     </>
   );
 }
-

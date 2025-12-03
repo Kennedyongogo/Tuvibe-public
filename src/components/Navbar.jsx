@@ -55,33 +55,103 @@ export default function Navbar({
   const anchorElRef = useRef(null);
 
   const baseMenuItems = [
-    { text: "Home", icon: <Home />, path: "/home", mobileLabel: "Home" },
+    {
+      text: "Home",
+      icon: <Home />,
+      path: "/home",
+      mobileLabel: "Home",
+      requiresSubscription: false,
+    },
     {
       text: "Timeline",
       icon: <Timeline />,
       path: "/timeline",
       mobileLabel: "Timeline",
+      requiresSubscription: true,
+      reason:
+        "Timeline allows you to view and interact with posts, stories, and updates from other members. Subscribe to a plan to access this feature and stay connected with the TuVibe community.",
     },
     {
       text: "Explore",
       icon: <Explore />,
       path: "/explore",
       mobileLabel: "Explore",
+      requiresSubscription: true,
+      reason:
+        "Explore lets you discover and connect with other members based on your preferences. Subscribe to unlock unlimited profile browsing and find your perfect match.",
     },
     {
       text: "TuVibe Market",
       icon: <Store />,
       path: "/market",
       mobileLabel: "Market",
+      requiresSubscription: true,
+      reason:
+        "TuVibe Market is where members buy and sell items within the community. Subscribe to access the marketplace and start trading with verified members.",
     },
     {
       text: "Profile",
       icon: <Person />,
       path: "/profile",
       mobileLabel: "Profile",
+      requiresSubscription: false,
     },
   ];
   const menuItems = isSuspended ? [] : baseMenuItems;
+
+  // Check if user has active subscription
+  const hasActiveSubscription = subscription?.status === "active";
+
+  // Show subscription required dialog
+  const showSubscriptionRequiredDialog = (itemName, reason) => {
+    Swal.fire({
+      icon: "info",
+      title: "Subscription Required",
+      html: `
+        <div style="text-align: left;">
+          <p style="margin-bottom: 16px; font-size: 1rem; color: #333;">
+            <strong>${itemName}</strong> requires an active subscription.
+          </p>
+          <div style="background: #f5f5f5; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+            <p style="margin: 0; font-size: 0.95rem; color: #666; line-height: 1.6;">
+              ${reason}
+            </p>
+          </div>
+          <p style="margin: 0; font-size: 0.9em; color: #333;">
+            Subscribe now to unlock all premium features and get the most out of TuVibe!
+          </p>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: "View Plans",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#D4AF37",
+      cancelButtonColor: "#666",
+      didOpen: () => {
+        const swal = document.querySelector(".swal2-popup");
+        if (swal) {
+          swal.style.borderRadius = "20px";
+          swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
+          swal.style.boxShadow = "0 20px 60px rgba(212, 175, 55, 0.25)";
+        }
+      },
+    }).then((result) => {
+      if (result.isConfirmed) {
+        navigate("/pricing");
+      }
+    });
+  };
+
+  // Handle menu item click
+  const handleMenuItemClick = (item) => {
+    // If item requires subscription and user doesn't have one, show dialog
+    if (item.requiresSubscription && !hasActiveSubscription) {
+      showSubscriptionRequiredDialog(item.text, item.reason);
+      return;
+    }
+    // Otherwise, navigate normally
+    navigate(item.path);
+  };
 
   const handleProfileMenuOpen = (event) => {
     const target = event.currentTarget;
@@ -119,8 +189,11 @@ export default function Navbar({
     );
     if (activeIndex !== -1) {
       setBottomNavValue(activeIndex);
+    } else {
+      // Reset to 0 if current path doesn't match any menu item
+      setBottomNavValue(0);
     }
-  }, [location.pathname]);
+  }, [location.pathname, menuItems]);
 
   // Fetch subscription status
   useEffect(() => {
@@ -140,7 +213,11 @@ export default function Navbar({
 
         const data = await response.json();
 
-        if (data.success && data.data?.hasSubscription && data.data.subscription) {
+        if (
+          data.success &&
+          data.data?.hasSubscription &&
+          data.data.subscription
+        ) {
           setSubscription(data.data.subscription);
         } else {
           setSubscription(null);
@@ -153,6 +230,158 @@ export default function Navbar({
 
     fetchSubscription();
   }, [user]);
+
+  // Set up SSE for real-time subscription updates
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    let sseEventSource = null;
+
+    try {
+      const isDev = import.meta.env.DEV;
+      const protocol = window.location.protocol;
+      const host = window.location.hostname;
+      const apiPort = isDev ? "4000" : window.location.port || "";
+      const sseUrl = isDev
+        ? `${protocol}//${host}:${apiPort}/api/sse/events?token=${encodeURIComponent(token)}`
+        : `${protocol}//${host}${apiPort ? `:${apiPort}` : ""}/api/sse/events?token=${encodeURIComponent(token)}`;
+
+      sseEventSource = new EventSource(sseUrl);
+
+      sseEventSource.addEventListener("subscription:created", (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log(
+            "📡 [Navbar] SSE: Subscription created event received",
+            data
+          );
+          if (data.subscription) {
+            setSubscription(data.subscription);
+          } else {
+            // Refetch to get full subscription data
+            fetch("/api/subscriptions/status", {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+              .then((res) => res.json())
+              .then((data) => {
+                if (
+                  data.success &&
+                  data.data?.hasSubscription &&
+                  data.data.subscription
+                ) {
+                  setSubscription(data.data.subscription);
+                } else {
+                  setSubscription(null);
+                }
+              })
+              .catch((err) =>
+                console.error("Error refetching subscription:", err)
+              );
+          }
+        } catch (err) {
+          console.error(
+            "❌ [Navbar] Error parsing SSE subscription:created event:",
+            err
+          );
+        }
+      });
+
+      sseEventSource.addEventListener("subscription:updated", (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log(
+            "📡 [Navbar] SSE: Subscription updated event received",
+            data
+          );
+          if (data.subscription) {
+            setSubscription(data.subscription);
+          } else {
+            // Refetch to get full subscription data
+            fetch("/api/subscriptions/status", {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+              .then((res) => res.json())
+              .then((data) => {
+                if (
+                  data.success &&
+                  data.data?.hasSubscription &&
+                  data.data.subscription
+                ) {
+                  setSubscription(data.data.subscription);
+                } else {
+                  setSubscription(null);
+                }
+              })
+              .catch((err) =>
+                console.error("Error refetching subscription:", err)
+              );
+          }
+        } catch (err) {
+          console.error(
+            "❌ [Navbar] Error parsing SSE subscription:updated event:",
+            err
+          );
+        }
+      });
+
+      sseEventSource.addEventListener("subscription:expired", (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log(
+            "📡 [Navbar] SSE: Subscription expired event received",
+            data
+          );
+          // Refetch to get updated subscription status
+          fetch("/api/subscriptions/status", {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+            .then((res) => res.json())
+            .then((data) => {
+              if (
+                data.success &&
+                data.data?.hasSubscription &&
+                data.data.subscription
+              ) {
+                setSubscription(data.data.subscription);
+              } else {
+                setSubscription(null);
+              }
+            })
+            .catch((err) =>
+              console.error("Error refetching subscription:", err)
+            );
+        } catch (err) {
+          console.error(
+            "❌ [Navbar] Error parsing SSE subscription:expired event:",
+            err
+          );
+        }
+      });
+
+      sseEventSource.onopen = () => {
+        console.log("✅ [Navbar] SSE connected for subscription updates");
+      };
+
+      sseEventSource.onerror = (error) => {
+        console.warn("⚠️ [Navbar] SSE error for subscription updates:", error);
+      };
+    } catch (err) {
+      console.warn(
+        "⚠️ [Navbar] SSE not available for subscription updates:",
+        err
+      );
+    }
+
+    return () => {
+      if (sseEventSource) {
+        sseEventSource.close();
+        sseEventSource = null;
+      }
+    };
+  }, [user?.id]);
 
   const handleLogout = async () => {
     // Close menu first to prevent interference
@@ -259,40 +488,83 @@ export default function Navbar({
       <List sx={{ flexGrow: 1, px: 2, pt: 2 }}>
         {menuItems.map((item) => {
           const isActive = location.pathname === item.path;
+          const isDisabled =
+            item.requiresSubscription && !hasActiveSubscription;
           return (
             <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
-              <ListItemButton
-                onClick={() => {
-                  navigate(item.path);
-                }}
-                sx={{
-                  borderRadius: "12px",
-                  backgroundColor: isActive
-                    ? "rgba(212, 175, 55, 0.15)"
-                    : "transparent",
-                  "&:hover": {
-                    backgroundColor: "rgba(212, 175, 55, 0.1)",
-                  },
-                  py: 1.5,
-                }}
+              <Tooltip
+                title={
+                  isDisabled
+                    ? "Subscription required - Click to learn more"
+                    : ""
+                }
+                arrow
+                placement="right"
+                enterDelay={200}
+                leaveDelay={0}
+                disableHoverListener={!isDisabled}
               >
-                <ListItemIcon
+                <ListItemButton
+                  onClick={() => handleMenuItemClick(item)}
                   sx={{
-                    color: isActive ? "#D4AF37" : "rgba(26, 26, 26, 0.7)",
-                    minWidth: 40,
+                    borderRadius: "12px",
+                    backgroundColor: isActive
+                      ? "rgba(212, 175, 55, 0.15)"
+                      : "transparent",
+                    opacity: isDisabled ? 0.6 : 1,
+                    cursor: "pointer",
+                    "&:hover": {
+                      backgroundColor: isDisabled
+                        ? "rgba(212, 175, 55, 0.08)"
+                        : "rgba(212, 175, 55, 0.1)",
+                    },
+                    py: 1.5,
                   }}
                 >
-                  {item.icon}
-                </ListItemIcon>
-                <ListItemText
-                  primary={item.text}
-                  primaryTypographyProps={{
-                    fontWeight: isActive ? 600 : 500,
-                    color: isActive ? "#1a1a1a" : "rgba(26, 26, 26, 0.7)",
-                    fontSize: "0.95rem",
-                  }}
-                />
-              </ListItemButton>
+                  <ListItemIcon
+                    sx={{
+                      color: isActive
+                        ? "#D4AF37"
+                        : isDisabled
+                          ? "rgba(26, 26, 26, 0.5)"
+                          : "rgba(26, 26, 26, 0.7)",
+                      minWidth: 40,
+                    }}
+                  >
+                    {item.icon}
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={
+                      <Box
+                        sx={{ display: "flex", alignItems: "center", gap: 1 }}
+                      >
+                        <Typography
+                          component="span"
+                          sx={{
+                            fontWeight: isActive ? 600 : 500,
+                            color: isActive
+                              ? "#1a1a1a"
+                              : isDisabled
+                                ? "rgba(26, 26, 26, 0.5)"
+                                : "rgba(26, 26, 26, 0.7)",
+                            fontSize: "0.95rem",
+                          }}
+                        >
+                          {item.text}
+                        </Typography>
+                        {isDisabled && (
+                          <Lock
+                            sx={{
+                              fontSize: "0.875rem",
+                              color: "rgba(212, 175, 55, 0.7)",
+                            }}
+                          />
+                        )}
+                      </Box>
+                    }
+                  />
+                </ListItemButton>
+              </Tooltip>
             </ListItem>
           );
         })}
@@ -402,9 +674,10 @@ export default function Navbar({
           <Box sx={{ flexGrow: 1 }} />
           {!isSuspended && (
             <>
-              {subscription?.plan === "Gold" && subscription?.status === "active" && (
-                <IncognitoToggle user={user} subscription={subscription} />
-              )}
+              {subscription?.plan === "Gold" &&
+                subscription?.status === "active" && (
+                  <IncognitoToggle user={user} subscription={subscription} />
+                )}
               <Button
                 variant="contained"
                 onClick={() => navigate("/pricing")}
@@ -592,8 +865,15 @@ export default function Navbar({
           <BottomNavigation
             value={bottomNavValue}
             onChange={(event, newValue) => {
+              const item = menuItems[newValue];
+              // Check if item requires subscription
+              if (item.requiresSubscription && !hasActiveSubscription) {
+                showSubscriptionRequiredDialog(item.text, item.reason);
+                // Don't update bottomNavValue or navigate
+                return;
+              }
               setBottomNavValue(newValue);
-              navigate(menuItems[newValue].path);
+              navigate(item.path);
             }}
             showLabels
             sx={{
@@ -614,6 +894,10 @@ export default function Navbar({
                   color: "#D4AF37",
                   fontWeight: 600,
                 },
+                "&.Mui-disabled": {
+                  opacity: 0.5,
+                  cursor: "pointer",
+                },
               },
               "& .MuiBottomNavigationAction-label": {
                 fontSize: "0.7rem",
@@ -626,14 +910,50 @@ export default function Navbar({
               },
             }}
           >
-            {menuItems.map((item, index) => (
-              <BottomNavigationAction
-                key={item.text}
-                label={item.mobileLabel || item.text}
-                icon={item.icon}
-                value={index}
-              />
-            ))}
+            {menuItems.map((item, index) => {
+              const isDisabled =
+                item.requiresSubscription && !hasActiveSubscription;
+              return (
+                <Tooltip
+                  key={item.text}
+                  title={
+                    isDisabled
+                      ? "Subscription required - Tap to learn more"
+                      : ""
+                  }
+                  arrow
+                  placement="top"
+                >
+                  <BottomNavigationAction
+                    label={item.mobileLabel || item.text}
+                    icon={
+                      <Box sx={{ position: "relative" }}>
+                        {item.icon}
+                        {isDisabled && (
+                          <Lock
+                            sx={{
+                              position: "absolute",
+                              top: -4,
+                              right: -4,
+                              fontSize: "0.625rem",
+                              color: "#D4AF37",
+                              backgroundColor: "white",
+                              borderRadius: "50%",
+                              padding: "2px",
+                            }}
+                          />
+                        )}
+                      </Box>
+                    }
+                    value={index}
+                    sx={{
+                      opacity: isDisabled ? 0.6 : 1,
+                      cursor: isDisabled ? "pointer" : "default",
+                    }}
+                  />
+                </Tooltip>
+              );
+            })}
           </BottomNavigation>
         </Paper>
       )}

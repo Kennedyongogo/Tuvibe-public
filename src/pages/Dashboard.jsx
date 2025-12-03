@@ -65,11 +65,6 @@ import {
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import UserLists from "../components/UserLists/UserLists";
-import {
-  BOOST_PRICE_TOKENS,
-  formatKshFromTokens,
-  describeExchangeRate,
-} from "../utils/pricing";
 import { KENYA_COUNTIES, normalizeCountyName } from "../data/kenyaCounties";
 import GeoTargetPicker from "../components/Boost/GeoTargetPicker";
 import StoriesFeed from "../components/Stories/StoriesFeed";
@@ -176,12 +171,41 @@ export default function Dashboard({ user, setUser }) {
     user?.category || "Regular"
   );
   const [boostArea, setBoostArea] = useState(user?.county || "");
+  const [subscription, setSubscription] = useState(null);
+  const [boostHoursInfo, setBoostHoursInfo] = useState(null);
+
+  // Dynamic max boost hours based on package (default to 6 if no package info)
+  const maxBoostHours = useMemo(() => {
+    if (boostHoursInfo?.maxDurationPerBoost) {
+      return Math.max(MIN_BOOST_HOURS, boostHoursInfo.maxDurationPerBoost);
+    }
+    return MAX_BOOST_HOURS; // Fallback for non-subscribers
+  }, [boostHoursInfo?.maxDurationPerBoost]);
+
+  // Default boost hours based on package (default to MIN_BOOST_HOURS if no package info)
+  const defaultBoostHours = useMemo(() => {
+    if (boostHoursInfo?.defaultDurationPerBoost) {
+      return Math.max(MIN_BOOST_HOURS, boostHoursInfo.defaultDurationPerBoost);
+    }
+    return MIN_BOOST_HOURS;
+  }, [boostHoursInfo?.defaultDurationPerBoost]);
+
   const [boostHours, setBoostHours] = useState(MIN_BOOST_HOURS);
+
+  // Update boostHours when defaultBoostHours changes (e.g., when subscription loads)
+  useEffect(() => {
+    if (defaultBoostHours && defaultBoostHours !== MIN_BOOST_HOURS) {
+      setBoostHours(defaultBoostHours);
+    }
+  }, [defaultBoostHours]);
+
   const sanitizedBoostHours = Math.min(
-    MAX_BOOST_HOURS,
-    Math.max(MIN_BOOST_HOURS, Math.floor(Number(boostHours) || MIN_BOOST_HOURS))
+    maxBoostHours,
+    Math.max(
+      MIN_BOOST_HOURS,
+      Math.floor(Number(boostHours) || defaultBoostHours)
+    )
   );
-  const totalBoostTokens = sanitizedBoostHours * BOOST_PRICE_TOKENS;
   const [targetedBoosts, setTargetedBoosts] = useState([]);
   const [loadingTargetedBoosts, setLoadingTargetedBoosts] = useState(false);
   const [targetedDialogOpen, setTargetedDialogOpen] = useState(false);
@@ -414,6 +438,152 @@ export default function Dashboard({ user, setUser }) {
       console.error("Error fetching notification count:", error);
     }
   }, []);
+
+  // Fetch subscription status
+  const fetchSubscription = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setSubscription(null);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/subscriptions/status", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (
+        data.success &&
+        data.data?.hasSubscription &&
+        data.data.subscription
+      ) {
+        setSubscription(data.data.subscription);
+        setBoostHoursInfo(data.data.boostHours || null);
+      } else {
+        setSubscription(null);
+        setBoostHoursInfo(null);
+      }
+    } catch (error) {
+      console.error("Error fetching subscription:", error);
+      setSubscription(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSubscription();
+  }, [user, fetchSubscription]);
+
+  // Set up SSE for real-time subscription updates
+  useEffect(() => {
+    if (!isMountedRef.current || !user?.id) return;
+
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    let sseEventSource = null;
+
+    try {
+      const isDev = import.meta.env.DEV;
+      const protocol = window.location.protocol;
+      const host = window.location.hostname;
+      const apiPort = isDev ? "4000" : window.location.port || "";
+      const sseUrl = isDev
+        ? `${protocol}//${host}:${apiPort}/api/sse/events?token=${encodeURIComponent(token)}`
+        : `${protocol}//${host}${apiPort ? `:${apiPort}` : ""}/api/sse/events?token=${encodeURIComponent(token)}`;
+
+      sseEventSource = new EventSource(sseUrl);
+
+      // Listen for subscription created event
+      sseEventSource.addEventListener("subscription:created", (event) => {
+        if (!isMountedRef.current) return;
+        try {
+          const data = JSON.parse(event.data);
+          console.log(
+            "📡 [Dashboard] SSE: Subscription created event received",
+            data
+          );
+          if (data.subscription) {
+            setSubscription(data.subscription);
+            // Refetch to get boostHours info
+            fetchSubscription();
+          }
+        } catch (err) {
+          console.error(
+            "❌ [Dashboard] Error parsing SSE subscription:created event:",
+            err
+          );
+        }
+      });
+
+      // Listen for subscription updated event
+      sseEventSource.addEventListener("subscription:updated", (event) => {
+        if (!isMountedRef.current) return;
+        try {
+          const data = JSON.parse(event.data);
+          console.log(
+            "📡 [Dashboard] SSE: Subscription updated event received",
+            data
+          );
+          if (data.subscription) {
+            setSubscription(data.subscription);
+            // Refetch to get boostHours info
+            fetchSubscription();
+          }
+        } catch (err) {
+          console.error(
+            "❌ [Dashboard] Error parsing SSE subscription:updated event:",
+            err
+          );
+        }
+      });
+
+      // Listen for subscription expired event
+      sseEventSource.addEventListener("subscription:expired", (event) => {
+        if (!isMountedRef.current) return;
+        try {
+          const data = JSON.parse(event.data);
+          console.log(
+            "📡 [Dashboard] SSE: Subscription expired event received",
+            data
+          );
+          // Refetch to get updated subscription status (will be null if expired)
+          fetchSubscription();
+        } catch (err) {
+          console.error(
+            "❌ [Dashboard] Error parsing SSE subscription:expired event:",
+            err
+          );
+        }
+      });
+
+      sseEventSource.onopen = () => {
+        console.log("✅ [Dashboard] SSE connected for subscription updates");
+      };
+
+      sseEventSource.onerror = (error) => {
+        console.warn(
+          "⚠️ [Dashboard] SSE error for subscription updates:",
+          error
+        );
+      };
+    } catch (err) {
+      console.warn(
+        "⚠️ [Dashboard] SSE not available for subscription updates:",
+        err
+      );
+    }
+
+    return () => {
+      if (sseEventSource) {
+        sseEventSource.close();
+        sseEventSource = null;
+      }
+    };
+  }, [user?.id, fetchSubscription]);
 
   const fetchPremiumStats = useCallback(async () => {
     setStatsLoading(true);
@@ -1025,7 +1195,6 @@ export default function Dashboard({ user, setUser }) {
     }
 
     const hours = sanitizedBoostHours;
-    const totalTokens = hours * BOOST_PRICE_TOKENS;
 
     const token = localStorage.getItem("token");
     if (!token) {
@@ -1038,42 +1207,6 @@ export default function Dashboard({ user, setUser }) {
     }
 
     try {
-      const balanceRes = await fetch("/api/tokens/balance", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const balanceData = await balanceRes.json();
-      const currentBalance = Number(balanceData.data?.balance || 0);
-
-      if (!balanceData.success) {
-        throw new Error(balanceData.message || "Failed to fetch balance");
-      }
-
-      if (currentBalance < totalTokens) {
-        programmaticBoostCloseRef.current = true;
-        setBoostDialogOpen(false);
-
-        await new Promise((resolve) => setTimeout(resolve, 0));
-
-        const result = await Swal.fire({
-          icon: "warning",
-          title: "Insufficient Tokens",
-          html: `<p>You need ${totalTokens} tokens (${formatKshFromTokens(totalTokens)}) to boost for ${hours} hour${
-            hours > 1 ? "s" : ""
-          }.</p><p>Your balance: ${currentBalance.toFixed(2)} tokens</p>`,
-          confirmButtonText: "Buy Tokens",
-          cancelButtonText: "Cancel",
-          showCancelButton: true,
-          confirmButtonColor: "#D4AF37",
-        });
-
-        programmaticBoostCloseRef.current = false;
-
-        if (result.isConfirmed) {
-          navigate("/wallet");
-        }
-        return;
-      }
-
       programmaticBoostCloseRef.current = true;
       setBoostDialogOpen(false);
 
@@ -1085,8 +1218,7 @@ export default function Dashboard({ user, setUser }) {
             <p style="margin: 0 0 6px 0;"><strong>Targeting:</strong> ${boostCategory} audience in <strong>${normalizedTargetCounty}</strong>.</p>
             <p style="margin: 0 0 6px 0;"><strong>Duration:</strong> ${hours} hour${hours > 1 ? "s" : ""}</p>
             <p style="margin: 0 0 6px 0;"><strong>Radius:</strong> ${sanitizedBoostRadiusKm.toFixed(1)} km</p>
-            <p style="margin: 0 0 10px 0;"><strong>Cost:</strong> ${totalTokens} tokens (${formatKshFromTokens(totalTokens)})</p>
-            <p style="font-size: 0.82rem; color: #555; margin: 0;">Use Extend Boost if you want to add time to an existing boost in the same area.</p>
+            <p style="font-size: 0.82rem; color: #555; margin: 0;">This will use ${hours} hour${hours > 1 ? "s" : ""} from your daily boost hours allowance. Use Extend Boost if you want to add time to an existing boost in the same area.</p>
           </div>
         `,
         width: 420,
@@ -1178,12 +1310,14 @@ export default function Dashboard({ user, setUser }) {
 
       if (response.status === 429) {
         // Daily limit reached
+        programmaticBoostCloseRef.current = true;
+        setBoostDialogOpen(false);
+        await new Promise((resolve) => setTimeout(resolve, 100));
         programmaticBoostCloseRef.current = false;
-        openBoostDialog(false);
         Swal.fire({
           icon: "info",
-          title: "Daily Limit Reached",
-          html: `<p>${data.message || "Daily profile boost limit reached for your plan."}</p><p>Your daily limit will reset tomorrow.</p>`,
+          title: "Daily Boost Hours Limit Reached",
+          html: `<p>${data.message || "You've used all your daily boost hours for today."}</p><p>Your daily limit will reset tomorrow. You can extend existing boosts if you have remaining hours available.</p>`,
           confirmButtonText: "OK",
           confirmButtonColor: "#D4AF37",
           didOpen: () => {
@@ -1323,9 +1457,9 @@ export default function Dashboard({ user, setUser }) {
           <div class="boost-extend-compact-summary"><strong>Current radius:</strong> ${Number.isFinite(currentRadius) ? Number(currentRadius).toFixed(1) + " km" : "N/A"}</div>
           <div>
             <label for="extend-hours-input" style="font-weight: 600; font-size: 0.85rem;">Hours to add</label>
-            <input id="extend-hours-input" type="number" class="swal2-input" style="margin-top: 4px; height: 36px; font-size: 0.82rem;" min="${MIN_BOOST_HOURS}" max="${MAX_BOOST_HOURS}" step="1" value="${defaultHours}" />
+            <input id="extend-hours-input" type="number" class="swal2-input" style="margin-top: 4px; height: 36px; font-size: 0.82rem;" min="${MIN_BOOST_HOURS}" max="${maxBoostHours}" step="1" value="${defaultHours}" />
             <small style="display:block; margin-top:4px; color: rgba(26,26,26,0.6); font-size: 0.72rem;">
-              Choose between ${MIN_BOOST_HOURS} and ${MAX_BOOST_HOURS} hours to add.
+              Choose between ${MIN_BOOST_HOURS} and ${maxBoostHours} hours to add${boostHoursInfo?.maxDurationPerBoost ? ` (your ${subscription?.plan || "package"} plan allows up to ${maxBoostHours} hours per boost)` : ""}.
             </small>
           </div>
           <div style="display: flex; flex-direction: column; gap: 10px;">
@@ -1382,10 +1516,10 @@ export default function Dashboard({ user, setUser }) {
         if (
           !Number.isFinite(hoursValue) ||
           hoursValue < MIN_BOOST_HOURS ||
-          hoursValue > MAX_BOOST_HOURS
+          hoursValue > maxBoostHours
         ) {
           Swal.showValidationMessage(
-            `Hours must be between ${MIN_BOOST_HOURS} and ${MAX_BOOST_HOURS}.`
+            `Hours must be between ${MIN_BOOST_HOURS} and ${maxBoostHours}.`
           );
           return false;
         }
@@ -1416,7 +1550,7 @@ export default function Dashboard({ user, setUser }) {
     }
 
     const adjustedHours = Math.min(
-      MAX_BOOST_HOURS,
+      maxBoostHours,
       Math.max(MIN_BOOST_HOURS, adjustResult.value.hours)
     );
     const adjustedRadius = Math.min(
@@ -1429,7 +1563,6 @@ export default function Dashboard({ user, setUser }) {
     setBoostTargetEdited(true);
 
     const hours = adjustedHours;
-    const totalTokens = hours * BOOST_PRICE_TOKENS;
     const extensionRadiusKm = adjustedRadius;
     const previousRadiusLabel = Number.isFinite(currentRadius)
       ? `${Number(currentRadius).toFixed(1)} km`
@@ -1448,42 +1581,6 @@ export default function Dashboard({ user, setUser }) {
     }
 
     try {
-      const balanceRes = await fetch("/api/tokens/balance", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const balanceData = await balanceRes.json();
-      const currentBalance = Number(balanceData.data?.balance || 0);
-
-      if (!balanceData.success) {
-        throw new Error(balanceData.message || "Failed to fetch balance");
-      }
-
-      if (currentBalance < totalTokens) {
-        programmaticBoostCloseRef.current = true;
-        setBoostDialogOpen(false);
-
-        await new Promise((resolve) => setTimeout(resolve, 0));
-
-        const result = await Swal.fire({
-          icon: "warning",
-          title: "Insufficient Tokens",
-          html: `<p>You need ${totalTokens} tokens (${formatKshFromTokens(totalTokens)}) to extend by ${hours} hour${
-            hours > 1 ? "s" : ""
-          }.</p><p>Your balance: ${currentBalance.toFixed(2)} tokens</p>`,
-          confirmButtonText: "Buy Tokens",
-          cancelButtonText: "Cancel",
-          showCancelButton: true,
-          confirmButtonColor: "#D4AF37",
-        });
-
-        programmaticBoostCloseRef.current = false;
-
-        if (result.isConfirmed) {
-          navigate("/wallet");
-        }
-        return;
-      }
-
       programmaticBoostCloseRef.current = true;
       setBoostDialogOpen(false);
 
@@ -1520,9 +1617,7 @@ export default function Dashboard({ user, setUser }) {
             }</p>
             <p style="margin: 0 0 10px 0;"><strong>Extension:</strong> Add ${hours} hour${
               hours > 1 ? "s" : ""
-            } to this boost for ${totalTokens} tokens (${formatKshFromTokens(
-              totalTokens
-            )}).</p>
+            } to this boost. This will use ${hours} hour${hours > 1 ? "s" : ""} from your daily boost hours allowance.</p>
             <p style="font-size: 0.82rem; color: #555; margin: 0;">Extending keeps the same target area and audience.</p>
           </div>
         `,
@@ -1560,16 +1655,50 @@ export default function Dashboard({ user, setUser }) {
       const data = await response.json();
 
       if (response.status === 402) {
+        // Subscription required
         Swal.fire({
           icon: "warning",
-          title: "Insufficient Tokens",
-          text:
-            data.message ||
-            "You do not have enough tokens to extend this boost.",
+          title: "Subscription Required",
+          html: `<p>${data.message || "Active subscription required to extend your boost."}</p><p>Please subscribe to a plan to continue.</p>`,
+          confirmButtonText: "View Plans",
+          cancelButtonText: "Cancel",
+          showCancelButton: true,
           confirmButtonColor: "#D4AF37",
+          didOpen: () => {
+            const swal = document.querySelector(".swal2-popup");
+            if (swal) {
+              swal.style.borderRadius = "20px";
+            }
+          },
+        }).then((result) => {
+          if (result.isConfirmed) {
+            navigate("/pricing");
+          }
         });
         programmaticBoostCloseRef.current = false;
         openBoostDialog(false);
+        return;
+      }
+
+      if (response.status === 429) {
+        // Daily limit reached
+        programmaticBoostCloseRef.current = true;
+        setBoostDialogOpen(false);
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        programmaticBoostCloseRef.current = false;
+        Swal.fire({
+          icon: "info",
+          title: "Daily Boost Hours Limit Reached",
+          html: `<p>${data.message || "You've used all your daily boost hours for today."}</p><p>Your daily limit will reset tomorrow.</p>`,
+          confirmButtonText: "OK",
+          confirmButtonColor: "#D4AF37",
+          didOpen: () => {
+            const swal = document.querySelector(".swal2-popup");
+            if (swal) {
+              swal.style.borderRadius = "20px";
+            }
+          },
+        });
         return;
       }
 
@@ -1713,8 +1842,69 @@ export default function Dashboard({ user, setUser }) {
     }
   };
 
+  // Check if user has active subscription
+  const hasActiveSubscription = subscription?.status === "active";
+
+  // Show subscription required dialog
+  const showSubscriptionRequiredDialog = (itemName, reason) => {
+    Swal.fire({
+      icon: "info",
+      title: "Subscription Required",
+      html: `
+        <div style="text-align: left;">
+          <p style="margin-bottom: 16px; font-size: 1rem; color: #333;">
+            <strong>${itemName}</strong> requires an active subscription.
+          </p>
+          <div style="background: #f5f5f5; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+            <p style="margin: 0; font-size: 0.95rem; color: #666; line-height: 1.6;">
+              ${reason}
+            </p>
+          </div>
+          <p style="margin: 0; font-size: 0.9em; color: #333;">
+            Subscribe now to unlock all premium features and get the most out of TuVibe!
+          </p>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: "View Plans",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#D4AF37",
+      cancelButtonColor: "#666",
+      didOpen: () => {
+        const swal = document.querySelector(".swal2-popup");
+        if (swal) {
+          swal.style.borderRadius = "20px";
+          swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
+          swal.style.boxShadow = "0 20px 60px rgba(212, 175, 55, 0.25)";
+        }
+      },
+    }).then((result) => {
+      if (result.isConfirmed) {
+        navigate("/pricing");
+      }
+    });
+  };
+
   const handleViewMarket = () => {
+    if (!hasActiveSubscription) {
+      showSubscriptionRequiredDialog(
+        "TuVibe Market",
+        "TuVibe Market is where members buy and sell items within the community. Subscribe to access the marketplace and start trading with verified members."
+      );
+      return;
+    }
     navigate("/market");
+  };
+
+  const handleViewExplore = () => {
+    if (!hasActiveSubscription) {
+      showSubscriptionRequiredDialog(
+        "Explore",
+        "Explore lets you discover and connect with other members based on your preferences. Subscribe to unlock unlimited profile browsing and find your perfect match."
+      );
+      return;
+    }
+    navigate("/explore");
   };
 
   const handleScrollToUserLists = (tab) => {
@@ -2385,7 +2575,7 @@ export default function Dashboard({ user, setUser }) {
           </Typography>
           <Button
             variant="text"
-            onClick={() => navigate("/explore")}
+            onClick={handleViewExplore}
             sx={{
               color: "#D4AF37",
               fontWeight: 600,
@@ -2479,7 +2669,7 @@ export default function Dashboard({ user, setUser }) {
                       boxShadow: "0 8px 24px rgba(212, 175, 55, 0.3)",
                     },
                   }}
-                  onClick={() => navigate(`/explore`)}
+                  onClick={handleViewExplore}
                 >
                   {images.length > 0 ? (
                     <Box
@@ -3262,10 +3452,9 @@ export default function Dashboard({ user, setUser }) {
                     and where they are logging in from.
                   </li>
                   <li>
-                    <strong>Affordable:</strong> Each hour costs{" "}
-                    {BOOST_PRICE_TOKENS} tokens (
-                    {formatKshFromTokens(BOOST_PRICE_TOKENS)}) —{" "}
-                    {describeExchangeRate()}.
+                    <strong>Subscription-Based:</strong> Boosts use your daily
+                    boost hours allowance included in your subscription plan. No
+                    tokens required.
                   </li>
                 </Box>
               </Alert>
@@ -3502,9 +3691,9 @@ export default function Dashboard({ user, setUser }) {
                 onChange={(event) => setBoostHours(event.target.value)}
                 inputProps={{
                   min: MIN_BOOST_HOURS,
-                  max: MAX_BOOST_HOURS,
+                  max: maxBoostHours,
                 }}
-                helperText={`Choose between ${MIN_BOOST_HOURS} and ${MAX_BOOST_HOURS} hours per boost.`}
+                helperText={`Choose between ${MIN_BOOST_HOURS} and ${maxBoostHours} hours per boost${boostHoursInfo?.maxDurationPerBoost ? ` (your ${subscription?.plan || "package"} plan allows up to ${maxBoostHours} hours per boost)` : ""}.`}
                 fullWidth
                 disabled={boosting}
               />
@@ -3594,6 +3783,46 @@ export default function Dashboard({ user, setUser }) {
                 )}
               </Box>
 
+              {boostHoursInfo && (
+                <Alert
+                  severity="info"
+                  sx={{
+                    borderRadius: "12px",
+                    bgcolor: "rgba(33, 150, 243, 0.08)",
+                    border: "1px solid rgba(33, 150, 243, 0.2)",
+                    color: "rgba(26, 26, 26, 0.8)",
+                    mb: 2,
+                  }}
+                >
+                  <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                    Your Boost Hours Package
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Plan:</strong> {subscription?.plan || "N/A"} ·{" "}
+                    <strong>Total Daily Hours:</strong>{" "}
+                    {boostHoursInfo.totalHoursPerDay || 0} hrs ·{" "}
+                    <strong>Used Today:</strong>{" "}
+                    {boostHoursInfo.usedHours?.toFixed(1) || 0} hrs ·{" "}
+                    <strong>Remaining:</strong>{" "}
+                    {boostHoursInfo.remainingHours?.toFixed(1) || 0} hrs
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      display: "block",
+                      mt: 0.5,
+                      color: "rgba(26, 26, 26, 0.65)",
+                    }}
+                  >
+                    Default boost duration:{" "}
+                    {boostHoursInfo.defaultDurationPerBoost || 1} hour
+                    {boostHoursInfo.defaultDurationPerBoost > 1 ? "s" : ""} per
+                    boost. You can extend existing boosts or create new ones
+                    using your daily allowance.
+                  </Typography>
+                </Alert>
+              )}
+
               <Alert
                 severity="success"
                 sx={{
@@ -3604,14 +3833,18 @@ export default function Dashboard({ user, setUser }) {
                 }}
               >
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  Cost preview
+                  Boost Preview
                 </Typography>
                 <Typography variant="body2">
-                  {totalBoostTokens.toLocaleString()} tokens (
-                  {formatKshFromTokens(totalBoostTokens)}) for{" "}
-                  {sanitizedBoostHours} hour
-                  {sanitizedBoostHours > 1 ? "s" : ""} covering roughly{" "}
-                  {sanitizedBoostRadiusKm.toFixed(1)} km.
+                  This boost will run for{" "}
+                  <strong>
+                    {sanitizedBoostHours} hour
+                    {sanitizedBoostHours > 1 ? "s" : ""}
+                  </strong>{" "}
+                  covering roughly {sanitizedBoostRadiusKm.toFixed(1)} km. This
+                  will use {sanitizedBoostHours} hour
+                  {sanitizedBoostHours > 1 ? "s" : ""} from your daily boost
+                  hours allowance.
                 </Typography>
               </Alert>
 
@@ -3639,19 +3872,6 @@ export default function Dashboard({ user, setUser }) {
                   </Typography>
                 </Alert>
               )}
-
-              <Alert
-                severity="warning"
-                sx={{
-                  borderRadius: "12px",
-                  bgcolor: "rgba(255, 193, 7, 0.12)",
-                }}
-              >
-                <Typography variant="body2">
-                  <strong>Current Balance:</strong>{" "}
-                  {user?.token_balance || "0.00"} tokens
-                </Typography>
-              </Alert>
             </Stack>
           </Box>
         </DialogContent>
@@ -3708,9 +3928,7 @@ export default function Dashboard({ user, setUser }) {
                 },
               }}
             >
-              {boosting
-                ? "Saving..."
-                : `Extend (+${sanitizedBoostHours}h / ${totalBoostTokens.toLocaleString()} tokens)`}
+              {boosting ? "Saving..." : `Extend (+${sanitizedBoostHours}h)`}
             </Button>
           )}
           <Button
@@ -3737,7 +3955,7 @@ export default function Dashboard({ user, setUser }) {
           >
             {boosting
               ? "Boosting..."
-              : `Boost New Area (${sanitizedBoostHours}h / ${totalBoostTokens.toLocaleString()} tokens)`}
+              : `Boost New Area (${sanitizedBoostHours}h)`}
           </Button>
         </DialogActions>
       </Dialog>

@@ -39,6 +39,7 @@ export default function UserLists({
   const [loadingFavorites, setLoadingFavorites] = useState(false);
   const [loadingUnlocked, setLoadingUnlocked] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState({});
+  const [subscription, setSubscription] = useState(null);
 
   const token = localStorage.getItem("token");
 
@@ -230,6 +231,191 @@ export default function UserLists({
     };
   }, [favorites, unlockedChats, activeTab]);
 
+  // Fetch subscription status
+  const fetchSubscription = React.useCallback(async () => {
+    if (!token) {
+      setSubscription(null);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/subscriptions/status", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (
+        data.success &&
+        data.data?.hasSubscription &&
+        data.data.subscription
+      ) {
+        setSubscription(data.data.subscription);
+      } else {
+        setSubscription(null);
+      }
+    } catch (error) {
+      console.error("Error fetching subscription:", error);
+      setSubscription(null);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    fetchSubscription();
+  }, [token, user, fetchSubscription]);
+
+  // Set up SSE for real-time subscription updates
+  useEffect(() => {
+    if (!token || !user?.id) return;
+
+    let sseEventSource = null;
+
+    try {
+      const isDev = import.meta.env.DEV;
+      const protocol = window.location.protocol;
+      const host = window.location.hostname;
+      const apiPort = isDev ? "4000" : window.location.port || "";
+      const sseUrl = isDev
+        ? `${protocol}//${host}:${apiPort}/api/sse/events?token=${encodeURIComponent(token)}`
+        : `${protocol}//${host}${apiPort ? `:${apiPort}` : ""}/api/sse/events?token=${encodeURIComponent(token)}`;
+
+      sseEventSource = new EventSource(sseUrl);
+
+      sseEventSource.addEventListener("subscription:created", (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log(
+            "📡 [UserLists] SSE: Subscription created event received",
+            data
+          );
+          if (data.subscription) {
+            setSubscription(data.subscription);
+          } else {
+            fetchSubscription();
+          }
+        } catch (err) {
+          console.error(
+            "❌ [UserLists] Error parsing SSE subscription:created event:",
+            err
+          );
+        }
+      });
+
+      sseEventSource.addEventListener("subscription:updated", (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log(
+            "📡 [UserLists] SSE: Subscription updated event received",
+            data
+          );
+          if (data.subscription) {
+            setSubscription(data.subscription);
+          } else {
+            fetchSubscription();
+          }
+        } catch (err) {
+          console.error(
+            "❌ [UserLists] Error parsing SSE subscription:updated event:",
+            err
+          );
+        }
+      });
+
+      sseEventSource.addEventListener("subscription:expired", (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log(
+            "📡 [UserLists] SSE: Subscription expired event received",
+            data
+          );
+          fetchSubscription();
+        } catch (err) {
+          console.error(
+            "❌ [UserLists] Error parsing SSE subscription:expired event:",
+            err
+          );
+        }
+      });
+
+      sseEventSource.onopen = () => {
+        console.log("✅ [UserLists] SSE connected for subscription updates");
+      };
+
+      sseEventSource.onerror = (error) => {
+        console.warn(
+          "⚠️ [UserLists] SSE error for subscription updates:",
+          error
+        );
+      };
+    } catch (err) {
+      console.warn(
+        "⚠️ [UserLists] SSE not available for subscription updates:",
+        err
+      );
+    }
+
+    return () => {
+      if (sseEventSource) {
+        sseEventSource.close();
+        sseEventSource = null;
+      }
+    };
+  }, [token, user?.id, fetchSubscription]);
+
+  // Check if user has active subscription
+  const hasActiveSubscription = subscription?.status === "active";
+
+  // Show subscription required dialog
+  const showSubscriptionRequiredDialog = () => {
+    Swal.fire({
+      icon: "info",
+      title: "Subscription Required",
+      html: `
+        <div style="text-align: left;">
+          <p style="margin-bottom: 16px; font-size: 1rem; color: #333;">
+            <strong>Explore</strong> requires an active subscription.
+          </p>
+          <div style="background: #f5f5f5; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+            <p style="margin: 0; font-size: 0.95rem; color: #666; line-height: 1.6;">
+              Explore lets you discover and connect with other members based on your preferences. Subscribe to unlock unlimited profile browsing and find your perfect match.
+            </p>
+          </div>
+          <p style="margin: 0; font-size: 0.9em; color: #333;">
+            Subscribe now to unlock all premium features and get the most out of TuVibe!
+          </p>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: "View Plans",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#D4AF37",
+      cancelButtonColor: "#666",
+      didOpen: () => {
+        const swal = document.querySelector(".swal2-popup");
+        if (swal) {
+          swal.style.borderRadius = "20px";
+          swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
+          swal.style.boxShadow = "0 20px 60px rgba(212, 175, 55, 0.25)";
+        }
+      },
+    }).then((result) => {
+      if (result.isConfirmed) {
+        navigate("/pricing");
+      }
+    });
+  };
+
+  // Handle navigation to explore with subscription check
+  const handleNavigateToExplore = () => {
+    if (!hasActiveSubscription) {
+      showSubscriptionRequiredDialog();
+      return;
+    }
+    navigate("/explore");
+  };
+
   // Fetch data when tab changes
   useEffect(() => {
     if (activeTab === "favorites") {
@@ -269,7 +455,7 @@ export default function UserLists({
             boxShadow: "0 8px 24px rgba(212, 175, 55, 0.3)",
           },
         }}
-        onClick={() => navigate(`/explore`)}
+        onClick={handleNavigateToExplore}
       >
         {images.length > 0 ? (
           <Box
@@ -531,7 +717,7 @@ export default function UserLists({
               </Typography>
               <Button
                 variant="contained"
-                onClick={() => navigate("/explore")}
+                onClick={handleNavigateToExplore}
                 sx={{
                   background: "linear-gradient(135deg, #D4AF37, #B8941F)",
                   color: "#1a1a1a",
@@ -611,7 +797,7 @@ export default function UserLists({
               </Typography>
               <Button
                 variant="contained"
-                onClick={() => navigate("/explore")}
+                onClick={handleNavigateToExplore}
                 sx={{
                   background: "linear-gradient(135deg, #D4AF37, #B8941F)",
                   color: "#1a1a1a",

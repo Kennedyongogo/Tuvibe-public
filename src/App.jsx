@@ -21,6 +21,7 @@ import PageRoutes from "./components/PageRoutes";
 const Home = lazy(() => import("./pages/Home"));
 const PostDetail = lazy(() => import("./pages/PostDetail"));
 const Pricing = lazy(() => import("./pages/Pricing"));
+const PublicPricing = lazy(() => import("./pages/PublicPricing"));
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -60,7 +61,9 @@ function App() {
             <Routes>
               {/* Public landing page */}
               <Route path="/" element={<Home />} />
-              {/* Pricing page - accessible without auth */}
+              {/* Public pricing page - for non-logged in users (Explore button) */}
+              <Route path="/explore-pricing" element={<PublicPricing />} />
+              {/* Pricing page - accessible without auth (for logged in users) */}
               <Route path="/pricing" element={<Pricing />} />
               {/* Post detail page - accessible without auth for sharing */}
               <Route

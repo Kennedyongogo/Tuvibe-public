@@ -40,7 +40,7 @@ import {
   Security,
   Explore,
 } from "@mui/icons-material";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Swal from "sweetalert2";
 import {
   evaluateBirthYearInput,
@@ -56,6 +56,7 @@ const SlideUpTransition = React.forwardRef(
 
 export default function HeroSection() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isVisible, setIsVisible] = useState(false);
   const [registerDialogOpen, setRegisterDialogOpen] = useState(false);
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
@@ -91,6 +92,19 @@ export default function HeroSection() {
   useEffect(() => {
     setIsVisible(true);
   }, []);
+
+  // Check for register query parameter and open registration dialog
+  useEffect(() => {
+    const registerParam = searchParams.get("register");
+    if (registerParam === "true") {
+      // Remove the query parameter from URL
+      setSearchParams({});
+      // Open registration dialog
+      setTermsChecked(false);
+      setTermsDialogOpen(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const handleLogin = () => {
     setResetDialogOpen(false);
@@ -145,7 +159,7 @@ export default function HeroSection() {
   };
 
   const handleExplore = () => {
-    navigate("/pricing");
+    navigate("/explore-pricing");
   };
 
   const handlePhotoChange = (e) => {
@@ -1612,10 +1626,10 @@ export default function HeroSection() {
                 1. Introduction
               </Typography>
               <Typography sx={{ color: "rgba(0,0,0,0.75)" }}>
-                Welcome to TuVibe (“the Platform”) accessible at
-                https://www.tuvibe.online. By creating an account, purchasing
-                tokens, or browsing our website, you confirm that you have read
-                and agree to these Terms & Conditions (“Terms”). These Terms
+                Welcome to TuVibe ("the Platform") accessible at
+                https://www.tuvibe.online. By creating an account, subscribing
+                to a plan, or browsing our website, you confirm that you have read
+                and agree to these Terms & Conditions ("Terms"). These Terms
                 clarify our role, outline user responsibilities, and ensure safe
                 and respectful interactions. If you do not agree, please
                 discontinue using the Platform immediately.
@@ -1674,53 +1688,51 @@ export default function HeroSection() {
 
             <Box>
               <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-                4. Tokens &amp; Payments
+                4. Subscriptions &amp; Payments
               </Typography>
               <Typography sx={{ color: "rgba(0,0,0,0.75)", mb: 1 }}>
-                TuVibe operates a digital-token model used to unlock features
-                such as viewing or contacting certain profiles.
+                TuVibe operates a subscription-based model with Silver and Gold
+                plans that provide access to features such as viewing profiles,
+                contacting members, and unlocking premium content.
               </Typography>
               <Typography
                 component="ul"
                 sx={{ pl: 3, color: "rgba(0,0,0,0.75)" }}
               >
                 <li>
-                  Tokens can be purchased using supported payment channels
-                  (e.g., M-PESA, debit/credit cards).
+                  Subscriptions can be purchased using supported payment channels
+                  (e.g., M-PESA, debit/credit cards via Paystack).
                 </li>
                 <li>
-                  Tokens are non-transferable, non-redeemable for cash, and
-                  non-refundable, except where required by law.
+                  Subscriptions are billed monthly and automatically renew unless
+                  cancelled. You may cancel your subscription at any time, and it
+                  will remain active until the end of the current billing period.
                 </li>
-                <li>Pricing and token values may be updated at any time.</li>
+                <li>
+                  Subscription fees are non-refundable except where required by law
+                  or at TuVibe's discretion.
+                </li>
+                <li>
+                  Pricing and subscription features may be updated at any time.
+                  Existing subscribers will be notified of significant changes.
+                </li>
+                <li>
+                  You may upgrade or downgrade your subscription plan at any time.
+                  Upgrades take effect immediately with prorated billing. Downgrades
+                  take effect at the end of your current billing period.
+                </li>
               </Typography>
               <Typography sx={{ color: "rgba(0,0,0,0.75)", mt: 1 }}>
-                Purchasing tokens does not create a financial or investment
-                relationship. Users should only buy tokens for use on the
-                Platform and are responsible for ensuring payments originate
-                from their own accounts.
+                Purchasing a subscription does not create a financial or investment
+                relationship. Users are responsible for ensuring payments originate
+                from their own accounts and for maintaining active subscriptions to
+                access premium features.
               </Typography>
             </Box>
 
             <Box>
               <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-                5. Premium Lounge
-              </Typography>
-              <Typography sx={{ color: "rgba(0,0,0,0.75)" }}>
-                TuVibe offers an optional Premium Lounge for enhanced visibility
-                and access to curated or verified categories of members. Premium
-                access is voluntary and fee-based, may change or expire at
-                TuVibe’s discretion, and does not guarantee any personal
-                outcome, match, or relationship. Membership fees are payable in
-                tokens or local currency as indicated. Failure to maintain
-                payment or misuse of the Platform may result in suspension of
-                Premium privileges.
-              </Typography>
-            </Box>
-
-            <Box>
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-                6. Communication via WhatsApp and External Platforms
+                5. Communication via WhatsApp and External Platforms
               </Typography>
               <Typography sx={{ color: "rgba(0,0,0,0.75)", mb: 1 }}>
                 a) WhatsApp as the Sole Messaging Channel
@@ -1783,7 +1795,7 @@ export default function HeroSection() {
 
             <Box>
               <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-                7. User Conduct
+                6. User Conduct
               </Typography>
               <Typography sx={{ color: "rgba(0,0,0,0.75)", mb: 1 }}>
                 By using TuVibe, you agree not to:
@@ -1814,7 +1826,7 @@ export default function HeroSection() {
 
             <Box>
               <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-                8. Verification &amp; Disclaimer
+                7. Verification &amp; Disclaimer
               </Typography>
               <Typography
                 component="ul"
@@ -1841,7 +1853,7 @@ export default function HeroSection() {
 
             <Box>
               <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-                9. Reporting, Moderation &amp; Safety
+                8. Reporting, Moderation &amp; Safety
               </Typography>
               <Typography sx={{ color: "rgba(0,0,0,0.75)" }}>
                 Users may report profiles that appear underage, suspicious, or
@@ -1854,7 +1866,7 @@ export default function HeroSection() {
 
             <Box>
               <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-                10. Intellectual Property
+                9. Intellectual Property
               </Typography>
               <Typography
                 component="ul"
@@ -1881,7 +1893,7 @@ export default function HeroSection() {
 
             <Box>
               <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-                11. Disclaimers
+                10. Disclaimers
               </Typography>
               <Typography
                 component="ul"
@@ -1908,7 +1920,7 @@ export default function HeroSection() {
 
             <Box>
               <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-                12. Limitation of Liability
+                11. Limitation of Liability
               </Typography>
               <Typography
                 component="ul"
@@ -1935,7 +1947,7 @@ export default function HeroSection() {
 
             <Box>
               <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-                13. Termination
+                12. Termination
               </Typography>
               <Typography
                 component="ul"
@@ -1950,15 +1962,17 @@ export default function HeroSection() {
                   these Terms or applicable law.
                 </li>
                 <li>
-                  Upon termination, unused tokens or premium access are
-                  forfeited and non-refundable.
+                  Upon termination, active subscriptions will be cancelled and
+                  access will end at the conclusion of the current billing period.
+                  No refunds will be issued for the remaining subscription period,
+                  except where required by law.
                 </li>
               </Typography>
             </Box>
 
             <Box>
               <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-                14. Modifications
+                13. Modifications
               </Typography>
               <Typography sx={{ color: "rgba(0,0,0,0.75)" }}>
                 TuVibe may revise these Terms from time to time. Updated Terms
@@ -1970,7 +1984,7 @@ export default function HeroSection() {
 
             <Box>
               <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-                15. Governing Law
+                14. Governing Law
               </Typography>
               <Typography sx={{ color: "rgba(0,0,0,0.75)" }}>
                 These Terms and all related matters are governed by the laws of

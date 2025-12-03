@@ -41,6 +41,7 @@ export default function Pricing() {
   const navigate = useNavigate();
   const [selectedTab, setSelectedTab] = useState(0);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userCategory, setUserCategory] = useState(null); // Track user's category
   const [testimonials, setTestimonials] = useState([]);
   const [loadingTestimonials, setLoadingTestimonials] = useState(true);
   const [subscribing, setSubscribing] = useState(false);
@@ -51,6 +52,17 @@ export default function Pricing() {
   const handleTabChange = (event, newValue) => {
     setSelectedTab(newValue);
   };
+
+  // Get effective category index: use user's category if logged in, otherwise use selectedTab
+  const getEffectiveCategoryIndex = () => {
+    if (isLoggedIn && userCategory) {
+      const categoryIndex = categories.findIndex((cat) => cat === userCategory);
+      return categoryIndex !== -1 ? categoryIndex : 0;
+    }
+    return selectedTab;
+  };
+
+  const effectiveCategoryIndex = getEffectiveCategoryIndex();
 
   const handleGoBack = () => {
     const token = localStorage.getItem("token");
@@ -67,8 +79,8 @@ export default function Pricing() {
 
     const currentPlanPrice = currentSubscription.amount;
     const amounts = {
-      Silver: selectedTab === 0 ? 149 : 199,
-      Gold: selectedTab === 0 ? 249 : 349,
+      Silver: effectiveCategoryIndex === 0 ? 149 : 199,
+      Gold: effectiveCategoryIndex === 0 ? 249 : 349,
     };
     const newPlanPrice = amounts[newPlan];
 
@@ -123,8 +135,8 @@ export default function Pricing() {
 
     // Get plan prices for calculation display
     const amounts = {
-      Silver: selectedTab === 0 ? 149 : 199,
-      Gold: selectedTab === 0 ? 249 : 349,
+      Silver: effectiveCategoryIndex === 0 ? 149 : 199,
+      Gold: effectiveCategoryIndex === 0 ? 249 : 349,
     };
     const currentPlanPrice = amounts[currentSubscription.plan];
     const newPlanPrice = amounts[plan];
@@ -583,8 +595,8 @@ export default function Pricing() {
 
     // Determine amount based on plan and category
     const amounts = {
-      Silver: selectedTab === 0 ? 149 : 199,
-      Gold: selectedTab === 0 ? 249 : 349,
+      Silver: effectiveCategoryIndex === 0 ? 149 : 199,
+      Gold: effectiveCategoryIndex === 0 ? 249 : 349,
     };
     const amount = amounts[plan];
 
@@ -751,29 +763,41 @@ export default function Pricing() {
   };
 
   useEffect(() => {
+    // Only set isLoggedIn if BOTH token and user exist in localStorage
+    // This prevents auto-login with stale tokens
     const token = localStorage.getItem("token");
-    setIsLoggedIn(Boolean(token));
+    const savedUser = localStorage.getItem("user");
 
-    // Auto-select tab based on user's category for better UX
-    if (token) {
+    // Only consider user logged in if both token and user data exist
+    // This prevents issues with stale tokens from previous sessions
+    const hasValidAuth = Boolean(token && savedUser);
+    setIsLoggedIn(hasValidAuth);
+
+    // Auto-select tab and set user category based on user's category for better UX
+    if (hasValidAuth) {
       try {
-        const savedUser = localStorage.getItem("user");
-        if (savedUser) {
-          const user = JSON.parse(savedUser);
-          if (user && user.category) {
-            // Find the index of the user's category in the categories array
-            const categoryIndex = categories.findIndex(
-              (cat) => cat === user.category
-            );
-            // If category found, set the tab to that index
-            if (categoryIndex !== -1) {
-              setSelectedTab(categoryIndex);
-            }
+        const user = JSON.parse(savedUser);
+        if (user && user.category) {
+          // Store user's category
+          setUserCategory(user.category);
+
+          // Find the index of the user's category in the categories array
+          const categoryIndex = categories.findIndex(
+            (cat) => cat === user.category
+          );
+          // If category found, set the tab to that index
+          if (categoryIndex !== -1) {
+            setSelectedTab(categoryIndex);
           }
         }
       } catch (error) {
         console.error("Error parsing user from localStorage:", error);
+        // If parsing fails, clear invalid auth state
+        setIsLoggedIn(false);
+        setUserCategory(null);
       }
+    } else {
+      setUserCategory(null);
     }
   }, []);
 
@@ -825,6 +849,96 @@ export default function Pricing() {
 
   useEffect(() => {
     fetchSubscriptionStatus();
+  }, [isLoggedIn, fetchSubscriptionStatus]);
+
+  // Set up SSE for real-time subscription updates
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    let sseEventSource = null;
+
+    try {
+      const isDev = import.meta.env.DEV;
+      const protocol = window.location.protocol;
+      const host = window.location.hostname;
+      const apiPort = isDev ? "4000" : window.location.port || "";
+      const sseUrl = isDev
+        ? `${protocol}//${host}:${apiPort}/api/sse/events?token=${encodeURIComponent(token)}`
+        : `${protocol}//${host}${apiPort ? `:${apiPort}` : ""}/api/sse/events?token=${encodeURIComponent(token)}`;
+
+      sseEventSource = new EventSource(sseUrl);
+
+      sseEventSource.addEventListener("subscription:created", (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log(
+            "📡 [Pricing] SSE: Subscription created event received",
+            data
+          );
+          fetchSubscriptionStatus();
+        } catch (err) {
+          console.error(
+            "❌ [Pricing] Error parsing SSE subscription:created event:",
+            err
+          );
+        }
+      });
+
+      sseEventSource.addEventListener("subscription:updated", (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log(
+            "📡 [Pricing] SSE: Subscription updated event received",
+            data
+          );
+          fetchSubscriptionStatus();
+        } catch (err) {
+          console.error(
+            "❌ [Pricing] Error parsing SSE subscription:updated event:",
+            err
+          );
+        }
+      });
+
+      sseEventSource.addEventListener("subscription:expired", (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log(
+            "📡 [Pricing] SSE: Subscription expired event received",
+            data
+          );
+          fetchSubscriptionStatus();
+        } catch (err) {
+          console.error(
+            "❌ [Pricing] Error parsing SSE subscription:expired event:",
+            err
+          );
+        }
+      });
+
+      sseEventSource.onopen = () => {
+        console.log("✅ [Pricing] SSE connected for subscription updates");
+      };
+
+      sseEventSource.onerror = (error) => {
+        console.warn("⚠️ [Pricing] SSE error for subscription updates:", error);
+      };
+    } catch (err) {
+      console.warn(
+        "⚠️ [Pricing] SSE not available for subscription updates:",
+        err
+      );
+    }
+
+    return () => {
+      if (sseEventSource) {
+        sseEventSource.close();
+        sseEventSource = null;
+      }
+    };
   }, [isLoggedIn, fetchSubscriptionStatus]);
 
   // Fetch testimonials from API
@@ -1103,95 +1217,123 @@ export default function Pricing() {
         }}
       >
         <CardContent sx={{ p: { xs: 2.5, sm: 3 } }}>
-          {/* Mobile: Dropdown Select */}
-          <Box
-            sx={{
-              display: { xs: "block", sm: "none" },
-              mb: 3,
-            }}
-          >
-            <FormControl fullWidth>
-              <InputLabel
+          {/* Show user's category badge when logged in */}
+          {isLoggedIn && userCategory && (
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "center",
+                mb: 3,
+              }}
+            >
+              <Chip
+                label={`${userCategory} Category Pricing`}
                 sx={{
-                  "&.Mui-focused": {
-                    color: "#D4AF37",
-                  },
+                  bgcolor: "rgba(212, 175, 55, 0.15)",
+                  color: "#B8941F",
+                  fontWeight: 700,
+                  fontSize: "0.9375rem",
+                  px: 2,
+                  py: 1,
+                  border: "1px solid rgba(212, 175, 55, 0.3)",
                 }}
-              >
-                Select Plan
-              </InputLabel>
-              <Select
+              />
+            </Box>
+          )}
+
+          {/* Mobile: Dropdown Select - Only show when NOT logged in */}
+          {!isLoggedIn && (
+            <Box
+              sx={{
+                display: { xs: "block", sm: "none" },
+                mb: 3,
+              }}
+            >
+              <FormControl fullWidth>
+                <InputLabel
+                  sx={{
+                    "&.Mui-focused": {
+                      color: "#D4AF37",
+                    },
+                  }}
+                >
+                  Select Plan
+                </InputLabel>
+                <Select
+                  value={selectedTab}
+                  onChange={(e) => setSelectedTab(e.target.value)}
+                  label="Select Plan"
+                  sx={{
+                    borderRadius: "12px",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "rgba(212, 175, 55, 0.3)",
+                    },
+                    "&:hover .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "rgba(212, 175, 55, 0.5)",
+                    },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#D4AF37",
+                      borderWidth: "2px",
+                    },
+                    "& .MuiSelect-select": {
+                      py: 1.5,
+                    },
+                  }}
+                >
+                  {categories.map((category, index) => (
+                    <MenuItem key={index} value={index}>
+                      {category}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+          )}
+
+          {/* Desktop: Tabs - Only show when NOT logged in */}
+          {!isLoggedIn && (
+            <Box
+              sx={{
+                display: { xs: "none", sm: "block" },
+                borderBottom: 1,
+                borderColor: "divider",
+                mb: 3,
+              }}
+            >
+              <Tabs
                 value={selectedTab}
-                onChange={(e) => setSelectedTab(e.target.value)}
-                label="Select Plan"
+                onChange={handleTabChange}
+                variant="fullWidth"
                 sx={{
-                  borderRadius: "12px",
-                  "& .MuiOutlinedInput-notchedOutline": {
-                    borderColor: "rgba(212, 175, 55, 0.3)",
+                  "& .MuiTabs-indicator": {
+                    backgroundColor: "#D4AF37",
+                    height: 3,
+                    borderRadius: "3px 3px 0 0",
                   },
-                  "&:hover .MuiOutlinedInput-notchedOutline": {
-                    borderColor: "rgba(212, 175, 55, 0.5)",
-                  },
-                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                    borderColor: "#D4AF37",
-                    borderWidth: "2px",
-                  },
-                  "& .MuiSelect-select": {
-                    py: 1.5,
+                  "& .MuiTab-root": {
+                    textTransform: "none",
+                    fontWeight: 600,
+                    fontSize: { sm: "0.9375rem", md: "1rem" },
+                    color: "rgba(0, 0, 0, 0.6)",
+                    minHeight: 56,
+                    px: { sm: 2, md: 3 },
+                    "&:hover": {
+                      color: "#D4AF37",
+                      backgroundColor: "rgba(212, 175, 55, 0.08)",
+                    },
+                    "&.Mui-selected": {
+                      color: "#D4AF37",
+                      fontWeight: 700,
+                    },
                   },
                 }}
               >
                 {categories.map((category, index) => (
-                  <MenuItem key={index} value={index}>
-                    {category}
-                  </MenuItem>
+                  <Tab key={index} label={category} />
                 ))}
-              </Select>
-            </FormControl>
-          </Box>
-
-          {/* Desktop: Tabs */}
-          <Box
-            sx={{
-              display: { xs: "none", sm: "block" },
-              borderBottom: 1,
-              borderColor: "divider",
-              mb: 3,
-            }}
-          >
-            <Tabs
-              value={selectedTab}
-              onChange={handleTabChange}
-              variant="fullWidth"
-              sx={{
-                "& .MuiTabs-indicator": {
-                  backgroundColor: "#D4AF37",
-                  height: 3,
-                  borderRadius: "3px 3px 0 0",
-                },
-                "& .MuiTab-root": {
-                  textTransform: "none",
-                  fontWeight: 600,
-                  fontSize: { sm: "0.9375rem", md: "1rem" },
-                  color: "rgba(0, 0, 0, 0.6)",
-                  minHeight: 56,
-                  px: { sm: 2, md: 3 },
-                  "&:hover": {
-                    color: "#D4AF37",
-                    backgroundColor: "rgba(212, 175, 55, 0.08)",
-                  },
-                  "&.Mui-selected": {
-                    color: "#D4AF37",
-                    fontWeight: 700,
-                  },
-                },
-              }}
-            >
-              {categories.map((category, index) => (
-                <Tab key={index} label={category} />
-              ))}
-            </Tabs>
-          </Box>
+              </Tabs>
+            </Box>
+          )}
 
           {/* Package Cards */}
           <Box
@@ -1275,7 +1417,7 @@ export default function Pricing() {
                         mb: 0.5,
                       }}
                     >
-                      {selectedTab === 0 ? "KES 149" : "KES 199"}
+                      {effectiveCategoryIndex === 0 ? "KES 149" : "KES 199"}
                     </Typography>
                     <Typography
                       variant="body2"
@@ -1308,7 +1450,7 @@ export default function Pricing() {
                         gap: 1.5,
                       }}
                     >
-                      {selectedTab === 0 ? (
+                      {effectiveCategoryIndex === 0 ? (
                         <>
                           <Box
                             sx={{
@@ -1818,7 +1960,7 @@ export default function Pricing() {
                         mb: 0.5,
                       }}
                     >
-                      {selectedTab === 0 ? "KES 249" : "KES 349"}
+                      {effectiveCategoryIndex === 0 ? "KES 249" : "KES 349"}
                     </Typography>
                     <Typography
                       variant="body2"
@@ -1851,7 +1993,7 @@ export default function Pricing() {
                         gap: 1.5,
                       }}
                     >
-                      {selectedTab === 0 ? (
+                      {effectiveCategoryIndex === 0 ? (
                         <>
                           <Box
                             sx={{
@@ -2579,28 +2721,52 @@ export default function Pricing() {
                               </Typography>
                             </Box>
                           </Box>
-                          <Paper
-                            elevation={0}
-                            sx={{
-                              borderRadius: "12px",
-                              backgroundColor: "rgba(212, 175, 55, 0.05)",
-                              border: "1px solid rgba(212, 175, 55, 0.2)",
-                              p: { xs: 2, sm: 2.5 },
-                            }}
-                          >
-                            <Typography
-                              variant="body1"
+                          {testimonial.testimonial ? (
+                            <Paper
+                              elevation={0}
                               sx={{
-                                color: "rgba(0, 0, 0, 0.75)",
-                                fontSize: { xs: "0.9375rem", sm: "1rem" },
-                                lineHeight: 1.7,
-                                fontStyle: "italic",
-                                whiteSpace: "pre-wrap",
+                                borderRadius: "12px",
+                                backgroundColor: "rgba(212, 175, 55, 0.05)",
+                                border: "1px solid rgba(212, 175, 55, 0.2)",
+                                p: { xs: 2, sm: 2.5 },
                               }}
                             >
-                              "{testimonial.testimonial}"
-                            </Typography>
-                          </Paper>
+                              <Typography
+                                variant="body1"
+                                sx={{
+                                  color: "rgba(0, 0, 0, 0.75)",
+                                  fontSize: { xs: "0.9375rem", sm: "1rem" },
+                                  lineHeight: 1.7,
+                                  fontStyle: "italic",
+                                  whiteSpace: "pre-wrap",
+                                }}
+                              >
+                                "{testimonial.testimonial}"
+                              </Typography>
+                            </Paper>
+                          ) : (
+                            <Paper
+                              elevation={0}
+                              sx={{
+                                borderRadius: "12px",
+                                backgroundColor: "rgba(212, 175, 55, 0.05)",
+                                border: "1px solid rgba(212, 175, 55, 0.2)",
+                                p: { xs: 2, sm: 2.5 },
+                                textAlign: "center",
+                              }}
+                            >
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "rgba(0, 0, 0, 0.5)",
+                                  fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                                  fontStyle: "italic",
+                                }}
+                              >
+                                Rating only - no testimonial provided
+                              </Typography>
+                            </Paper>
+                          )}
                         </Box>
                       </React.Fragment>
                     );
