@@ -60,6 +60,7 @@ import {
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
 import { getDisplayInitial, getDisplayName } from "../utils/userDisplay";
+import { fetchWithTimeout } from "../utils/fetchWithTimeout";
 
 // Photo card component with image loading state
 const GalleryPhotoCard = ({
@@ -563,32 +564,45 @@ export default function Profile({ user, setUser }) {
   }, [user?.latitude, user?.longitude]);
 
   // Fetch fresh user data on mount to ensure badgeType is included
+  // Use ref to prevent unnecessary re-fetches
+  const userDataFetchedRef = useRef(false);
   useEffect(() => {
     const fetchUserData = async () => {
       const token = localStorage.getItem("token");
-      if (!token || !user) return;
+      if (!token || !user || userDataFetchedRef.current) return;
 
       try {
-        const response = await fetch("/api/public/me", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
+        const response = await fetchWithTimeout(
+          "/api/public/me",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
           },
-        });
+          8000
+        );
 
         if (response.ok) {
           const data = await response.json();
           if (data.success && data.data) {
-            // Update user state with fresh data including badgeType
-            if (setUser) {
-              setUser(data.data);
+            // Only update if data actually changed to prevent refresh loops
+            const currentUserStr = JSON.stringify(user);
+            const newUserStr = JSON.stringify(data.data);
+            if (currentUserStr !== newUserStr) {
+              // Update user state with fresh data including badgeType
+              if (setUser) {
+                setUser(data.data);
+              }
+              // Also update localStorage
+              localStorage.setItem("user", JSON.stringify(data.data));
             }
-            // Also update localStorage
-            localStorage.setItem("user", JSON.stringify(data.data));
+            userDataFetchedRef.current = true;
           }
         }
       } catch (error) {
         console.error("Failed to fetch user data:", error);
+        userDataFetchedRef.current = true; // Mark as fetched even on error to prevent retries
       }
     };
 
@@ -656,12 +670,16 @@ export default function Profile({ user, setUser }) {
       if (!token) return;
 
       try {
-        const response = await fetch("/api/verification/my-status", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
+        const response = await fetchWithTimeout(
+          "/api/verification/my-status",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
           },
-        });
+          8000
+        );
 
         // If endpoint doesn't exist (404), silently fail
         if (response.status === 404) {
@@ -702,12 +720,17 @@ export default function Profile({ user, setUser }) {
     const token = localStorage.getItem("token");
 
     try {
-      const response = await fetch("/api/verification/request", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
+      const response = await fetchWithTimeout(
+        "/api/verification/request",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         },
+        8000
+      );
       });
 
       const data = await response.json();
@@ -780,12 +803,18 @@ export default function Profile({ user, setUser }) {
         }
 
         try {
-          const response = await fetch("/api/public/me", {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-              Authorization: `Bearer ${token}`,
+          const response = await fetchWithTimeout(
+            "/api/public/me",
+            {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+            },
+            8000
+          );
             },
             body: JSON.stringify({
               latitude: numericLat,
@@ -1119,14 +1148,18 @@ export default function Profile({ user, setUser }) {
       const formData = new FormData();
       formData.append("profile_image", file);
 
-      const response = await fetch("/api/public/me", {
-        method: "PUT",
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${token}`,
+      const response = await fetchWithTimeout(
+        "/api/public/me",
+        {
+          method: "PUT",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
         },
-        body: formData,
-      });
+        15000
+      );
 
       const data = await response.json();
 
@@ -1228,17 +1261,21 @@ export default function Profile({ user, setUser }) {
     setSelectingProfilePhoto(true);
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch("/api/public/me", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: `Bearer ${token}`,
+      const response = await fetchWithTimeout(
+        "/api/public/me",
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            photo_path: photoPath,
+          }),
         },
-        body: JSON.stringify({
-          photo_path: photoPath,
-        }),
-      });
+        8000
+      );
 
       const data = await response.json();
 
@@ -1433,13 +1470,17 @@ export default function Profile({ user, setUser }) {
             form.append("profile_images", file);
           });
 
-          const response = await fetch("/api/public/me/photos", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${token}`,
+          const response = await fetchWithTimeout(
+            "/api/public/me/photos",
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+              body: form,
             },
-            body: form,
-          });
+            30000
+          );
 
           const data = await response.json();
           if (!response.ok || !data?.success) {
@@ -1456,9 +1497,13 @@ export default function Profile({ user, setUser }) {
           } else {
             // Fallback: refresh profile
             try {
-              const meRes = await fetch("/api/public/me", {
-                headers: { Authorization: `Bearer ${token}` },
-              });
+              const meRes = await fetchWithTimeout(
+                "/api/public/me",
+                {
+                  headers: { Authorization: `Bearer ${token}` },
+                },
+                8000
+              );
               const meData = await meRes.json();
               if (meData?.success && meData?.data) {
                 setUser(meData.data);
@@ -1503,13 +1548,17 @@ export default function Profile({ user, setUser }) {
       try {
         setLoadingPosts(true); // Reuse loading state
 
-        const response = await fetch(`/api/public/me/photos/${index}`, {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
+        const response = await fetchWithTimeout(
+          `/api/public/me/photos/${index}`,
+          {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
           },
-        });
+          8000
+        );
 
         const data = await response.json();
 
@@ -1519,9 +1568,13 @@ export default function Profile({ user, setUser }) {
 
           if (!updatedUserData) {
             // Fallback: Refresh user data if not included in response
-            const userResponse = await fetch("/api/public/me", {
-              headers: { Authorization: `Bearer ${token}` },
-            });
+            const userResponse = await fetchWithTimeout(
+              "/api/public/me",
+              {
+                headers: { Authorization: `Bearer ${token}` },
+              },
+              8000
+            );
 
             const userData = await userResponse.json();
 
@@ -1653,15 +1706,19 @@ export default function Profile({ user, setUser }) {
           }
         });
 
-        response = await fetch("/api/public/me", {
-          method: "PUT",
-          headers: {
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-            // Don't set Content-Type - browser will set it with boundary
+        response = await fetchWithTimeout(
+          "/api/public/me",
+          {
+            method: "PUT",
+            headers: {
+              Accept: "application/json",
+              Authorization: `Bearer ${token}`,
+              // Don't set Content-Type - browser will set it with boundary
+            },
+            body: formDataToSend,
           },
-          body: formDataToSend,
-        });
+          30000
+        );
       } else {
         // Prepare update data (only include allowed fields from backend)
         const fieldConfigs = [
@@ -1718,15 +1775,19 @@ export default function Profile({ user, setUser }) {
           }
         });
 
-        response = await fetch("/api/public/me", {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
+        response = await fetchWithTimeout(
+          "/api/public/me",
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(updateData),
           },
-          body: JSON.stringify(updateData),
-        });
+          8000
+        );
       }
 
       const data = await response.json();
@@ -2065,14 +2126,18 @@ export default function Profile({ user, setUser }) {
     const token = localStorage.getItem("token");
 
     try {
-      const response = await fetch("/api/public/me", {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
+      const response = await fetchWithTimeout(
+        "/api/public/me",
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ password }),
         },
-        body: JSON.stringify({ password }),
-      });
+        8000
+      );
 
       const data = await response.json();
 
@@ -2182,23 +2247,36 @@ export default function Profile({ user, setUser }) {
     if (!token) return;
 
     try {
-      const response = await fetch("/api/notifications/stats", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
+      const response = await fetchWithTimeout(
+        "/api/notifications/stats",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         },
-      });
+        8000
+      );
 
       const data = await response.json();
       if (data.success && data.data) {
         setUnreadNotificationCount(data.data.unread || 0);
       }
     } catch (error) {
-      // Error fetching notification count
+      // Error fetching notification count - silent fail for polling
     }
   }, []);
 
+  // Use ref to track if boost status has been fetched to prevent refresh loops
+  const boostStatusFetchedRef = useRef(false);
+  const lastUserIdRef = useRef(user?.id);
+
   useEffect(() => {
+    // Only fetch if user ID actually changed, not on every render
+    if (lastUserIdRef.current === user?.id && boostStatusFetchedRef.current) {
+      return;
+    }
+
     const fetchBoostStatus = async () => {
       const token = localStorage.getItem("token");
       if (!token) {
@@ -2208,29 +2286,60 @@ export default function Profile({ user, setUser }) {
 
       setLoadingBoostStatus(true);
       try {
-        const response = await fetch("/api/public/boosts/status", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        const data = await response.json();
-        if (response.ok && data.success) {
-          setBoostStatus(data.data || { status: "inactive", boost: null });
+        // Parallelize boost status and notification count for faster loading
+        const [boostResponse, notificationResponse] = await Promise.all([
+          fetchWithTimeout(
+            "/api/public/boosts/status",
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            },
+            8000
+          ),
+          fetchWithTimeout(
+            "/api/notifications/stats",
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            },
+            8000
+          ).catch(() => null), // Don't fail if notifications fail
+        ]);
+
+        // Process boost status
+        if (boostResponse.ok) {
+          const boostData = await boostResponse.json();
+          if (boostData.success) {
+            setBoostStatus(boostData.data || { status: "inactive", boost: null });
+          } else {
+            setBoostStatus({ status: "inactive", boost: null });
+          }
         } else {
           setBoostStatus({ status: "inactive", boost: null });
         }
+
+        // Process notification count
+        if (notificationResponse && notificationResponse.ok) {
+          const notificationData = await notificationResponse.json();
+          if (notificationData.success && notificationData.data) {
+            setUnreadNotificationCount(notificationData.data.unread || 0);
+          }
+        }
       } catch (error) {
+        console.error("[Profile] Error fetching boost/notification status:", error);
         setBoostStatus({ status: "inactive", boost: null });
       } finally {
         setLoadingBoostStatus(false);
+        boostStatusFetchedRef.current = true;
+        lastUserIdRef.current = user?.id;
       }
     };
 
     fetchBoostStatus();
-    if (localStorage.getItem("token")) {
-      fetchUnreadNotificationCount();
-    }
-  }, [user?.id, fetchUnreadNotificationCount]);
+  }, [user?.id]);
 
   // Poll for unread notification count every 30 seconds
   useEffect(() => {
