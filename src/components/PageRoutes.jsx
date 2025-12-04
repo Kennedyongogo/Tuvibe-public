@@ -14,6 +14,7 @@ import {
 } from "react-router-dom";
 import { Box, CircularProgress } from "@mui/material";
 import Swal from "sweetalert2";
+import { fetchWithTimeout } from "../utils/fetchWithTimeout";
 
 import Navbar from "./Navbar";
 import TuVibe from "../components/TuVibe";
@@ -108,13 +109,17 @@ function PageRoutes() {
         if (shouldGate) {
           setSuspensionReady(false);
         }
-        const response = await fetch("/api/suspensions/me/status", {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
+        const response = await fetchWithTimeout(
+          "/api/suspensions/me/status",
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
           },
-        });
+          8000
+        );
 
         const payload = await response.json();
         if (!response.ok) {
@@ -171,13 +176,17 @@ function PageRoutes() {
     const token = localStorage.getItem("token");
     if (token) {
       try {
-        await fetch("/api/public/logout", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
+        await fetchWithTimeout(
+          "/api/public/logout",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
           },
-        });
+          5000
+        );
       } catch (error) {
         console.error("Logout API call failed:", error);
       }
@@ -387,10 +396,15 @@ function PageRoutes() {
         initialSuspensionCheckRef.current = true;
         prevUserIdRef.current = user.id;
       }
-      // Fetch suspension status in background - don't block UI
-      // Only block if we detect a suspension (shouldGate = false)
-      fetchSuspensionStatus(false);
-      checkRatingPrompt();
+      // Parallelize suspension status and rating prompt checks for faster loading
+      Promise.all([fetchSuspensionStatus(false), checkRatingPrompt()]).catch(
+        (error) => {
+          console.error(
+            "[PageRoutes] Error in parallel user data fetch:",
+            error
+          );
+        }
+      );
     } else {
       setSuspension(null);
       setAppealOpen(false);
@@ -434,42 +448,71 @@ function PageRoutes() {
     };
   }, [navigate]);
 
-  // Initial fetch on mount/login - SSE will handle subsequent updates
+  // Initial fetch on mount/login - optimized to parallelize with suspension check
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token || !user) return;
 
-    // Only fetch once on initial load - SSE will handle real-time updates
-    const fetchInitialStatus = async () => {
-      try {
-        const response = await fetch("/api/public/me", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && data.data) {
-            const updatedUser = { ...data.data };
-            localStorage.setItem("user", JSON.stringify(updatedUser));
-            setUser(updatedUser);
-            // Suspension check already happens in useEffect when user changes
-            // No need to call it again here
-          }
-        }
-      } catch (error) {
-        console.error("Failed to fetch initial user status:", error);
-      }
-    };
-
     // Only fetch if this is the first time or user changed
     if (prevUserIdRef.current !== user.id) {
+      // Parallelize user data fetch with suspension check for faster initial load
+      const fetchInitialStatus = async () => {
+        try {
+          const [userResponse, suspensionResponse] = await Promise.all([
+            fetchWithTimeout(
+              "/api/public/me",
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  "Content-Type": "application/json",
+                },
+              },
+              8000
+            ),
+            fetchWithTimeout(
+              "/api/suspensions/me/status",
+              {
+                method: "GET",
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  "Content-Type": "application/json",
+                },
+              },
+              8000
+            ),
+          ]);
+
+          // Process user data
+          if (userResponse.ok) {
+            const userData = await userResponse.json();
+            if (userData.success && userData.data) {
+              const updatedUser = { ...userData.data };
+              localStorage.setItem("user", JSON.stringify(updatedUser));
+              setUser(updatedUser);
+            }
+          }
+
+          // Process suspension data
+          if (suspensionResponse.ok) {
+            const suspensionData = await suspensionResponse.json();
+            if (suspensionData.data !== undefined) {
+              setSuspension(suspensionData.data || null);
+              if (!suspensionData.data) {
+                setAppealOpen(false);
+              }
+            }
+            setSuspensionReady(true);
+            initialSuspensionCheckRef.current = false;
+          }
+        } catch (error) {
+          console.error("Failed to fetch initial user status:", error);
+        }
+      };
+
       fetchInitialStatus();
     }
     // Removed polling interval - SSE handles real-time updates
-  }, [user?.id, fetchSuspensionStatus]);
+  }, [user?.id]);
 
   // SSE handles filtering on the server side based on the authenticated user
   // No need for explicit room joining (unlike WebSockets)

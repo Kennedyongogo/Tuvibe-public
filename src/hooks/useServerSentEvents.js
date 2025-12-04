@@ -59,7 +59,30 @@ const useServerSentEvents = ({
 
       eventSourceRef.current = eventSource;
 
+      // Add connection timeout to prevent hanging connections (15 seconds)
+      let connectionTimeout = null;
+      connectionTimeout = setTimeout(() => {
+        if (eventSource.readyState === EventSource.CONNECTING) {
+          console.warn("[SSE] Connection timeout after 15s - closing connection");
+          eventSource.close();
+          setIsConnected(false);
+          // Stop reconnection attempts if connection times out
+          reconnectAttemptsRef.current = maxReconnectAttempts + 1;
+        }
+      }, 15000);
+
+      // Store timeout reference on eventSource for cleanup
+      eventSource._connectionTimeout = connectionTimeout;
+
       eventSource.onopen = () => {
+        // Clear connection timeout on successful connection
+        if (connectionTimeout) {
+          clearTimeout(connectionTimeout);
+          connectionTimeout = null;
+          if (eventSource._connectionTimeout) {
+            eventSource._connectionTimeout = null;
+          }
+        }
         console.log("[SSE] Connected successfully");
         // Reset error flags on successful connection
         if (eventSourceRef.current) {
@@ -86,6 +109,11 @@ const useServerSentEvents = ({
         }
 
         if (readyState === EventSource.CLOSED) {
+          // Clear connection timeout if connection closed
+          if (eventSource._connectionTimeout) {
+            clearTimeout(eventSource._connectionTimeout);
+            eventSource._connectionTimeout = null;
+          }
           // Connection was closed (either failed to connect or lost connection)
           setIsConnected(false);
 
@@ -196,6 +224,11 @@ const useServerSentEvents = ({
         reconnectTimeoutRef.current = null;
       }
       if (eventSourceRef.current) {
+        // Clear connection timeout if still pending
+        if (eventSourceRef.current._connectionTimeout) {
+          clearTimeout(eventSourceRef.current._connectionTimeout);
+          eventSourceRef.current._connectionTimeout = null;
+        }
         eventSourceRef.current.close();
         eventSourceRef.current = null;
       }

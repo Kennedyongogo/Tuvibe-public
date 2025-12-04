@@ -64,6 +64,7 @@ import {
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
+import { fetchWithTimeout } from "../utils/fetchWithTimeout";
 import UserLists from "../components/UserLists/UserLists";
 import { KENYA_COUNTIES, normalizeCountyName } from "../data/kenyaCounties";
 import GeoTargetPicker from "../components/Boost/GeoTargetPicker";
@@ -429,12 +430,16 @@ export default function Dashboard({ user, setUser }) {
     if (!token) return;
 
     try {
-      const response = await fetch("/api/notifications/stats", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
+      const response = await fetchWithTimeout(
+        "/api/notifications/stats",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         },
-      });
+        8000
+      );
 
       const data = await response.json();
       if (data.success && data.data) {
@@ -454,11 +459,15 @@ export default function Dashboard({ user, setUser }) {
     }
 
     try {
-      const response = await fetch("/api/subscriptions/status", {
-        headers: {
-          Authorization: `Bearer ${token}`,
+      const response = await fetchWithTimeout(
+        "/api/subscriptions/status",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         },
-      });
+        8000
+      );
 
       const data = await response.json();
 
@@ -640,12 +649,16 @@ export default function Dashboard({ user, setUser }) {
       return;
     }
     try {
-      const response = await fetch("/api/premium/stats/overview", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
+      const response = await fetchWithTimeout(
+        "/api/premium/stats/overview",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         },
-      });
+        10000
+      );
       const data = await response.json();
       if (!response.ok || !data.success) {
         setStatsError(
@@ -716,12 +729,16 @@ export default function Dashboard({ user, setUser }) {
     try {
       // Check subscription by attempting to get premium stats
       // This will return 403 if no subscription, 200 if subscription exists
-      const response = await fetch("/api/premium/stats/overview", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
+      const response = await fetchWithTimeout(
+        "/api/premium/stats/overview",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         },
-      });
+        10000
+      );
 
       const data = await response.json();
 
@@ -791,11 +808,15 @@ export default function Dashboard({ user, setUser }) {
 
     setLoadingBoostStatus(true);
     try {
-      const response = await fetch("/api/public/boosts/status", {
-        headers: {
-          Authorization: `Bearer ${token}`,
+      const response = await fetchWithTimeout(
+        "/api/public/boosts/status",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         },
-      });
+        8000
+      );
       const data = await response.json();
 
       if (response.ok && data.success) {
@@ -962,7 +983,7 @@ export default function Dashboard({ user, setUser }) {
   const fetchFeaturedItems = useCallback(async () => {
     try {
       setLoadingFeatured(true);
-      const response = await fetch("/api/market");
+      const response = await fetchWithTimeout("/api/market", {}, 8000);
       const data = await response.json();
 
       if (data.success) {
@@ -990,9 +1011,13 @@ export default function Dashboard({ user, setUser }) {
         headers.Authorization = `Bearer ${token}`;
       }
 
-      const response = await fetch("/api/public/featured/boosts?limit=12", {
-        headers,
-      });
+      const response = await fetchWithTimeout(
+        "/api/public/featured/boosts?limit=12",
+        {
+          headers,
+        },
+        8000
+      );
       const data = await response.json();
 
       if (data.success) {
@@ -1007,6 +1032,7 @@ export default function Dashboard({ user, setUser }) {
   }, []);
 
   // Fetch featured market items and users (with caching to prevent refetch on remount)
+  // Optimized: All fetches run in parallel for faster loading
   useEffect(() => {
     const now = Date.now();
     const shouldFetch =
@@ -1014,12 +1040,15 @@ export default function Dashboard({ user, setUser }) {
       now - lastFetchTimeRef.current > CACHE_DURATION_MS;
 
     if (shouldFetch) {
-      fetchFeaturedItems();
-      fetchFeaturedUsers();
-      // Also fetch current boosts without blocking render
-      fetchActiveBoosts();
-      // Fetch unread notification count
-      fetchUnreadNotificationCount();
+      // Parallelize all data fetches for faster initial load
+      Promise.all([
+        fetchFeaturedItems(),
+        fetchFeaturedUsers(),
+        fetchActiveBoosts(),
+        fetchUnreadNotificationCount(),
+      ]).catch((error) => {
+        console.error("[Dashboard] Error in parallel data fetch:", error);
+      });
       dataFetchedRef.current = true;
       lastFetchTimeRef.current = now;
     } else {
@@ -2066,13 +2095,14 @@ export default function Dashboard({ user, setUser }) {
       params.set("lat", latForQuery);
       params.set("lng", lngForQuery);
 
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         `/api/public/boosts/targeted?${params.toString()}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
+        8000
       );
       const data = await response.json();
       if (response.ok && data.success) {

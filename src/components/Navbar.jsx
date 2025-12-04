@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { fetchWithTimeout } from "../utils/fetchWithTimeout";
 import {
   Box,
   Drawer,
@@ -253,7 +254,7 @@ export default function Navbar({
     }
   }, [location.pathname, menuItems]);
 
-  // Fetch subscription status (with caching)
+  // Fetch subscription status (with caching and error handling)
   const fetchSubscription = useCallback(async () => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -262,11 +263,15 @@ export default function Navbar({
     }
 
     try {
-      const response = await fetch("/api/subscriptions/status", {
-        headers: {
-          Authorization: `Bearer ${token}`,
+      const response = await fetchWithTimeout(
+        "/api/subscriptions/status",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         },
-      });
+        8000
+      );
 
       const data = await response.json();
 
@@ -280,7 +285,9 @@ export default function Navbar({
         setSubscription(null);
       }
     } catch (error) {
-      console.error("Error fetching subscription:", error);
+      if (error.name !== "AbortError") {
+        console.error("Error fetching subscription:", error);
+      }
       setSubscription(null);
     }
   }, []);
