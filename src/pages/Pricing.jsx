@@ -14,15 +14,7 @@ import {
   Button,
   Chip,
 } from "@mui/material";
-import {
-  AttachMoney,
-  FormatQuote,
-  CheckCircle,
-  Verified,
-} from "@mui/icons-material";
-import { Avatar, Divider, CircularProgress } from "@mui/material";
-import { useNavigate } from "react-router-dom";
-import StarIcon from "@mui/icons-material/Star";
+import { AttachMoney, CheckCircle, Verified } from "@mui/icons-material";
 import Swal from "sweetalert2";
 
 const PAYSTACK_PUBLIC_KEY = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY;
@@ -36,12 +28,9 @@ const categories = [
 ];
 
 export default function Pricing() {
-  const navigate = useNavigate();
   const [selectedTab, setSelectedTab] = useState(0);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userCategory, setUserCategory] = useState(null); // Track user's category
-  const [testimonials, setTestimonials] = useState([]);
-  const [loadingTestimonials, setLoadingTestimonials] = useState(true);
   const [subscribing, setSubscribing] = useState(false);
   const [currentSubscription, setCurrentSubscription] = useState(null);
   const [pendingDowngrade, setPendingDowngrade] = useState(null);
@@ -930,37 +919,6 @@ export default function Pricing() {
     };
   }, [isLoggedIn, fetchSubscriptionStatus]);
 
-  // Fetch testimonials from API
-  useEffect(() => {
-    const fetchTestimonials = async () => {
-      try {
-        setLoadingTestimonials(true);
-        const response = await fetch("/api/ratings/testimonials?limit=10");
-        const data = await response.json();
-
-        if (data.success && data.data) {
-          setTestimonials(data.data);
-        }
-      } catch (error) {
-        console.error("Error fetching testimonials:", error);
-      } finally {
-        setLoadingTestimonials(false);
-      }
-    };
-
-    fetchTestimonials();
-  }, []);
-
-  // Helper function to get user initials
-  const getUserInitials = (name) => {
-    if (!name) return "??";
-    const parts = name.trim().split(" ");
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    }
-    return parts[0].substring(0, 2).toUpperCase();
-  };
-
   // Helper function to get button text and action for a plan
   const getPlanButtonInfo = (plan) => {
     if (!isLoggedIn || !currentSubscription) {
@@ -1028,13 +986,6 @@ export default function Pricing() {
       variant: "contained",
       disabled: subscribing,
     };
-  };
-
-  // Helper function to format user photo URL
-  const getPhotoUrl = (photoPath) => {
-    if (!photoPath) return null;
-    if (photoPath.startsWith("http")) return photoPath;
-    return `/uploads/${photoPath}`;
   };
 
   return (
@@ -2470,287 +2421,6 @@ export default function Pricing() {
           </Box>
         </CardContent>
       </Card>
-
-      {/* Testimonials Section - Only show when NOT logged in */}
-      {!isLoggedIn && (
-        <>
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: "row",
-              alignItems: "flex-start",
-              justifyContent: "space-between",
-              gap: { xs: 1, sm: 2 },
-              mb: 3,
-              mt: 5,
-            }}
-          >
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography
-                variant="h4"
-                sx={{
-                  fontWeight: 700,
-                  fontSize: { xs: "1.5rem", sm: "2.125rem" },
-                  background: "linear-gradient(45deg, #D4AF37, #B8941F)",
-                  backgroundClip: "text",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  lineHeight: 1.2,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                }}
-              >
-                <FormatQuote sx={{ color: "#D4AF37" }} />
-                Testimonials
-              </Typography>
-            </Box>
-          </Box>
-
-          <Card
-            sx={{
-              borderRadius: "16px",
-              background: "#ffffff",
-              border: "1px solid rgba(212, 175, 55, 0.2)",
-              boxShadow: "0 2px 8px rgba(212, 175, 55, 0.08)",
-              overflow: "hidden",
-            }}
-          >
-            <CardContent sx={{ p: { xs: 2.5, sm: 3 } }}>
-              {loadingTestimonials ? (
-                <Box
-                  sx={{
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    py: 6,
-                  }}
-                >
-                  <CircularProgress sx={{ color: "#D4AF37" }} />
-                </Box>
-              ) : testimonials.length === 0 ? (
-                <Box
-                  sx={{
-                    textAlign: "center",
-                    py: 6,
-                  }}
-                >
-                  <Typography
-                    variant="body1"
-                    sx={{
-                      color: "rgba(0, 0, 0, 0.6)",
-                      fontSize: { xs: "0.9375rem", sm: "1rem" },
-                    }}
-                  >
-                    No testimonials yet. Be the first to share your experience!
-                  </Typography>
-                </Box>
-              ) : (
-                <Box
-                  sx={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 3,
-                  }}
-                >
-                  {testimonials.map((testimonial, index) => {
-                    const user = testimonial.user || {};
-                    const photoUrl = getPhotoUrl(user.photo);
-                    const initials = getUserInitials(
-                      user.name || user.username
-                    );
-                    const displayName =
-                      user.username || user.name || "Anonymous User";
-                    const category = user.category || "Member";
-                    const county = user.county || "";
-                    const location = county ? ` • ${county}` : "";
-                    const isVerified = user.isVerified || false;
-
-                    return (
-                      <React.Fragment key={testimonial.id || index}>
-                        {index > 0 && (
-                          <Divider
-                            sx={{ borderColor: "rgba(212, 175, 55, 0.2)" }}
-                          />
-                        )}
-                        <Box>
-                          <Box
-                            sx={{
-                              display: "flex",
-                              alignItems: "flex-start",
-                              gap: 2,
-                              mb: 2,
-                            }}
-                          >
-                            <Avatar
-                              src={photoUrl}
-                              sx={{
-                                width: { xs: 48, sm: 56 },
-                                height: { xs: 48, sm: 56 },
-                                bgcolor: "#D4AF37",
-                                fontSize: { xs: "1.25rem", sm: "1.5rem" },
-                                fontWeight: 700,
-                              }}
-                            >
-                              {!photoUrl && initials}
-                            </Avatar>
-                            <Box sx={{ flex: 1 }}>
-                              <Box
-                                sx={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 1,
-                                  mb: 0.5,
-                                }}
-                              >
-                                <Typography
-                                  variant="h6"
-                                  sx={{
-                                    fontWeight: 700,
-                                    color: "rgba(0, 0, 0, 0.9)",
-                                    fontSize: { xs: "1rem", sm: "1.125rem" },
-                                  }}
-                                >
-                                  {displayName}
-                                </Typography>
-                                {isVerified && (
-                                  <Chip
-                                    icon={
-                                      <Verified
-                                        sx={{
-                                          fontSize: "0.875rem !important",
-                                          color:
-                                            user.badgeType === "silver"
-                                              ? "#C0C0C0"
-                                              : "#D4AF37",
-                                        }}
-                                      />
-                                    }
-                                    label={
-                                      user.badgeType === "silver"
-                                        ? "Premium Silver"
-                                        : user.badgeType === "gold"
-                                          ? "Gold Verified"
-                                          : "Verified"
-                                    }
-                                    size="small"
-                                    sx={{
-                                      height: 20,
-                                      fontSize: "0.7rem",
-                                      backgroundColor:
-                                        user.badgeType === "silver"
-                                          ? "rgba(192, 192, 192, 0.15)"
-                                          : "rgba(212, 175, 55, 0.15)",
-                                      color:
-                                        user.badgeType === "silver"
-                                          ? "#5a5a5a"
-                                          : "#B8941F",
-                                      fontWeight: 600,
-                                      border:
-                                        user.badgeType === "silver"
-                                          ? "1px solid rgba(192, 192, 192, 0.3)"
-                                          : "1px solid rgba(212, 175, 55, 0.3)",
-                                      "& .MuiChip-icon": {
-                                        marginLeft: "6px",
-                                      },
-                                    }}
-                                  />
-                                )}
-                              </Box>
-                              <Typography
-                                variant="body2"
-                                sx={{
-                                  color: "rgba(0, 0, 0, 0.6)",
-                                  fontSize: { xs: "0.8125rem", sm: "0.875rem" },
-                                }}
-                              >
-                                {category}
-                                {location}
-                                {testimonial.rating && (
-                                  <>
-                                    {" • "}
-                                    <Box
-                                      component="span"
-                                      sx={{
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        gap: 0.25,
-                                      }}
-                                    >
-                                      {Array.from({ length: 5 }).map((_, i) => (
-                                        <StarIcon
-                                          key={i}
-                                          sx={{
-                                            fontSize: "0.875rem",
-                                            color:
-                                              i < testimonial.rating
-                                                ? "#D4AF37"
-                                                : "rgba(0, 0, 0, 0.2)",
-                                          }}
-                                        />
-                                      ))}
-                                    </Box>
-                                  </>
-                                )}
-                              </Typography>
-                            </Box>
-                          </Box>
-                          {testimonial.testimonial ? (
-                            <Paper
-                              elevation={0}
-                              sx={{
-                                borderRadius: "12px",
-                                backgroundColor: "rgba(212, 175, 55, 0.05)",
-                                border: "1px solid rgba(212, 175, 55, 0.2)",
-                                p: { xs: 2, sm: 2.5 },
-                              }}
-                            >
-                              <Typography
-                                variant="body1"
-                                sx={{
-                                  color: "rgba(0, 0, 0, 0.75)",
-                                  fontSize: { xs: "0.9375rem", sm: "1rem" },
-                                  lineHeight: 1.7,
-                                  fontStyle: "italic",
-                                  whiteSpace: "pre-wrap",
-                                }}
-                              >
-                                "{testimonial.testimonial}"
-                              </Typography>
-                            </Paper>
-                          ) : (
-                            <Paper
-                              elevation={0}
-                              sx={{
-                                borderRadius: "12px",
-                                backgroundColor: "rgba(212, 175, 55, 0.05)",
-                                border: "1px solid rgba(212, 175, 55, 0.2)",
-                                p: { xs: 2, sm: 2.5 },
-                                textAlign: "center",
-                              }}
-                            >
-                              <Typography
-                                variant="body2"
-                                sx={{
-                                  color: "rgba(0, 0, 0, 0.5)",
-                                  fontSize: { xs: "0.875rem", sm: "0.9375rem" },
-                                  fontStyle: "italic",
-                                }}
-                              >
-                                Rating only - no testimonial provided
-                              </Typography>
-                            </Paper>
-                          )}
-                        </Box>
-                      </React.Fragment>
-                    );
-                  })}
-                </Box>
-              )}
-            </CardContent>
-          </Card>
-        </>
-      )}
     </Box>
   );
 }

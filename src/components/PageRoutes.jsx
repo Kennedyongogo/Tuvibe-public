@@ -16,7 +16,7 @@ import { Box, CircularProgress } from "@mui/material";
 import Swal from "sweetalert2";
 
 import Navbar from "./Navbar";
-import Dashboard from "../pages/Dashboard";
+import TuVibe from "../components/TuVibe";
 import Profile from "../pages/Profile";
 import Explore from "../pages/Explore";
 import Wallet from "../pages/Wallet";
@@ -557,10 +557,7 @@ function PageRoutes() {
           />
         ) : (
           <Routes>
-            <Route
-              path="home"
-              element={<Dashboard user={user} setUser={setUser} />}
-            />
+            <Route path="home" element={<TuVibe />} />
             <Route path="explore" element={<Explore user={user} />} />
             <Route path="market" element={<Market user={user} />} />
             <Route
