@@ -21,8 +21,6 @@ import {
   Alert,
   Avatar,
   IconButton,
-  Badge,
-  Tooltip,
 } from "@mui/material";
 import Autocomplete from "@mui/material/Autocomplete";
 import {
@@ -415,51 +413,6 @@ export default function Reports({ user }) {
           >
             New Report
           </Button>
-          {/* Icons - shown below button on small screens only */}
-          <Box
-            sx={{
-              display: { xs: "flex", sm: "none" },
-              justifyContent: "flex-end",
-              alignItems: "center",
-              gap: 0.75,
-            }}
-          >
-            <Tooltip title="Notifications" arrow>
-              <span>
-                <IconButton
-                  onClick={() => navigate("/notifications")}
-                  sx={{
-                    backgroundColor: "rgba(212, 175, 55, 0.12)",
-                    border: "1px solid rgba(212, 175, 55, 0.3)",
-                    "&:hover": {
-                      backgroundColor: "rgba(212, 175, 55, 0.22)",
-                    },
-                    flexShrink: 0,
-                    width: "36px",
-                    height: "36px",
-                    p: 0.75,
-                  }}
-                >
-                  <Badge
-                    badgeContent={
-                      unreadNotificationCount > 0
-                        ? unreadNotificationCount
-                        : null
-                    }
-                    color="error"
-                    overlap="circular"
-                  >
-                    <NotificationsActive
-                      sx={{
-                        color: "#D4AF37",
-                        fontSize: "1.25rem",
-                      }}
-                    />
-                  </Badge>
-                </IconButton>
-              </span>
-            </Tooltip>
-          </Box>
         </Box>
       </Box>
 
