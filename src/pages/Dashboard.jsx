@@ -228,8 +228,6 @@ export default function Dashboard({ user, setUser }) {
   const dataFetchedRef = useRef(false);
   const lastFetchTimeRef = useRef(0);
   const CACHE_DURATION_MS = 30000; // 30 seconds cache
-  // Ref to store SSE connection to prevent recreation
-  const sseEventSourceRef = useRef(null);
   const normalizedTargetCounty = useMemo(() => {
     if (!boostArea) return "";
     const normalized = normalizeCountyName(boostArea);
@@ -463,151 +461,54 @@ export default function Dashboard({ user, setUser }) {
     fetchSubscription();
   }, [user, fetchSubscription]);
 
-  // Set up SSE for real-time subscription updates
+  // Poll for subscription updates (replaces SSE for better performance)
   useEffect(() => {
-    if (!isMountedRef.current || !user?.id) {
-      // Clean up if user is not available
-      if (sseEventSourceRef.current) {
-        try {
-          sseEventSourceRef.current.close();
-        } catch (e) {
-          // Ignore errors when closing
-        }
-        sseEventSourceRef.current = null;
-      }
-      return;
-    }
+    if (!isMountedRef.current || !user?.id) return;
 
     const token = localStorage.getItem("token");
-    if (!token) {
-      if (sseEventSourceRef.current) {
-        try {
-          sseEventSourceRef.current.close();
-        } catch (e) {
-          // Ignore errors when closing
-        }
-        sseEventSourceRef.current = null;
+    if (!token) return;
+
+    let pollInterval = null;
+
+    // Poll every 45 seconds - checks subscription status without blocking initial load
+    const startPolling = () => {
+      // Clear any existing interval first
+      if (pollInterval) {
+        clearInterval(pollInterval);
       }
-      return;
-    }
 
-    // Only create new connection if one doesn't exist or is closed/error state
-    if (sseEventSourceRef.current) {
-      const readyState = sseEventSourceRef.current.readyState;
-      if (
-        readyState === EventSource.OPEN ||
-        readyState === EventSource.CONNECTING
-      ) {
-        return; // Connection already exists and is open or connecting
-      }
-      // Connection is closed, clean it up before creating new one
-      try {
-        sseEventSourceRef.current.close();
-      } catch (e) {
-        // Ignore errors when closing
-      }
-      sseEventSourceRef.current = null;
-    }
-
-    let sseEventSource = null;
-
-    try {
-      const isDev = import.meta.env.DEV;
-      const protocol = window.location.protocol;
-      const host = window.location.hostname;
-      const apiPort = isDev ? "4000" : window.location.port || "";
-      const sseUrl = isDev
-        ? `${protocol}//${host}:${apiPort}/api/sse/events?token=${encodeURIComponent(token)}`
-        : `${protocol}//${host}${apiPort ? `:${apiPort}` : ""}/api/sse/events?token=${encodeURIComponent(token)}`;
-
-      sseEventSource = new EventSource(sseUrl);
-      sseEventSourceRef.current = sseEventSource;
-
-      // Listen for subscription created event
-      sseEventSource.addEventListener("subscription:created", (event) => {
-        if (!isMountedRef.current) return;
-        try {
-          const data = JSON.parse(event.data);
-          console.log(
-            "📡 [Dashboard] SSE: Subscription created event received",
-            data
-          );
-          if (data.subscription) {
-            setSubscription(data.subscription);
-            // Refetch to get boostHours info
-            fetchSubscription();
-          }
-        } catch (err) {
-          console.error(
-            "❌ [Dashboard] Error parsing SSE subscription:created event:",
-            err
-          );
+      pollInterval = setInterval(() => {
+        if (!isMountedRef.current) {
+          clearInterval(pollInterval);
+          return;
         }
-      });
 
-      // Listen for subscription updated event
-      sseEventSource.addEventListener("subscription:updated", (event) => {
-        if (!isMountedRef.current) return;
-        try {
-          const data = JSON.parse(event.data);
-          console.log(
-            "📡 [Dashboard] SSE: Subscription updated event received",
-            data
-          );
-          if (data.subscription) {
-            setSubscription(data.subscription);
-            // Refetch to get boostHours info
-            fetchSubscription();
-          }
-        } catch (err) {
-          console.error(
-            "❌ [Dashboard] Error parsing SSE subscription:updated event:",
-            err
-          );
+        // Only poll if page is visible (don't waste resources on hidden tabs)
+        if (document.hidden) {
+          return;
         }
-      });
 
-      // Listen for subscription expired event
-      sseEventSource.addEventListener("subscription:expired", (event) => {
-        if (!isMountedRef.current) return;
-        try {
-          const data = JSON.parse(event.data);
-          console.log(
-            "📡 [Dashboard] SSE: Subscription expired event received",
-            data
-          );
-          // Refetch to get updated subscription status (will be null if expired)
-          fetchSubscription();
-        } catch (err) {
-          console.error(
-            "❌ [Dashboard] Error parsing SSE subscription:expired event:",
-            err
-          );
-        }
-      });
+        // Non-blocking fetch - doesn't delay component loading
+        fetchSubscription().catch((err) => {
+          console.error("[Dashboard] Polling error:", err);
+        });
+      }, 45000); // Check every 45 seconds
+    };
 
-      sseEventSource.onopen = () => {
-        console.log("✅ [Dashboard] SSE connected for subscription updates");
-      };
-
-      sseEventSource.onerror = (error) => {
-        console.warn(
-          "⚠️ [Dashboard] SSE error for subscription updates:",
-          error
-        );
-      };
-    } catch (err) {
-      console.warn(
-        "⚠️ [Dashboard] SSE not available for subscription updates:",
-        err
-      );
-    }
+    // Start polling after initial load (delayed to avoid blocking)
+    const timeoutId = setTimeout(() => {
+      startPolling();
+    }, 2000); // Wait 2 seconds after mount before starting to poll
 
     return () => {
-      // Cleanup will be handled by the unmount effect
-      // Don't close here to keep connection alive when user.id changes
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     };
-  }, [user?.id]); // Removed fetchSubscription from dependencies to prevent recreation
+  }, [user?.id, fetchSubscription]);
 
   const fetchPremiumStats = useCallback(async () => {
     setStatsLoading(true);
@@ -941,11 +842,6 @@ export default function Dashboard({ user, setUser }) {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
-      // Clean up SSE connection on unmount
-      if (sseEventSourceRef.current) {
-        sseEventSourceRef.current.close();
-        sseEventSourceRef.current = null;
-      }
       // Reset fetch flags on unmount
       dataFetchedRef.current = false;
     };

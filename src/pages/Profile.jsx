@@ -562,7 +562,6 @@ export default function Profile({ user, setUser }) {
   // Fetch fresh user data on mount to ensure badgeType is included
   // Use ref to prevent unnecessary re-fetches
   const userDataFetchedRef = useRef(false);
-  const sseEventSourceRef = useRef(null);
   const isMountedRef = useRef(true);
 
   // Reusable function to fetch user data
@@ -617,128 +616,49 @@ export default function Profile({ user, setUser }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount
 
-  // Set up SSE for real-time subscription updates to refresh badge
+  // Poll to refresh user data (to update badge when subscription changes)
   useEffect(() => {
+    if (!isMountedRef.current || !user?.id) return;
+
     const token = localStorage.getItem("token");
-    if (!token || !user?.id) {
-      // Clean up if no token or user
-      if (sseEventSourceRef.current) {
-        try {
-          sseEventSourceRef.current.close();
-        } catch (e) {
-          // Ignore errors when closing
+    if (!token) return;
+
+    let pollInterval = null;
+
+    // Poll every 45 seconds - refreshes user data to check for badge updates
+    const startPolling = () => {
+      if (pollInterval) return; // Already polling
+
+      pollInterval = setInterval(() => {
+        if (!isMountedRef.current || !user?.id) {
+          clearInterval(pollInterval);
+          return;
         }
-        sseEventSourceRef.current = null;
-      }
-      return;
-    }
 
-    // Only create new connection if one doesn't exist or is closed/error state
-    if (sseEventSourceRef.current) {
-      const readyState = sseEventSourceRef.current.readyState;
-      if (
-        readyState === EventSource.OPEN ||
-        readyState === EventSource.CONNECTING
-      ) {
-        return; // Connection already exists and is open or connecting
-      }
-      // Connection is closed, clean it up before creating new one
-      try {
-        sseEventSourceRef.current.close();
-      } catch (e) {
-        // Ignore errors when closing
-      }
-      sseEventSourceRef.current = null;
-    }
-
-    let sseEventSource = null;
-
-    try {
-      const isDev = import.meta.env.DEV;
-      const protocol = window.location.protocol;
-      const host = window.location.hostname;
-      const apiPort = isDev ? "4000" : window.location.port || "";
-      const sseUrl = isDev
-        ? `${protocol}//${host}:${apiPort}/api/sse/events?token=${encodeURIComponent(token)}`
-        : `${protocol}//${host}${apiPort ? `:${apiPort}` : ""}/api/sse/events?token=${encodeURIComponent(token)}`;
-
-      sseEventSource = new EventSource(sseUrl);
-      sseEventSourceRef.current = sseEventSource;
-
-      // Listen for subscription created event - refresh user data to show badge
-      sseEventSource.addEventListener("subscription:created", (event) => {
-        if (!isMountedRef.current) return;
-        try {
-          const data = JSON.parse(event.data);
-          console.log(
-            "📡 [Profile] SSE: Subscription created event received",
-            data
-          );
-          // Refresh user data to get updated badge status
-          fetchUserData();
-        } catch (err) {
-          console.error(
-            "❌ [Profile] Error parsing SSE subscription:created event:",
-            err
-          );
+        // Only poll if page is visible
+        if (document.hidden) {
+          return;
         }
-      });
 
-      // Listen for subscription updated event - refresh user data to update badge
-      sseEventSource.addEventListener("subscription:updated", (event) => {
-        if (!isMountedRef.current) return;
-        try {
-          const data = JSON.parse(event.data);
-          console.log(
-            "📡 [Profile] SSE: Subscription updated event received",
-            data
-          );
-          // Refresh user data to get updated badge status
-          fetchUserData();
-        } catch (err) {
-          console.error(
-            "❌ [Profile] Error parsing SSE subscription:updated event:",
-            err
-          );
-        }
-      });
+        // Non-blocking refresh of user data (updates badge if subscription changed)
+        fetchUserData().catch((err) => {
+          console.error("[Profile] Polling error:", err);
+        });
+      }, 45000); // Check every 45 seconds
+    };
 
-      // Listen for subscription expired event - refresh user data to remove badge
-      sseEventSource.addEventListener("subscription:expired", (event) => {
-        if (!isMountedRef.current) return;
-        try {
-          const data = JSON.parse(event.data);
-          console.log(
-            "📡 [Profile] SSE: Subscription expired event received",
-            data
-          );
-          // Refresh user data to update badge status (badge will be removed)
-          fetchUserData();
-        } catch (err) {
-          console.error(
-            "❌ [Profile] Error parsing SSE subscription:expired event:",
-            err
-          );
-        }
-      });
-
-      sseEventSource.onopen = () => {
-        console.log("✅ [Profile] SSE connected for subscription updates");
-      };
-
-      sseEventSource.onerror = (error) => {
-        console.warn("⚠️ [Profile] SSE error for subscription updates:", error);
-      };
-    } catch (err) {
-      console.warn(
-        "⚠️ [Profile] SSE not available for subscription updates:",
-        err
-      );
-    }
+    // Start polling after initial load (delayed to avoid blocking)
+    const timeoutId = setTimeout(() => {
+      startPolling();
+    }, 2000); // Wait 2 seconds after mount before starting to poll
 
     return () => {
-      // Cleanup will be handled by the unmount effect
-      // Don't close here to keep connection alive when user.id changes
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     };
   }, [user?.id, fetchUserData]);
 
@@ -747,14 +667,6 @@ export default function Profile({ user, setUser }) {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
-      if (sseEventSourceRef.current) {
-        try {
-          sseEventSourceRef.current.close();
-        } catch (e) {
-          // Ignore errors when closing
-        }
-        sseEventSourceRef.current = null;
-      }
     };
   }, []);
 

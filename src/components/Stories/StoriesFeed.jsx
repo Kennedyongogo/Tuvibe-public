@@ -206,16 +206,14 @@ const StoriesFeed = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount
 
-  // Use SSE for real-time updates with backup polling (scalable for 10k+ users)
-  // Polling runs alongside SSE as backup to ensure approved stories are visible
+  // Poll for story updates (replaces SSE for better performance)
   useEffect(() => {
     if (!isMountedRef.current || !user?.id) return;
 
     let pollInterval = null;
-    let sseEventSource = null;
 
-    // Backup polling with shorter interval (30 seconds) - runs alongside SSE as backup
-    const startBackupPolling = () => {
+    // Poll every 30 seconds - checks for new stories and approvals
+    const startPolling = () => {
       if (pollInterval) return; // Already polling
 
       pollInterval = setInterval(() => {
@@ -224,7 +222,7 @@ const StoriesFeed = ({
           return;
         }
 
-        // Only poll if page is visible
+        // Only poll if page is visible (don't waste resources on hidden tabs)
         if (document.hidden) {
           return;
         }
@@ -233,102 +231,21 @@ const StoriesFeed = ({
         if (!isFetchingRef.current) {
           fetchStoriesFeedRef.current(true);
         }
-      }, 30000); // 30 seconds - shorter interval to catch approved stories quickly
+      }, 30000); // 30 seconds - to catch new stories and approvals
     };
 
-    // Try to use SSE for real-time updates (much more scalable)
-    const setupSSE = () => {
-      try {
-        const token = localStorage.getItem("token");
-        if (!token) return false;
-
-        const isDev = import.meta.env.DEV;
-        const protocol = window.location.protocol;
-        const host = window.location.hostname;
-        const apiPort = isDev ? "4000" : window.location.port || "";
-        const sseUrl = isDev
-          ? `${protocol}//${host}:${apiPort}/api/sse/events?token=${encodeURIComponent(token)}`
-          : `${protocol}//${host}${apiPort ? `:${apiPort}` : ""}/api/sse/events?token=${encodeURIComponent(token)}`;
-
-        sseEventSource = new EventSource(sseUrl);
-
-        sseEventSource.addEventListener("story:new", (event) => {
-          if (!isMountedRef.current) return;
-          try {
-            const data = JSON.parse(event.data);
-            // Refresh feed when new story is created/approved
-            if (!isFetchingRef.current) {
-              fetchStoriesFeedRef.current(true);
-            }
-          } catch (err) {
-            console.error(
-              "❌ [StoriesFeed] Error parsing SSE story event:",
-              err
-            );
-          }
-        });
-
-        sseEventSource.addEventListener("story:approved", (event) => {
-          if (!isMountedRef.current) return;
-          try {
-            const data = JSON.parse(event.data);
-            // Refresh feed when story is approved
-            if (!isFetchingRef.current) {
-              fetchStoriesFeedRef.current(true);
-            }
-          } catch (err) {
-            console.error(
-              "❌ [StoriesFeed] Error parsing SSE approval event:",
-              err
-            );
-          }
-        });
-
-        sseEventSource.onopen = () => {
-          // Keep polling running as backup even when SSE is connected
-          // This ensures we catch approved stories even if SSE events are missed
-        };
-
-        sseEventSource.onerror = (error) => {
-          console.warn("⚠️ [StoriesFeed] SSE error:", error);
-          // Polling should already be running as backup
-          // If it's not, start it
-          if (!pollInterval) {
-            startBackupPolling();
-          }
-        };
-
-        return true; // SSE setup successful
-      } catch (err) {
-        console.warn(
-          "⚠️ [StoriesFeed] SSE not available, using polling fallback:",
-          err
-        );
-        return false; // SSE setup failed
-      }
-    };
-
-    // Try SSE first, but always start backup polling as well
-    const sseSuccess = setupSSE();
-    // Always start polling as backup, even if SSE is working
-    // This ensures we catch approved stories even if SSE events are missed
-    startBackupPolling();
-
-    // Handle page visibility for backup polling
-    const handleVisibilityChange = () => {
-      // Page visibility handled automatically by polling check
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
+    // Start polling after initial load (delayed to avoid blocking)
+    const timeoutId = setTimeout(() => {
+      startPolling();
+    }, 2000); // Wait 2 seconds after mount before starting to poll
 
     return () => {
       if (pollInterval) {
         clearInterval(pollInterval);
       }
-      if (sseEventSource) {
-        sseEventSource.close();
+      if (timeoutId) {
+        clearTimeout(timeoutId);
       }
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [user?.id]); // Re-setup if user changes
 

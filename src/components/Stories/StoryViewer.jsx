@@ -75,7 +75,6 @@ const StoryViewer = ({
   const storyTimeoutRef = useRef(null);
   const emojiButtonRef = useRef(null);
   const mediaContainerRef = useRef(null);
-  const sseEventSourceRef = useRef(null);
   const currentStoryIdRef = useRef(null);
   const musicAudioRef = useRef(null);
   const [mediaDimensions, setMediaDimensions] = useState({
@@ -182,7 +181,7 @@ const StoryViewer = ({
       setViewCount(currentStory.view_count || 0);
       setReactionCount(currentStory.reaction_count || 0);
       setCommentCount(currentStory.comment_count || 0);
-      // Update ref for SSE handlers (critical for real-time updates)
+      // Update ref for polling (to track which story to poll)
       currentStoryIdRef.current = currentStory.id;
       console.log("🔄 [StoryViewer] Story changed, updated ref:", {
         storyId: currentStory.id,
@@ -346,161 +345,81 @@ const StoryViewer = ({
     }
   };
 
-  // Set up SSE connection for real-time count updates (only once when viewer opens)
+  // Poll for story count updates (replaces SSE for better performance)
   useEffect(() => {
-    if (!open) {
-      // Close SSE connection when viewer closes
-      if (sseEventSourceRef.current) {
-        sseEventSourceRef.current.close();
-        sseEventSourceRef.current = null;
-      }
-      return;
-    }
+    if (!open || !currentStoryIdRef.current) return;
 
     const token = localStorage.getItem("token");
     if (!token) return;
 
-    // Only create SSE connection once when viewer opens
-    if (sseEventSourceRef.current) {
-      return; // Already connected
-    }
+    let pollInterval = null;
 
-    try {
-      const isDev = import.meta.env.DEV;
-      const protocol = window.location.protocol;
-      const host = window.location.hostname;
-      const apiPort = isDev ? "4000" : window.location.port || "";
-      const sseUrl = isDev
-        ? `${protocol}//${host}:${apiPort}/api/sse/events?token=${encodeURIComponent(token)}`
-        : `${protocol}//${host}${apiPort ? `:${apiPort}` : ""}/api/sse/events?token=${encodeURIComponent(token)}`;
+    // Function to fetch and update story counts
+    const updateStoryCounts = async () => {
+      const storyId = currentStoryIdRef.current;
+      if (!storyId) return;
 
-      console.log(
-        "🔌 [StoryViewer] Setting up SSE connection for real-time updates"
-      );
-      sseEventSourceRef.current = new EventSource(sseUrl);
+      try {
+        const response = await fetch(`/api/stories/${storyId}`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
-      // Listen for story view count updates
-      const handleStoryViewed = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          console.log(
-            "📡 [StoryViewer] SSE: Received story:viewed event",
-            data
-          );
-          // Only update if it's for the current story
-          if (data.storyId === currentStoryIdRef.current) {
-            console.log(
-              "✅ [StoryViewer] SSE: Updating view count for current story",
-              data
-            );
-            setViewCount(data.viewCount || 0);
-          } else {
-            console.log(
-              "⏭️ [StoryViewer] SSE: Ignoring view event for different story",
-              {
-                eventStoryId: data.storyId,
-                currentStoryId: currentStoryIdRef.current,
-              }
-            );
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data?.story) {
+            const story = data.data.story;
+            // Only update if it's still the current story
+            if (storyId === currentStoryIdRef.current) {
+              setViewCount(story.view_count || 0);
+              setReactionCount(story.reaction_count || 0);
+              setCommentCount(story.comment_count || 0);
+            }
           }
-        } catch (err) {
-          console.error("❌ [StoryViewer] Error parsing SSE view event:", err);
         }
-      };
+      } catch (error) {
+        console.error("[StoryViewer] Polling error:", error);
+      }
+    };
 
-      // Listen for story reaction count updates
-      const handleStoryReacted = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          console.log(
-            "📡 [StoryViewer] SSE: Received story:reacted event",
-            data
-          );
-          // Only update if it's for the current story
-          if (data.storyId === currentStoryIdRef.current) {
-            console.log(
-              "✅ [StoryViewer] SSE: Updating reaction count for current story",
-              data
-            );
-            setReactionCount(data.reactionCount || 0);
-          }
-        } catch (err) {
-          console.error(
-            "❌ [StoryViewer] Error parsing SSE reaction event:",
-            err
-          );
+    // Poll every 15 seconds - checks for updated counts while viewer is open
+    const startPolling = () => {
+      if (pollInterval) return; // Already polling
+
+      pollInterval = setInterval(() => {
+        if (!open || !currentStoryIdRef.current) {
+          clearInterval(pollInterval);
+          return;
         }
-      };
 
-      // Listen for story comment count updates
-      const handleStoryCommented = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          console.log(
-            "📡 [StoryViewer] SSE: Received story:commented event",
-            data
-          );
-          // Only update if it's for the current story
-          if (data.storyId === currentStoryIdRef.current) {
-            console.log(
-              "✅ [StoryViewer] SSE: Updating comment count for current story",
-              data
-            );
-            setCommentCount(data.commentCount || 0);
-          }
-        } catch (err) {
-          console.error(
-            "❌ [StoryViewer] Error parsing SSE comment event:",
-            err
-          );
+        // Only poll if page is visible
+        if (document.hidden) {
+          return;
         }
-      };
 
-      sseEventSourceRef.current.addEventListener(
-        "story:viewed",
-        handleStoryViewed
-      );
-      sseEventSourceRef.current.addEventListener(
-        "story:reacted",
-        handleStoryReacted
-      );
-      sseEventSourceRef.current.addEventListener(
-        "story:commented",
-        handleStoryCommented
-      );
+        // Non-blocking fetch
+        updateStoryCounts().catch((err) => {
+          console.error("[StoryViewer] Polling error:", err);
+        });
+      }, 15000); // Check every 15 seconds
+    };
 
-      sseEventSourceRef.current.onopen = () => {
-        console.log("✅ [StoryViewer] SSE connection opened");
-      };
-
-      sseEventSourceRef.current.onerror = (error) => {
-        console.warn("⚠️ [StoryViewer] SSE error:", error);
-        // Try to reconnect if connection is lost
-        if (sseEventSourceRef.current?.readyState === EventSource.CLOSED) {
-          console.log(
-            "🔄 [StoryViewer] SSE connection closed, will reconnect on next story change"
-          );
-          sseEventSourceRef.current = null;
-        }
-      };
-    } catch (err) {
-      console.warn("⚠️ [StoryViewer] SSE not available:", err);
-    }
+    // Start polling after a short delay
+    const timeoutId = setTimeout(() => {
+      startPolling();
+    }, 1000); // Wait 1 second after viewer opens
 
     return () => {
-      // Cleanup: close SSE connection when viewer closes
-      // This will run when open becomes false or component unmounts
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     };
-  }, [open]); // Only depend on open, not story ID
-
-  // Separate effect to handle closing SSE when viewer closes
-  useEffect(() => {
-    if (!open && sseEventSourceRef.current) {
-      console.log("🔌 [StoryViewer] Closing SSE connection");
-      sseEventSourceRef.current.close();
-      sseEventSourceRef.current = null;
-    }
-  }, [open]);
+  }, [open, currentStory?.id]); // Re-setup when viewer opens or story changes
 
   // Track view when story is displayed (only once per story, and only if not the owner)
   useEffect(() => {
