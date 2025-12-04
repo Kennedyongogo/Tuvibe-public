@@ -458,49 +458,88 @@ function PageRoutes() {
       // Parallelize user data fetch with suspension check for faster initial load
       const fetchInitialStatus = async () => {
         try {
-          const [userResponse, suspensionResponse] = await Promise.all([
-            fetchWithTimeout(
-              "/api/public/me",
-              {
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                  "Content-Type": "application/json",
+          // Use Promise.allSettled to prevent one failure from blocking the other
+          // Increased timeout to 60 seconds (1 minute) to handle slow server responses
+          const [userResponseResult, suspensionResponseResult] =
+            await Promise.allSettled([
+              fetchWithTimeout(
+                "/api/public/me",
+                {
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                  },
                 },
-              },
-              8000
-            ),
-            fetchWithTimeout(
-              "/api/suspensions/me/status",
-              {
-                method: "GET",
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                  "Content-Type": "application/json",
+                60000
+              ),
+              fetchWithTimeout(
+                "/api/suspensions/me/status",
+                {
+                  method: "GET",
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                  },
                 },
-              },
-              8000
-            ),
-          ]);
+                60000
+              ),
+            ]);
 
-          // Process user data
-          if (userResponse.ok) {
-            const userData = await userResponse.json();
-            if (userData.success && userData.data) {
-              const updatedUser = { ...userData.data };
-              localStorage.setItem("user", JSON.stringify(updatedUser));
-              setUser(updatedUser);
+          // Process user data (non-blocking - if it fails, user data from localStorage is used)
+          if (
+            userResponseResult.status === "fulfilled" &&
+            userResponseResult.value.ok
+          ) {
+            try {
+              const userData = await userResponseResult.value.json();
+              if (userData.success && userData.data) {
+                const updatedUser = { ...userData.data };
+                localStorage.setItem("user", JSON.stringify(updatedUser));
+                setUser(updatedUser);
+              }
+            } catch (parseError) {
+              console.warn(
+                "[PageRoutes] Failed to parse user data:",
+                parseError
+              );
+              // Continue with existing user data from localStorage
             }
+          } else {
+            // User fetch failed or timed out - use existing data from localStorage
+            console.warn(
+              "[PageRoutes] User data fetch failed, using cached data"
+            );
           }
 
-          // Process suspension data
-          if (suspensionResponse.ok) {
-            const suspensionData = await suspensionResponse.json();
-            if (suspensionData.data !== undefined) {
-              setSuspension(suspensionData.data || null);
-              if (!suspensionData.data) {
-                setAppealOpen(false);
+          // Process suspension data (non-blocking)
+          if (
+            suspensionResponseResult.status === "fulfilled" &&
+            suspensionResponseResult.value.ok
+          ) {
+            try {
+              const suspensionData =
+                await suspensionResponseResult.value.json();
+              if (suspensionData.data !== undefined) {
+                setSuspension(suspensionData.data || null);
+                if (!suspensionData.data) {
+                  setAppealOpen(false);
+                }
               }
+              setSuspensionReady(true);
+              initialSuspensionCheckRef.current = false;
+            } catch (parseError) {
+              console.warn(
+                "[PageRoutes] Failed to parse suspension data:",
+                parseError
+              );
+              // Default to no suspension if parse fails
+              setSuspension(null);
+              setSuspensionReady(true);
+              initialSuspensionCheckRef.current = false;
             }
+          } else {
+            // Suspension check failed - default to no suspension
+            setSuspension(null);
             setSuspensionReady(true);
             initialSuspensionCheckRef.current = false;
           }

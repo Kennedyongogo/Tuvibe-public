@@ -731,7 +731,6 @@ export default function Profile({ user, setUser }) {
         },
         8000
       );
-      });
 
       const data = await response.json();
 
@@ -812,15 +811,13 @@ export default function Profile({ user, setUser }) {
                 Accept: "application/json",
                 Authorization: `Bearer ${token}`,
               },
+              body: JSON.stringify({
+                latitude: numericLat,
+                longitude: numericLng,
+              }),
             },
             8000
           );
-            },
-            body: JSON.stringify({
-              latitude: numericLat,
-              longitude: numericLng,
-            }),
-          });
 
           const data = await response.json();
 
@@ -2313,7 +2310,9 @@ export default function Profile({ user, setUser }) {
         if (boostResponse.ok) {
           const boostData = await boostResponse.json();
           if (boostData.success) {
-            setBoostStatus(boostData.data || { status: "inactive", boost: null });
+            setBoostStatus(
+              boostData.data || { status: "inactive", boost: null }
+            );
           } else {
             setBoostStatus({ status: "inactive", boost: null });
           }
@@ -2329,7 +2328,10 @@ export default function Profile({ user, setUser }) {
           }
         }
       } catch (error) {
-        console.error("[Profile] Error fetching boost/notification status:", error);
+        console.error(
+          "[Profile] Error fetching boost/notification status:",
+          error
+        );
         setBoostStatus({ status: "inactive", boost: null });
       } finally {
         setLoadingBoostStatus(false);
@@ -2859,9 +2861,7 @@ export default function Profile({ user, setUser }) {
                     sx={{
                       fontSize: "0.875rem !important",
                       color:
-                        user.badgeType === "silver"
-                          ? "#C0C0C0"
-                          : "#D4AF37",
+                        user.badgeType === "silver" ? "#C0C0C0" : "#D4AF37",
                     }}
                   />
                 }
