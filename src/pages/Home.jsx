@@ -9,7 +9,15 @@ export default function Home() {
     document.body.style.overflow = "hidden";
     document.documentElement.style.overflow = "hidden";
 
+    // Signal that page is ready (helps with browser loading indicator)
+    const timer = setTimeout(() => {
+      if (document.readyState === "complete") {
+        window.dispatchEvent(new Event("load"));
+      }
+    }, 100);
+
     return () => {
+      clearTimeout(timer);
       // Restore scrolling when leaving home page
       document.body.style.overflow = "";
       document.documentElement.style.overflow = "";

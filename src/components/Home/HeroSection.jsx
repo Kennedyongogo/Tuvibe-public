@@ -90,7 +90,11 @@ export default function HeroSection() {
   const [termsChecked, setTermsChecked] = useState(false);
 
   useEffect(() => {
-    setIsVisible(true);
+    // Use requestAnimationFrame for better performance
+    const timer = requestAnimationFrame(() => {
+      setIsVisible(true);
+    });
+    return () => cancelAnimationFrame(timer);
   }, []);
 
   // Check for register query parameter and open registration dialog
@@ -793,202 +797,67 @@ export default function HeroSection() {
         maxHeight: "100vh",
         width: "100%",
         overflow: "hidden",
-        backgroundColor: "#b88900", // Base darker gold
-        // Enhanced gradient overlay with richer golden shades
-        background: `
-          linear-gradient(135deg, #ffd700 0%, #f7c948 20%, #e6b800 40%, #d4af37 60%, #b8941f 80%, #b88900 100%),
-          radial-gradient(circle at 20% 40%, rgba(255, 215, 0, 0.35) 0%, transparent 55%),
-          radial-gradient(circle at 80% 70%, rgba(184, 137, 0, 0.45) 0%, transparent 55%),
-          radial-gradient(circle at 50% 20%, rgba(247, 201, 72, 0.25) 0%, transparent 45%),
-          #b88900
-        `,
-        "&::before": {
-          content: '""',
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          // Metallic texture with bokeh overlay
-          background: `
-            radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 30%),
-            radial-gradient(circle at 80% 30%, rgba(255, 255, 255, 0.08) 0%, transparent 25%),
-            radial-gradient(circle at 40% 60%, rgba(255, 255, 255, 0.06) 0%, transparent 35%),
-            radial-gradient(circle at 90% 70%, rgba(255, 255, 255, 0.1) 0%, transparent 30%),
-            radial-gradient(circle at 30% 80%, rgba(255, 255, 255, 0.08) 0%, transparent 25%),
-            radial-gradient(circle at 70% 90%, rgba(255, 255, 255, 0.06) 0%, transparent 35%)
-          `,
-          backgroundSize: "200% 200%",
-          animation: "bokehFloat 20s ease-in-out infinite",
-          zIndex: 1,
-          opacity: 0.7,
-        },
-        "&::after": {
-          content: '""',
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          // Terrain pattern overlay
-          background: `
-            polygon(0% 85%, 15% 75%, 30% 82%, 45% 70%, 60% 78%, 75% 72%, 90% 80%, 100% 75%, 100% 100%, 0% 100%),
-            polygon(0% 100%, 20% 90%, 40% 95%, 60% 88%, 80% 92%, 100% 88%, 100% 100%, 0% 100%)
-          `,
-          backgroundSize: "100% 100%",
-          backgroundPosition: "0 0, 0 0",
-          backgroundRepeat: "no-repeat",
-          opacity: 0.3,
-          zIndex: 1,
-          mixBlendMode: "multiply",
-        },
+        backgroundColor: "transparent",
       }}
     >
-      {/* Terrain Hills Layer 1 */}
-      <Box
-        sx={{
-          position: "absolute",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: "60%",
-          zIndex: 1,
-          background: `
-            radial-gradient(ellipse 120% 100% at 50% 100%, rgba(139, 105, 20, 0.7) 0%, transparent 70%),
-            radial-gradient(ellipse 100% 80% at 0% 100%, rgba(184, 148, 31, 0.6) 0%, transparent 60%),
-            radial-gradient(ellipse 100% 80% at 100% 100%, rgba(212, 175, 55, 0.5) 0%, transparent 60%)
-          `,
-          clipPath:
-            "polygon(0% 45%, 12% 35%, 25% 42%, 38% 32%, 50% 40%, 62% 35%, 75% 42%, 88% 38%, 100% 45%, 100% 100%, 0% 100%)",
-        }}
-      />
-
-      {/* Terrain Hills Layer 2 */}
-      <Box
-        sx={{
-          position: "absolute",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: "40%",
-          zIndex: 1,
-          background: `
-            radial-gradient(ellipse 150% 100% at 50% 100%, rgba(184, 148, 31, 0.8) 0%, transparent 65%),
-            radial-gradient(ellipse 110% 90% at 25% 100%, rgba(139, 105, 20, 0.7) 0%, transparent 55%),
-            radial-gradient(ellipse 110% 90% at 75% 100%, rgba(201, 176, 55, 0.6) 0%, transparent 55%)
-          `,
-          clipPath:
-            "polygon(0% 60%, 18% 50%, 35% 58%, 52% 48%, 68% 55%, 85% 52%, 100% 60%, 100% 100%, 0% 100%)",
-        }}
-      />
-
-      {/* Terrain Hills Layer 3 - Deepest */}
-      <Box
-        sx={{
-          position: "absolute",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: "30%",
-          zIndex: 1,
-          background: `
-            radial-gradient(ellipse 180% 120% at 50% 100%, rgba(139, 105, 20, 0.9) 0%, transparent 70%)
-          `,
-          clipPath:
-            "polygon(0% 70%, 10% 65%, 22% 72%, 33% 68%, 44% 73%, 56% 70%, 67% 75%, 78% 72%, 89% 76%, 100% 74%, 100% 100%, 0% 100%)",
-        }}
-      />
-
-      {/* Particle Animation Layer */}
+      {/* White Floating Card - Left Side */}
       <Box
         sx={{
           position: "absolute",
           top: 0,
           left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 2,
-          overflow: "hidden",
-          "&::before": {
-            content: '""',
-            position: "absolute",
-            width: "100%",
-            height: "100%",
-            backgroundImage: `
-              radial-gradient(2px 2px at 20% 30%, rgba(255, 255, 255, 0.4), transparent),
-              radial-gradient(2px 2px at 60% 70%, rgba(255, 255, 255, 0.3), transparent),
-              radial-gradient(1px 1px at 50% 50%, rgba(255, 255, 255, 0.5), transparent),
-              radial-gradient(1px 1px at 80% 10%, rgba(255, 255, 255, 0.4), transparent),
-              radial-gradient(2px 2px at 90% 60%, rgba(255, 255, 255, 0.3), transparent),
-              radial-gradient(1px 1px at 33% 80%, rgba(255, 255, 255, 0.4), transparent),
-              radial-gradient(1px 1px at 70% 40%, rgba(255, 255, 255, 0.5), transparent),
-              radial-gradient(2px 2px at 40% 20%, rgba(255, 255, 255, 0.3), transparent)
-            `,
-            backgroundRepeat: "repeat",
-            backgroundSize: "200% 200%",
-            animation: "particleMove 20s linear infinite",
-            opacity: 0.6,
-          },
-          "&::after": {
-            content: '""',
-            position: "absolute",
-            width: "100%",
-            height: "100%",
-            backgroundImage: `
-              radial-gradient(3px 3px at 15% 25%, rgba(255, 215, 0, 0.5), transparent),
-              radial-gradient(2px 2px at 55% 65%, rgba(255, 215, 0, 0.4), transparent),
-              radial-gradient(1px 1px at 75% 45%, rgba(255, 215, 0, 0.6), transparent),
-              radial-gradient(2px 2px at 35% 85%, rgba(255, 215, 0, 0.4), transparent),
-              radial-gradient(1px 1px at 85% 15%, rgba(255, 215, 0, 0.5), transparent)
-            `,
-            backgroundRepeat: "repeat",
-            backgroundSize: "150% 150%",
-            animation: "particleMove 25s linear infinite reverse",
-            opacity: 0.5,
-          },
-        }}
-      />
-
-      {/* Content Overlay */}
-      <Box
-        sx={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          height: "100%",
+          right: { xs: 0, md: "50%" },
+          bottom: { xs: "50%", md: 0 },
+          borderRadius: 0,
+          backgroundColor: "rgba(255, 255, 255, 0.98)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          boxShadow: `
+            0 20px 60px rgba(0, 0, 0, 0.2),
+            0 0 0 1px rgba(255, 255, 255, 0.5) inset,
+            0 8px 32px rgba(212, 175, 55, 0.3)
+          `,
           display: "flex",
           flexDirection: "column",
-          justifyContent: "center",
+          justifyContent: "flex-start",
+          alignItems: "center",
           color: "rgba(0, 0, 0, 0.9)",
           zIndex: 3,
-          px: { xs: 2, sm: 4, md: 6 },
-          maxWidth: "1400px",
-          margin: "0 auto",
-          pb: { xs: 8, sm: 10, md: 12 },
+          px: { xs: 2, sm: 3, md: 4 },
+          pt: { xs: 4, sm: 5, md: 6 },
+          pb: { xs: 3, sm: 4, md: 5 },
           boxSizing: "border-box",
+          transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+          "&:hover": {
+            boxShadow: `
+              0 25px 70px rgba(0, 0, 0, 0.25),
+              0 0 0 1px rgba(255, 255, 255, 0.6) inset,
+              0 10px 40px rgba(212, 175, 55, 0.4)
+            `,
+          },
         }}
       >
-        <Fade in={isVisible} timeout={1000}>
+        <Fade in={isVisible} timeout={300}>
           <Box
             sx={{
               width: "100%",
+              maxWidth: { xs: "100%", sm: "90%", md: "80%" },
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              justifyContent: "center",
+              justifyContent: "flex-start",
               gap: { xs: 2, sm: 2.5, md: 3 },
-              animation: "slideInUp 1.2s ease-out",
+              animation: "slideInUp 0.6s ease-out",
+              willChange: "transform, opacity",
             }}
           >
             {/* Spotlight Glow Behind Logo */}
             <Box
               sx={{
                 position: "absolute",
-                top: "50%",
+                top: { xs: "15%", sm: "18%", md: "20%" },
                 left: "50%",
-                transform: "translate(-50%, -50%)",
+                transform: "translateX(-50%)",
                 width: { xs: "300px", sm: "400px", md: "500px", lg: "600px" },
                 height: { xs: "300px", sm: "400px", md: "500px", lg: "600px" },
                 background:
@@ -1068,36 +937,39 @@ export default function HeroSection() {
                 zIndex: 3,
                 fontWeight: 400,
                 fontSize: {
-                  xs: "1rem",
-                  sm: "1.2rem",
-                  md: "1.4rem",
-                  lg: "1.6rem",
-                  xl: "1.8rem",
+                  xs: "0.75rem",
+                  sm: "0.9rem",
+                  md: "1.1rem",
+                  lg: "1.3rem",
+                  xl: "1.5rem",
                 },
                 textAlign: "center",
+                whiteSpace: "nowrap",
                 letterSpacing: {
-                  xs: "3px",
-                  sm: "4px",
-                  md: "5px",
-                  lg: "6px",
+                  xs: "2px",
+                  sm: "3px",
+                  md: "4px",
+                  lg: "5px",
                 },
                 fontFamily:
                   '"Manrope", "Poppins", "Montserrat", "Inter", sans-serif',
                 color: "rgba(0, 0, 0, 0.85)",
                 textShadow:
                   "0 3px 15px rgba(255, 255, 255, 0.6), 0 2px 8px rgba(0, 0, 0, 0.2), 0 0 20px rgba(255, 215, 0, 0.15)",
-                lineHeight: { xs: 1.8, sm: 1.9, md: 2 },
+                lineHeight: 1.2,
                 fontStyle: "normal",
                 textTransform: "uppercase",
                 transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
                 animation: "fadeInUp 1.2s ease-out 0.6s both",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
                 "&:hover": {
                   color: "rgba(0, 0, 0, 0.95)",
                   letterSpacing: {
-                    xs: "3.5px",
-                    sm: "4.5px",
-                    md: "5.5px",
-                    lg: "6.5px",
+                    xs: "2.5px",
+                    sm: "3.5px",
+                    md: "4.5px",
+                    lg: "5.5px",
                   },
                   textShadow:
                     "0 3px 20px rgba(255, 255, 255, 0.8), 0 2px 12px rgba(0, 0, 0, 0.25), 0 0 25px rgba(255, 215, 0, 0.2)",
@@ -1108,15 +980,98 @@ export default function HeroSection() {
               CONNECT. DISCOVER. VIBE.
             </Typography>
 
+            {/* Floating Love Emoji */}
+            <Box
+              sx={{
+                fontSize: {
+                  xs: "12rem",
+                  sm: "15rem",
+                  md: "18rem",
+                  lg: "21rem",
+                  xl: "24rem",
+                },
+                animation: "floatEmoji 3s ease-in-out infinite",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: "100%",
+                mt: { xs: -3, sm: -4, md: -5 },
+                filter: "drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1))",
+                transition: "transform 0.3s ease",
+                textAlign: "center",
+                willChange: "transform",
+                transform: "translateZ(0)",
+                "&:hover": {
+                  transform: "scale(1.1)",
+                },
+              }}
+            >
+              ❤️
+            </Box>
+          </Box>
+        </Fade>
+      </Box>
+
+      {/* Gold Floating Card - Right Side */}
+      <Box
+        sx={{
+          position: "absolute",
+          top: { xs: "50%", md: 0 },
+          left: { xs: 0, md: "50%" },
+          right: 0,
+          bottom: 0,
+          borderRadius: 0,
+          background: "linear-gradient(135deg, #f7c948 0%, #e6b800 25%, #d4af37 50%, #b8941f 75%, #8b6914 100%)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          boxShadow: `
+            0 20px 60px rgba(0, 0, 0, 0.3),
+            0 0 0 1px rgba(255, 255, 255, 0.2) inset,
+            0 8px 32px rgba(212, 175, 55, 0.5),
+            0 0 40px rgba(255, 215, 0, 0.2)
+          `,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          color: "rgba(0, 0, 0, 0.9)",
+          zIndex: 4,
+          px: { xs: 2, sm: 3, md: 4 },
+          py: { xs: 3, sm: 4, md: 5 },
+          boxSizing: "border-box",
+          transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+          "&:hover": {
+            boxShadow: `
+              0 25px 70px rgba(0, 0, 0, 0.35),
+              0 0 0 1px rgba(255, 255, 255, 0.3) inset,
+              0 10px 40px rgba(212, 175, 55, 0.6),
+              0 0 50px rgba(255, 215, 0, 0.3)
+            `,
+          },
+        }}
+      >
+        <Fade in={isVisible} timeout={300}>
+          <Box
+            sx={{
+              width: "100%",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: { xs: 2, sm: 2.5, md: 3 },
+              animation: "fadeInUp 0.5s ease-out 0.2s both",
+              willChange: "transform, opacity",
+            }}
+          >
             {/* Buttons Stacked Vertically */}
             <Box
               sx={{
                 display: "flex",
                 flexDirection: "column",
-                gap: { xs: 1.5, md: 2 },
+                gap: { xs: 1, md: 1.25 },
                 alignItems: "center",
                 width: "100%",
-                maxWidth: { xs: "280px", sm: "320px", md: "380px" },
+                maxWidth: { xs: "220px", sm: "240px", md: "280px" },
                 mt: { xs: 1.5, sm: 2, md: 2.5 },
                 animation: "fadeInUp 1s ease-out 0.9s both",
               }}
@@ -1126,7 +1081,7 @@ export default function HeroSection() {
                 startIcon={
                   <PersonAdd
                     sx={{
-                      fontSize: { xs: "1.1rem", md: "1.25rem" },
+                      fontSize: { xs: "0.9rem", md: "1rem" },
                       transition: "transform 0.3s ease",
                     }}
                   />
@@ -1137,12 +1092,12 @@ export default function HeroSection() {
                   position: "relative",
                   zIndex: 3,
                   color: "rgba(0, 0, 0, 0.9)",
-                  fontSize: { xs: "0.95rem", sm: "1.05rem", md: "1.15rem" },
+                  fontSize: { xs: "0.8rem", sm: "0.875rem", md: "0.95rem" },
                   fontWeight: 700,
                   letterSpacing: "0.5px",
-                  px: { xs: 2.5, md: 3.5 },
-                  py: { xs: 1.5, md: 1.75 },
-                  borderRadius: "16px",
+                  px: { xs: 2, md: 2.5 },
+                  py: { xs: 1.1, md: 1.25 },
+                  borderRadius: "12px",
                   textTransform: "none",
                   // Enhanced gradient with metallic finish
                   background:
@@ -1212,7 +1167,7 @@ export default function HeroSection() {
                     `,
                   },
                   "& .MuiButton-startIcon": {
-                    marginRight: { xs: "8px", md: "10px" },
+                    marginRight: { xs: "6px", md: "8px" },
                     marginLeft: 0,
                     transition: "transform 0.4s ease",
                   },
@@ -1221,11 +1176,11 @@ export default function HeroSection() {
                 Sign Up
               </Button>
               <Button
-                variant="outlined"
+                variant="contained"
                 startIcon={
                   <Login
                     sx={{
-                      fontSize: { xs: "1.1rem", md: "1.25rem" },
+                      fontSize: { xs: "0.9rem", md: "1rem" },
                       transition: "transform 0.3s ease",
                     }}
                   />
@@ -1236,25 +1191,22 @@ export default function HeroSection() {
                   position: "relative",
                   zIndex: 3,
                   color: "rgba(0, 0, 0, 0.9)",
-                  borderColor: "rgba(255, 255, 255, 0.5)",
-                  borderWidth: "2px",
-                  fontSize: { xs: "0.95rem", sm: "1.05rem", md: "1.15rem" },
+                  fontSize: { xs: "0.8rem", sm: "0.875rem", md: "0.95rem" },
                   fontWeight: 700,
                   letterSpacing: "0.5px",
-                  px: { xs: 2.5, md: 3.5 },
-                  py: { xs: 1.5, md: 1.75 },
-                  borderRadius: "16px",
+                  px: { xs: 2, md: 2.5 },
+                  py: { xs: 1.1, md: 1.25 },
+                  borderRadius: "12px",
                   textTransform: "none",
-                  // Enhanced glassmorphism with subtle glow
-                  backdropFilter: "blur(20px)",
-                  WebkitBackdropFilter: "blur(20px)",
-                  backgroundColor: "rgba(255, 255, 255, 0.25)",
+                  // Enhanced gradient with metallic finish
+                  background:
+                    "linear-gradient(135deg, #f7c948 0%, #e6b800 25%, #d4af37 50%, #b8941f 75%, #8b6914 100%)",
+                  border: "2px solid rgba(255, 255, 255, 0.3)",
                   boxShadow: `
-                    0 10px 40px rgba(0, 0, 0, 0.15),
-                    0 0 0 1px rgba(255, 255, 255, 0.3) inset,
-                    0 2px 0 rgba(255, 255, 255, 0.6) inset,
-                    0 -1px 8px rgba(0, 0, 0, 0.1) inset,
-                    0 0 20px rgba(255, 215, 0, 0.1)
+                    0 10px 40px rgba(212, 175, 55, 0.4),
+                    0 0 0 1px rgba(255, 255, 255, 0.1) inset,
+                    0 2px 0 rgba(255, 255, 255, 0.5) inset,
+                    0 -2px 10px rgba(0, 0, 0, 0.3) inset
                   `,
                   transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
                   overflow: "hidden",
@@ -1266,7 +1218,7 @@ export default function HeroSection() {
                     width: "100%",
                     height: "100%",
                     background:
-                      "linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent)",
+                      "linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent)",
                     transition: "left 0.6s ease",
                   },
                   "&::after": {
@@ -1278,22 +1230,20 @@ export default function HeroSection() {
                     height: 0,
                     borderRadius: "50%",
                     background:
-                      "radial-gradient(circle, rgba(255, 215, 0, 0.2) 0%, transparent 70%)",
+                      "radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, transparent 70%)",
                     transform: "translate(-50%, -50%)",
                     transition: "width 0.6s ease, height 0.6s ease",
                   },
                   "&:hover": {
-                    backgroundColor: "rgba(255, 255, 255, 0.45)",
-                    borderColor: "rgba(255, 255, 255, 0.8)",
-                    borderWidth: "2px",
+                    background:
+                      "linear-gradient(135deg, #ffd700 0%, #f7c948 25%, #e6b800 50%, #d4af37 75%, #b8941f 100%)",
                     transform: "translateY(-2px) scale(1.02)",
                     boxShadow: `
-                      0 0 30px rgba(255, 215, 0, 0.4),
-                      0 15px 50px rgba(0, 0, 0, 0.2),
-                      0 0 0 1px rgba(255, 255, 255, 0.4) inset,
-                      0 3px 0 rgba(255, 255, 255, 0.7) inset,
-                      0 -1px 12px rgba(0, 0, 0, 0.15) inset,
-                      0 0 30px rgba(255, 215, 0, 0.2)
+                      0 0 30px rgba(255, 215, 0, 0.6),
+                      0 15px 50px rgba(212, 175, 55, 0.5),
+                      0 0 0 1px rgba(255, 255, 255, 0.2) inset,
+                      0 3px 0 rgba(255, 255, 255, 0.6) inset,
+                      0 -2px 15px rgba(0, 0, 0, 0.3) inset
                     `,
                     "&::before": {
                       left: "100%",
@@ -1303,20 +1253,20 @@ export default function HeroSection() {
                       height: "300px",
                     },
                     "& .MuiButton-startIcon": {
-                      transform: "translateX(5px) scale(1.2)",
+                      transform: "rotate(360deg) scale(1.2)",
                     },
                   },
                   "&:active": {
                     transform: "translateY(0) scale(1)",
                     boxShadow: `
-                      0 0 20px rgba(255, 215, 0, 0.3),
-                      0 8px 30px rgba(0, 0, 0, 0.15),
-                      0 0 0 1px rgba(255, 255, 255, 0.3) inset,
-                      0 1px 0 rgba(255, 255, 255, 0.5) inset
+                      0 0 20px rgba(255, 215, 0, 0.5),
+                      0 8px 30px rgba(212, 175, 55, 0.4),
+                      0 0 0 1px rgba(255, 255, 255, 0.1) inset,
+                      0 1px 0 rgba(255, 255, 255, 0.4) inset
                     `,
                   },
                   "& .MuiButton-startIcon": {
-                    marginRight: { xs: "8px", md: "10px" },
+                    marginRight: { xs: "6px", md: "8px" },
                     marginLeft: 0,
                     transition: "transform 0.4s ease",
                   },
@@ -1325,11 +1275,11 @@ export default function HeroSection() {
                 Sign In
               </Button>
               <Button
-                variant="outlined"
+                variant="contained"
                 startIcon={
                   <Explore
                     sx={{
-                      fontSize: { xs: "1.1rem", md: "1.25rem" },
+                      fontSize: { xs: "0.9rem", md: "1rem" },
                       transition: "transform 0.3s ease",
                     }}
                   />
@@ -1340,25 +1290,22 @@ export default function HeroSection() {
                   position: "relative",
                   zIndex: 3,
                   color: "rgba(0, 0, 0, 0.9)",
-                  borderColor: "rgba(255, 255, 255, 0.5)",
-                  borderWidth: "2px",
-                  fontSize: { xs: "0.95rem", sm: "1.05rem", md: "1.15rem" },
+                  fontSize: { xs: "0.8rem", sm: "0.875rem", md: "0.95rem" },
                   fontWeight: 700,
                   letterSpacing: "0.5px",
-                  px: { xs: 2.5, md: 3.5 },
-                  py: { xs: 1.5, md: 1.75 },
-                  borderRadius: "16px",
+                  px: { xs: 2, md: 2.5 },
+                  py: { xs: 1.1, md: 1.25 },
+                  borderRadius: "12px",
                   textTransform: "none",
-                  // Enhanced glassmorphism with subtle glow
-                  backdropFilter: "blur(20px)",
-                  WebkitBackdropFilter: "blur(20px)",
-                  backgroundColor: "rgba(255, 255, 255, 0.25)",
+                  // Enhanced gradient with metallic finish
+                  background:
+                    "linear-gradient(135deg, #f7c948 0%, #e6b800 25%, #d4af37 50%, #b8941f 75%, #8b6914 100%)",
+                  border: "2px solid rgba(255, 255, 255, 0.3)",
                   boxShadow: `
-                    0 10px 40px rgba(0, 0, 0, 0.15),
-                    0 0 0 1px rgba(255, 255, 255, 0.3) inset,
-                    0 2px 0 rgba(255, 255, 255, 0.6) inset,
-                    0 -1px 8px rgba(0, 0, 0, 0.1) inset,
-                    0 0 20px rgba(255, 215, 0, 0.1)
+                    0 10px 40px rgba(212, 175, 55, 0.4),
+                    0 0 0 1px rgba(255, 255, 255, 0.1) inset,
+                    0 2px 0 rgba(255, 255, 255, 0.5) inset,
+                    0 -2px 10px rgba(0, 0, 0, 0.3) inset
                   `,
                   transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
                   overflow: "hidden",
@@ -1370,7 +1317,7 @@ export default function HeroSection() {
                     width: "100%",
                     height: "100%",
                     background:
-                      "linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent)",
+                      "linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent)",
                     transition: "left 0.6s ease",
                   },
                   "&::after": {
@@ -1382,22 +1329,20 @@ export default function HeroSection() {
                     height: 0,
                     borderRadius: "50%",
                     background:
-                      "radial-gradient(circle, rgba(255, 215, 0, 0.2) 0%, transparent 70%)",
+                      "radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, transparent 70%)",
                     transform: "translate(-50%, -50%)",
                     transition: "width 0.6s ease, height 0.6s ease",
                   },
                   "&:hover": {
-                    backgroundColor: "rgba(255, 255, 255, 0.45)",
-                    borderColor: "rgba(255, 255, 255, 0.8)",
-                    borderWidth: "2px",
+                    background:
+                      "linear-gradient(135deg, #ffd700 0%, #f7c948 25%, #e6b800 50%, #d4af37 75%, #b8941f 100%)",
                     transform: "translateY(-2px) scale(1.02)",
                     boxShadow: `
-                      0 0 30px rgba(255, 215, 0, 0.4),
-                      0 15px 50px rgba(0, 0, 0, 0.2),
-                      0 0 0 1px rgba(255, 255, 255, 0.4) inset,
-                      0 3px 0 rgba(255, 255, 255, 0.7) inset,
-                      0 -1px 12px rgba(0, 0, 0, 0.15) inset,
-                      0 0 30px rgba(255, 215, 0, 0.2)
+                      0 0 30px rgba(255, 215, 0, 0.6),
+                      0 15px 50px rgba(212, 175, 55, 0.5),
+                      0 0 0 1px rgba(255, 255, 255, 0.2) inset,
+                      0 3px 0 rgba(255, 255, 255, 0.6) inset,
+                      0 -2px 15px rgba(0, 0, 0, 0.3) inset
                     `,
                     "&::before": {
                       left: "100%",
@@ -1407,20 +1352,20 @@ export default function HeroSection() {
                       height: "300px",
                     },
                     "& .MuiButton-startIcon": {
-                      transform: "translateX(5px) scale(1.2)",
+                      transform: "rotate(360deg) scale(1.2)",
                     },
                   },
                   "&:active": {
                     transform: "translateY(0) scale(1)",
                     boxShadow: `
-                      0 0 20px rgba(255, 215, 0, 0.3),
-                      0 8px 30px rgba(0, 0, 0, 0.15),
-                      0 0 0 1px rgba(255, 255, 255, 0.3) inset,
-                      0 1px 0 rgba(255, 255, 255, 0.5) inset
+                      0 0 20px rgba(255, 215, 0, 0.5),
+                      0 8px 30px rgba(212, 175, 55, 0.4),
+                      0 0 0 1px rgba(255, 255, 255, 0.1) inset,
+                      0 1px 0 rgba(255, 255, 255, 0.4) inset
                     `,
                   },
                   "& .MuiButton-startIcon": {
-                    marginRight: { xs: "8px", md: "10px" },
+                    marginRight: { xs: "6px", md: "8px" },
                     marginLeft: 0,
                     transition: "transform 0.4s ease",
                   },
@@ -1433,7 +1378,7 @@ export default function HeroSection() {
         </Fade>
       </Box>
 
-      {/* Centered Card - Same line as chatbot */}
+      {/* Centered Card - Halfway between white and gold on large screens */}
       <Box
         sx={{
           position: "fixed",
@@ -1442,6 +1387,7 @@ export default function HeroSection() {
           transform: "translateX(-50%)",
           zIndex: 999,
           transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+          display: { xs: "none", md: "block" },
           "&:hover": {
             transform: "translateX(-50%) translateY(-4px)",
           },
@@ -1450,20 +1396,20 @@ export default function HeroSection() {
         <Card
           sx={{
             position: "relative",
-            borderRadius: "16px",
+            borderRadius: "12px",
             backdropFilter: "blur(20px)",
             WebkitBackdropFilter: "blur(20px)",
-            backgroundColor: "rgba(255, 255, 255, 0.25)",
-            border: "2px solid rgba(255, 255, 255, 0.5)",
+            background: "linear-gradient(135deg, #f7c948 0%, #e6b800 25%, #d4af37 50%, #b8941f 75%, #8b6914 100%)",
+            border: "2px solid rgba(212, 175, 55, 0.8)",
             boxShadow: `
-              0 10px 40px rgba(0, 0, 0, 0.15),
-              0 0 0 1px rgba(255, 255, 255, 0.3) inset,
-              0 2px 0 rgba(255, 255, 255, 0.6) inset,
-              0 -1px 8px rgba(0, 0, 0, 0.1) inset,
-              0 0 20px rgba(255, 215, 0, 0.1)
+              0 10px 40px rgba(212, 175, 55, 0.4),
+              0 0 0 1px rgba(255, 255, 255, 0.2) inset,
+              0 2px 0 rgba(255, 255, 255, 0.4) inset,
+              0 -2px 10px rgba(0, 0, 0, 0.2) inset,
+              0 0 20px rgba(255, 215, 0, 0.3)
             `,
-            minWidth: { xs: "240px", sm: "280px", md: "320px" },
-            maxWidth: { xs: "280px", sm: "320px", md: "360px" },
+            minWidth: { xs: "180px", sm: "200px", md: "220px" },
+            maxWidth: { xs: "200px", sm: "220px", md: "240px" },
             transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
             overflow: "hidden",
             "&::before": {
@@ -1474,20 +1420,20 @@ export default function HeroSection() {
               width: "100%",
               height: "100%",
               background:
-                "linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent)",
+                "linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent)",
               transition: "left 0.6s ease",
               zIndex: 0,
             },
             "&:hover": {
-              backgroundColor: "rgba(255, 255, 255, 0.45)",
-              borderColor: "rgba(255, 255, 255, 0.8)",
+              background: "linear-gradient(135deg, #ffd700 0%, #f7c948 25%, #e6b800 50%, #d4af37 75%, #b8941f 100%)",
+              borderColor: "rgba(212, 175, 55, 1)",
               boxShadow: `
-                0 0 30px rgba(255, 215, 0, 0.4),
-                0 15px 50px rgba(0, 0, 0, 0.2),
-                0 0 0 1px rgba(255, 255, 255, 0.4) inset,
-                0 3px 0 rgba(255, 255, 255, 0.7) inset,
-                0 -1px 12px rgba(0, 0, 0, 0.15) inset,
-                0 0 30px rgba(255, 215, 0, 0.2)
+                0 0 30px rgba(255, 215, 0, 0.6),
+                0 15px 50px rgba(212, 175, 55, 0.5),
+                0 0 0 1px rgba(255, 255, 255, 0.3) inset,
+                0 3px 0 rgba(255, 255, 255, 0.5) inset,
+                0 -2px 15px rgba(0, 0, 0, 0.3) inset,
+                0 0 30px rgba(255, 215, 0, 0.4)
               `,
               "&::before": {
                 left: "100%",
@@ -1499,13 +1445,13 @@ export default function HeroSection() {
             sx={{
               position: "relative",
               zIndex: 1,
-              p: { xs: 1.5, sm: 2.5 },
+              p: { xs: 1, sm: 1.25, md: 1.5 },
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              gap: { xs: 0.25, sm: 0.5 },
+              gap: { xs: 0.2, sm: 0.3 },
               "&:last-child": {
-                pb: { xs: 1.5, sm: 2.5 },
+                pb: { xs: 1, sm: 1.25, md: 1.5 },
               },
             }}
           >
@@ -1513,8 +1459,8 @@ export default function HeroSection() {
               variant="body2"
               sx={{
                 fontWeight: 500,
-                fontSize: { xs: "0.7rem", sm: "0.8rem", md: "0.875rem" },
-                color: "rgba(0, 0, 0, 0.7)",
+                fontSize: { xs: "0.6rem", sm: "0.65rem", md: "0.7rem" },
+                color: "rgba(0, 0, 0, 0.85)",
                 textAlign: "center",
                 lineHeight: 1.2,
               }}
@@ -1525,8 +1471,8 @@ export default function HeroSection() {
               variant="h6"
               sx={{
                 fontWeight: 700,
-                fontSize: { xs: "0.75rem", sm: "0.95rem", md: "1.1rem" },
-                color: "rgba(0, 0, 0, 0.9)",
+                fontSize: { xs: "0.65rem", sm: "0.75rem", md: "0.85rem" },
+                color: "rgba(0, 0, 0, 0.95)",
                 textAlign: "center",
                 lineHeight: 1.2,
               }}
@@ -3232,6 +3178,15 @@ export default function HeroSection() {
             }
             100% {
               background-position: 0% 50%;
+            }
+          }
+          
+          @keyframes floatEmoji {
+            0%, 100% {
+              transform: translateY(0px);
+            }
+            50% {
+              transform: translateY(-20px);
             }
           }
           
