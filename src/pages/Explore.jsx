@@ -36,7 +36,6 @@ import {
   Search,
   FilterList,
   Clear,
-  Person,
   AccessTime,
   MyLocation,
   Circle,
@@ -1207,9 +1206,6 @@ export default function Explore({ user }) {
             border: "1px solid rgba(212, 175, 55, 0.2)",
           }}
         >
-          <Person
-            sx={{ fontSize: 64, color: "rgba(212, 175, 55, 0.5)", mb: 2 }}
-          />
           <Typography
             variant="h6"
             sx={{

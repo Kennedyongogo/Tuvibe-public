@@ -58,7 +58,6 @@ import {
   MyLocation,
   Insights,
   GpsFixed,
-  AccountCircle,
   BarChart,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
@@ -2290,23 +2289,6 @@ export default function Dashboard({ user, setUser }) {
                   >
                     <GpsFixed sx={{ color: "#D4AF37" }} />
                   </Badge>
-                </IconButton>
-              </span>
-            </Tooltip>
-            <Tooltip title="Profile" arrow>
-              <span>
-                <IconButton
-                  onClick={() => navigate("/profile")}
-                  sx={{
-                    backgroundColor: "rgba(212, 175, 55, 0.12)",
-                    border: "1px solid rgba(212, 175, 55, 0.3)",
-                    "&:hover": {
-                      backgroundColor: "rgba(212, 175, 55, 0.22)",
-                    },
-                    flexShrink: 0,
-                  }}
-                >
-                  <AccountCircle sx={{ color: "#D4AF37" }} />
                 </IconButton>
               </span>
             </Tooltip>

@@ -36,7 +36,6 @@ import {
   Message,
   Person,
   Category as CategoryIcon,
-  AccountCircle,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
@@ -397,31 +396,6 @@ export default function Reports({ user }) {
               gap: { xs: 0.75, sm: 1.25 },
             }}
           >
-            <Tooltip title="Profile" arrow>
-              <span>
-                <IconButton
-                  onClick={() => navigate("/profile")}
-                  sx={{
-                    backgroundColor: "rgba(212, 175, 55, 0.12)",
-                    border: "1px solid rgba(212, 175, 55, 0.3)",
-                    "&:hover": {
-                      backgroundColor: "rgba(212, 175, 55, 0.22)",
-                    },
-                    flexShrink: 0,
-                    width: { xs: "36px", sm: "40px" },
-                    height: { xs: "36px", sm: "40px" },
-                    p: { xs: 0.75, sm: 1 },
-                  }}
-                >
-                  <AccountCircle
-                    sx={{
-                      color: "#D4AF37",
-                      fontSize: { xs: "1.25rem", sm: "1.5rem" },
-                    }}
-                  />
-                </IconButton>
-              </span>
-            </Tooltip>
           </Box>
           <Button
             variant="contained"
@@ -482,31 +456,6 @@ export default function Reports({ user }) {
                       }}
                     />
                   </Badge>
-                </IconButton>
-              </span>
-            </Tooltip>
-            <Tooltip title="Profile" arrow>
-              <span>
-                <IconButton
-                  onClick={() => navigate("/profile")}
-                  sx={{
-                    backgroundColor: "rgba(212, 175, 55, 0.12)",
-                    border: "1px solid rgba(212, 175, 55, 0.3)",
-                    "&:hover": {
-                      backgroundColor: "rgba(212, 175, 55, 0.22)",
-                    },
-                    flexShrink: 0,
-                    width: "36px",
-                    height: "36px",
-                    p: 0.75,
-                  }}
-                >
-                  <AccountCircle
-                    sx={{
-                      color: "#D4AF37",
-                      fontSize: "1.25rem",
-                    }}
-                  />
                 </IconButton>
               </span>
             </Tooltip>

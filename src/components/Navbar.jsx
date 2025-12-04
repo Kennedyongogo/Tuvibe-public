@@ -20,6 +20,8 @@ import {
   Paper,
   Tooltip,
   Button,
+  IconButton,
+  Badge,
 } from "@mui/material";
 import {
   Home,
@@ -31,6 +33,7 @@ import {
   Report,
   Lock,
   Timeline,
+  Notifications,
 } from "@mui/icons-material";
 import { useNavigate, useLocation } from "react-router-dom";
 import Swal from "sweetalert2";
@@ -52,6 +55,7 @@ export default function Navbar({
   const [bottomNavValue, setBottomNavValue] = useState(0);
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
   const [subscription, setSubscription] = useState(null);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const prevPathnameRef = useRef(location.pathname);
   const anchorElRef = useRef(null);
   // Cache refs to prevent unnecessary refetches on remount
@@ -309,6 +313,47 @@ export default function Navbar({
       subscriptionFetchedRef.current = false;
     }
   }, [user?.id, fetchSubscription]);
+
+  // Fetch unread notification count
+  const fetchUnreadNotificationCount = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token || !user?.id) {
+      setUnreadNotificationCount(0);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/notifications", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = await response.json();
+      if (data.success && Array.isArray(data.data)) {
+        const unreadCount = data.data.filter((n) => !n.isRead).length;
+        setUnreadNotificationCount(unreadCount);
+      } else {
+        setUnreadNotificationCount(0);
+      }
+    } catch (error) {
+      console.error("Error fetching notification count:", error);
+      setUnreadNotificationCount(0);
+    }
+  }, [user?.id]);
+
+  // Fetch notification count on mount and when user changes
+  useEffect(() => {
+    fetchUnreadNotificationCount();
+
+    // Poll for new notifications every 30 seconds
+    const pollInterval = setInterval(() => {
+      fetchUnreadNotificationCount();
+    }, 30000);
+
+    return () => clearInterval(pollInterval);
+  }, [fetchUnreadNotificationCount]);
 
   const handleLogout = async () => {
     // Close menu first to prevent interference
@@ -605,28 +650,68 @@ export default function Navbar({
                 subscription?.status === "active" && (
                   <IncognitoToggle user={user} subscription={subscription} />
                 )}
-              <Button
-                variant="contained"
-                onClick={() => navigate("/pricing")}
-                sx={{
-                  mr: 2,
-                  borderRadius: "999px",
-                  textTransform: "none",
-                  fontWeight: 700,
-                  px: 2.5,
-                  py: 0.75,
-                  background:
-                    "linear-gradient(90deg, #D4AF37 0%, #B8941F 100%)",
-                  boxShadow: "0 4px 10px rgba(212, 175, 55, 0.3)",
-                  "&:hover": {
-                    background:
-                      "linear-gradient(90deg, #B8941F 0%, #D4AF37 100%)",
-                    boxShadow: "0 6px 16px rgba(212, 175, 55, 0.4)",
-                  },
-                }}
+              <Box
+                sx={{ display: "flex", alignItems: "center", gap: 1, mr: 2 }}
               >
-                Subscribe
-              </Button>
+                <Tooltip title="Notifications">
+                  <IconButton
+                    onClick={() => navigate("/notifications")}
+                    disableRipple
+                    sx={{
+                      color: "#D4AF37",
+                      "&:hover": {
+                        bgcolor: "rgba(212, 175, 55, 0.1)",
+                      },
+                      "&:focus": {
+                        outline: "none",
+                      },
+                      "&:focus-visible": {
+                        outline: "none",
+                      },
+                    }}
+                  >
+                    <Badge
+                      badgeContent={
+                        unreadNotificationCount > 0
+                          ? unreadNotificationCount
+                          : 0
+                      }
+                      color="error"
+                      sx={{
+                        "& .MuiBadge-badge": {
+                          bgcolor: "#D4AF37",
+                          color: "#1a1a1a",
+                          display:
+                            unreadNotificationCount > 0 ? "flex" : "none",
+                        },
+                      }}
+                    >
+                      <Notifications />
+                    </Badge>
+                  </IconButton>
+                </Tooltip>
+                <Button
+                  variant="contained"
+                  onClick={() => navigate("/pricing")}
+                  sx={{
+                    borderRadius: "999px",
+                    textTransform: "none",
+                    fontWeight: 700,
+                    px: 2.5,
+                    py: 0.75,
+                    background:
+                      "linear-gradient(90deg, #D4AF37 0%, #B8941F 100%)",
+                    boxShadow: "0 4px 10px rgba(212, 175, 55, 0.3)",
+                    "&:hover": {
+                      background:
+                        "linear-gradient(90deg, #B8941F 0%, #D4AF37 100%)",
+                      boxShadow: "0 6px 16px rgba(212, 175, 55, 0.4)",
+                    },
+                  }}
+                >
+                  Subscribe
+                </Button>
+              </Box>
               <Box
                 sx={{
                   display: "flex",

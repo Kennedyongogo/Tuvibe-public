@@ -18,6 +18,7 @@ import { fetchWithTimeout } from "../utils/fetchWithTimeout";
 
 import Navbar from "./Navbar";
 import TuVibe from "../components/TuVibe";
+import Dashboard from "../pages/Dashboard";
 import Profile from "../pages/Profile";
 import Explore from "../pages/Explore";
 import Wallet from "../pages/Wallet";
@@ -639,7 +640,7 @@ function PageRoutes() {
           />
         ) : (
           <Routes>
-            <Route path="home" element={<TuVibe />} />
+            <Route path="home" element={<Dashboard user={user} />} />
             <Route path="explore" element={<Explore user={user} />} />
             <Route path="market" element={<Market user={user} />} />
             <Route
