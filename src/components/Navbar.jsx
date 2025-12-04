@@ -57,24 +57,10 @@ export default function Navbar({
   const subscriptionFetchedRef = useRef(false);
   const lastSubscriptionFetchTimeRef = useRef(0);
   const SUBSCRIPTION_CACHE_DURATION_MS = 30000; // 30 seconds cache
-  // Ref to store SSE connection to prevent recreation
-  const sseEventSourceRef = useRef(null);
-  const isMountedRef = useRef(true);
 
   // Track component mount status
   useEffect(() => {
-    isMountedRef.current = true;
     return () => {
-      isMountedRef.current = false;
-      // Clean up SSE connection on unmount
-      if (sseEventSourceRef.current) {
-        try {
-          sseEventSourceRef.current.close();
-        } catch (e) {
-          // Ignore errors when closing
-        }
-        sseEventSourceRef.current = null;
-      }
       // Reset fetch flags on unmount
       subscriptionFetchedRef.current = false;
     };
@@ -315,148 +301,6 @@ export default function Navbar({
       setSubscription(null);
       subscriptionFetchedRef.current = false;
     }
-  }, [user?.id, fetchSubscription]);
-
-  // Set up SSE for real-time subscription updates
-  useEffect(() => {
-    if (!isMountedRef.current || !user?.id) {
-      // Clean up if user is not available
-      if (sseEventSourceRef.current) {
-        try {
-          sseEventSourceRef.current.close();
-        } catch (e) {
-          // Ignore errors when closing
-        }
-        sseEventSourceRef.current = null;
-      }
-      return;
-    }
-
-    const token = localStorage.getItem("token");
-    if (!token) {
-      if (sseEventSourceRef.current) {
-        try {
-          sseEventSourceRef.current.close();
-        } catch (e) {
-          // Ignore errors when closing
-        }
-        sseEventSourceRef.current = null;
-      }
-      return;
-    }
-
-    // Only create new connection if one doesn't exist or is closed/error state
-    if (sseEventSourceRef.current) {
-      const readyState = sseEventSourceRef.current.readyState;
-      if (
-        readyState === EventSource.OPEN ||
-        readyState === EventSource.CONNECTING
-      ) {
-        return; // Connection already exists and is open or connecting
-      }
-      // Connection is closed, clean it up before creating new one
-      try {
-        sseEventSourceRef.current.close();
-      } catch (e) {
-        // Ignore errors when closing
-      }
-      sseEventSourceRef.current = null;
-    }
-
-    let sseEventSource = null;
-
-    try {
-      const isDev = import.meta.env.DEV;
-      const protocol = window.location.protocol;
-      const host = window.location.hostname;
-      const apiPort = isDev ? "4000" : window.location.port || "";
-      const sseUrl = isDev
-        ? `${protocol}//${host}:${apiPort}/api/sse/events?token=${encodeURIComponent(token)}`
-        : `${protocol}//${host}${apiPort ? `:${apiPort}` : ""}/api/sse/events?token=${encodeURIComponent(token)}`;
-
-      sseEventSource = new EventSource(sseUrl);
-      sseEventSourceRef.current = sseEventSource;
-
-      sseEventSource.addEventListener("subscription:created", (event) => {
-        if (!isMountedRef.current) return;
-        try {
-          const data = JSON.parse(event.data);
-          console.log(
-            "📡 [Navbar] SSE: Subscription created event received",
-            data
-          );
-          if (data.subscription) {
-            setSubscription(data.subscription);
-          } else {
-            // Refetch to get full subscription data
-            fetchSubscription();
-          }
-        } catch (err) {
-          console.error(
-            "❌ [Navbar] Error parsing SSE subscription:created event:",
-            err
-          );
-        }
-      });
-
-      sseEventSource.addEventListener("subscription:updated", (event) => {
-        if (!isMountedRef.current) return;
-        try {
-          const data = JSON.parse(event.data);
-          console.log(
-            "📡 [Navbar] SSE: Subscription updated event received",
-            data
-          );
-          if (data.subscription) {
-            setSubscription(data.subscription);
-          } else {
-            // Refetch to get full subscription data
-            fetchSubscription();
-          }
-        } catch (err) {
-          console.error(
-            "❌ [Navbar] Error parsing SSE subscription:updated event:",
-            err
-          );
-        }
-      });
-
-      sseEventSource.addEventListener("subscription:expired", (event) => {
-        if (!isMountedRef.current) return;
-        try {
-          const data = JSON.parse(event.data);
-          console.log(
-            "📡 [Navbar] SSE: Subscription expired event received",
-            data
-          );
-          // Refetch to get updated subscription status
-          fetchSubscription();
-        } catch (err) {
-          console.error(
-            "❌ [Navbar] Error parsing SSE subscription:expired event:",
-            err
-          );
-        }
-      });
-
-      sseEventSource.onopen = () => {
-        console.log("✅ [Navbar] SSE connected for subscription updates");
-      };
-
-      sseEventSource.onerror = (error) => {
-        console.warn("⚠️ [Navbar] SSE error for subscription updates:", error);
-      };
-    } catch (err) {
-      console.warn(
-        "⚠️ [Navbar] SSE not available for subscription updates:",
-        err
-      );
-    }
-
-    return () => {
-      // Cleanup will be handled by the unmount effect
-      // Don't close here to keep connection alive when user.id changes
-    };
   }, [user?.id, fetchSubscription]);
 
   const handleLogout = async () => {
