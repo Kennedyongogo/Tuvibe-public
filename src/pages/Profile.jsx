@@ -446,8 +446,6 @@ export default function Profile({ user, setUser }) {
         : "",
   });
   const [isLocationTracking, setIsLocationTracking] = useState(false);
-  const [verificationStatus, setVerificationStatus] = useState(null);
-  const [requestingVerification, setRequestingVerification] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.name || "",
     username: user?.username || "",
@@ -564,50 +562,201 @@ export default function Profile({ user, setUser }) {
   // Fetch fresh user data on mount to ensure badgeType is included
   // Use ref to prevent unnecessary re-fetches
   const userDataFetchedRef = useRef(false);
-  useEffect(() => {
-    const fetchUserData = async () => {
-      const token = localStorage.getItem("token");
-      if (!token || !user || userDataFetchedRef.current) return;
+  const sseEventSourceRef = useRef(null);
+  const isMountedRef = useRef(true);
 
-      try {
-        const response = await fetchWithTimeout(
-          "/api/public/me",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
+  // Reusable function to fetch user data
+  const fetchUserData = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token || !user) return;
+
+    try {
+      const response = await fetchWithTimeout(
+        "/api/public/me",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
           },
-          8000
-        );
+        },
+        8000
+      );
 
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && data.data) {
-            // Only update if data actually changed to prevent refresh loops
-            const currentUserStr = JSON.stringify(user);
-            const newUserStr = JSON.stringify(data.data);
-            if (currentUserStr !== newUserStr) {
-              // Update user state with fresh data including badgeType
-              if (setUser) {
-                setUser(data.data);
-              }
-              // Also update localStorage
-              localStorage.setItem("user", JSON.stringify(data.data));
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data) {
+          // Only update if data actually changed to prevent refresh loops
+          const currentUserStr = JSON.stringify(user);
+          const newUserStr = JSON.stringify(data.data);
+          if (currentUserStr !== newUserStr) {
+            // Update user state with fresh data including badgeType
+            if (setUser) {
+              setUser(data.data);
             }
-            userDataFetchedRef.current = true;
+            // Also update localStorage
+            localStorage.setItem("user", JSON.stringify(data.data));
           }
         }
-      } catch (error) {
-        console.error("Failed to fetch user data:", error);
-        userDataFetchedRef.current = true; // Mark as fetched even on error to prevent retries
       }
+    } catch (error) {
+      console.error("Failed to fetch user data:", error);
+    }
+  }, [user, setUser]);
+
+  useEffect(() => {
+    // Fetch fresh user data when component mounts to ensure badgeType is included
+    const token = localStorage.getItem("token");
+    if (!token || !user || userDataFetchedRef.current) return;
+
+    const initialFetch = async () => {
+      await fetchUserData();
+      userDataFetchedRef.current = true;
     };
 
-    // Fetch fresh user data when component mounts to ensure badgeType is included
-    fetchUserData();
+    initialFetch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount
+
+  // Set up SSE for real-time subscription updates to refresh badge
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token || !user?.id) {
+      // Clean up if no token or user
+      if (sseEventSourceRef.current) {
+        try {
+          sseEventSourceRef.current.close();
+        } catch (e) {
+          // Ignore errors when closing
+        }
+        sseEventSourceRef.current = null;
+      }
+      return;
+    }
+
+    // Only create new connection if one doesn't exist or is closed/error state
+    if (sseEventSourceRef.current) {
+      const readyState = sseEventSourceRef.current.readyState;
+      if (
+        readyState === EventSource.OPEN ||
+        readyState === EventSource.CONNECTING
+      ) {
+        return; // Connection already exists and is open or connecting
+      }
+      // Connection is closed, clean it up before creating new one
+      try {
+        sseEventSourceRef.current.close();
+      } catch (e) {
+        // Ignore errors when closing
+      }
+      sseEventSourceRef.current = null;
+    }
+
+    let sseEventSource = null;
+
+    try {
+      const isDev = import.meta.env.DEV;
+      const protocol = window.location.protocol;
+      const host = window.location.hostname;
+      const apiPort = isDev ? "4000" : window.location.port || "";
+      const sseUrl = isDev
+        ? `${protocol}//${host}:${apiPort}/api/sse/events?token=${encodeURIComponent(token)}`
+        : `${protocol}//${host}${apiPort ? `:${apiPort}` : ""}/api/sse/events?token=${encodeURIComponent(token)}`;
+
+      sseEventSource = new EventSource(sseUrl);
+      sseEventSourceRef.current = sseEventSource;
+
+      // Listen for subscription created event - refresh user data to show badge
+      sseEventSource.addEventListener("subscription:created", (event) => {
+        if (!isMountedRef.current) return;
+        try {
+          const data = JSON.parse(event.data);
+          console.log(
+            "📡 [Profile] SSE: Subscription created event received",
+            data
+          );
+          // Refresh user data to get updated badge status
+          fetchUserData();
+        } catch (err) {
+          console.error(
+            "❌ [Profile] Error parsing SSE subscription:created event:",
+            err
+          );
+        }
+      });
+
+      // Listen for subscription updated event - refresh user data to update badge
+      sseEventSource.addEventListener("subscription:updated", (event) => {
+        if (!isMountedRef.current) return;
+        try {
+          const data = JSON.parse(event.data);
+          console.log(
+            "📡 [Profile] SSE: Subscription updated event received",
+            data
+          );
+          // Refresh user data to get updated badge status
+          fetchUserData();
+        } catch (err) {
+          console.error(
+            "❌ [Profile] Error parsing SSE subscription:updated event:",
+            err
+          );
+        }
+      });
+
+      // Listen for subscription expired event - refresh user data to remove badge
+      sseEventSource.addEventListener("subscription:expired", (event) => {
+        if (!isMountedRef.current) return;
+        try {
+          const data = JSON.parse(event.data);
+          console.log(
+            "📡 [Profile] SSE: Subscription expired event received",
+            data
+          );
+          // Refresh user data to update badge status (badge will be removed)
+          fetchUserData();
+        } catch (err) {
+          console.error(
+            "❌ [Profile] Error parsing SSE subscription:expired event:",
+            err
+          );
+        }
+      });
+
+      sseEventSource.onopen = () => {
+        console.log("✅ [Profile] SSE connected for subscription updates");
+      };
+
+      sseEventSource.onerror = (error) => {
+        console.warn("⚠️ [Profile] SSE error for subscription updates:", error);
+      };
+    } catch (err) {
+      console.warn(
+        "⚠️ [Profile] SSE not available for subscription updates:",
+        err
+      );
+    }
+
+    return () => {
+      // Cleanup will be handled by the unmount effect
+      // Don't close here to keep connection alive when user.id changes
+    };
+  }, [user?.id, fetchUserData]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (sseEventSourceRef.current) {
+        try {
+          sseEventSourceRef.current.close();
+        } catch (e) {
+          // Ignore errors when closing
+        }
+        sseEventSourceRef.current = null;
+      }
+    };
+  }, []);
 
   // Sync scroll position and validate photo index when photos change
   useEffect(() => {
@@ -647,128 +796,10 @@ export default function Profile({ user, setUser }) {
     return () => clearTimeout(timeoutId);
   }, [user?.photos?.length, galleryPhotos.length, galleryPreviews.length]); // Watch for photo changes
 
-  // Fetch verification status (only for premium categories that might have pending requests)
-  useEffect(() => {
-    const fetchVerificationStatus = async () => {
-      if (!user) return;
-
-      // Only check verification status for premium categories
-      const isPremiumCategory =
-        user?.category &&
-        ["Sugar Mummy", "Sponsor", "Ben 10", "Urban Chics"].includes(
-          user.category
-        );
-
-      // If user is already verified or not premium, no need to check
-      if (!isPremiumCategory || user?.isVerified) {
-        return;
-      }
-
-      const token = localStorage.getItem("token");
-      if (!token) return;
-
-      try {
-        const response = await fetchWithTimeout(
-          "/api/verification/my-status",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          },
-          8000
-        );
-
-        // If endpoint doesn't exist (404), silently fail
-        if (response.status === 404) {
-          return;
-        }
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        if (data.success && data.data) {
-          setVerificationStatus(data.data.status);
-        }
-      } catch (err) {
-        // Silently handle 404 errors (endpoint doesn't exist)
-        // Only log other errors
-        if (
-          !err.message ||
-          (!err.message.includes("404") && !err.message.includes("Not Found"))
-        ) {
-          // Failed to fetch verification status
-        }
-      }
-    };
-
-    fetchVerificationStatus();
-  }, [user]);
-
   // Check if user is in a premium category
   const isPremiumCategory =
     user?.category &&
     ["Sugar Mummy", "Sponsor", "Ben 10", "Urban Chics"].includes(user.category);
-
-  // Handle verification request
-  const handleRequestVerification = async () => {
-    setRequestingVerification(true);
-    const token = localStorage.getItem("token");
-
-    try {
-      const response = await fetchWithTimeout(
-        "/api/verification/request",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        },
-        8000
-      );
-
-      const data = await response.json();
-
-      if (data.success) {
-        setVerificationStatus("pending");
-        Swal.fire({
-          icon: "success",
-          title: "Verification Requested!",
-          text: "Your verification request has been submitted. Admin will review it soon.",
-          confirmButtonColor: "#D4AF37",
-          didOpen: () => {
-            const swal = document.querySelector(".swal2-popup");
-            if (swal) {
-              swal.style.borderRadius = "20px";
-              swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
-              swal.style.boxShadow = "0 20px 60px rgba(212, 175, 55, 0.25)";
-            }
-          },
-        });
-      } else {
-        Swal.fire({
-          icon: "error",
-          title: "Request Failed",
-          text:
-            data.message ||
-            "Failed to submit verification request. Please try again.",
-          confirmButtonColor: "#D4AF37",
-        });
-      }
-    } catch (err) {
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: "Failed to submit verification request. Please try again later.",
-        confirmButtonColor: "#D4AF37",
-      });
-    } finally {
-      setRequestingVerification(false);
-    }
-  };
 
   const scheduleLocationAutoSave = useCallback(
     (lat, lng) => {
@@ -3392,118 +3423,6 @@ export default function Profile({ user, setUser }) {
             </Typography>
           )}
         </Card>
-
-        {/* Verification Request Button - Only for Premium Categories */}
-        {isPremiumCategory && !user?.isVerified && (
-          <Box sx={{ mb: 2, textAlign: "center" }}>
-            {verificationStatus === "pending" ? (
-              <Chip
-                icon={
-                  <Pending
-                    sx={{
-                      fontSize: "1rem !important",
-                      color: "#FF9800 !important",
-                    }}
-                  />
-                }
-                label="Verification Request Pending"
-                sx={{
-                  bgcolor: "rgba(255, 152, 0, 0.15)",
-                  color: "#E65100",
-                  fontWeight: 600,
-                  fontSize: "0.85rem",
-                  px: 2,
-                  py: 1.5,
-                }}
-              />
-            ) : verificationStatus === "rejected" ? (
-              <Box>
-                <Chip
-                  icon={
-                    <CancelIcon
-                      sx={{
-                        fontSize: "1rem !important",
-                        color: "#F44336 !important",
-                      }}
-                    />
-                  }
-                  label="Verification Rejected"
-                  sx={{
-                    bgcolor: "rgba(244, 67, 54, 0.15)",
-                    color: "#C62828",
-                    fontWeight: 600,
-                    fontSize: "0.85rem",
-                    mb: 1,
-                  }}
-                />
-                <Button
-                  variant="contained"
-                  startIcon={
-                    requestingVerification ? (
-                      <CircularProgress size={16} color="inherit" />
-                    ) : (
-                      <HowToReg />
-                    )
-                  }
-                  onClick={handleRequestVerification}
-                  disabled={requestingVerification}
-                  sx={{
-                    background: "linear-gradient(135deg, #D4AF37, #B8941F)",
-                    color: "#1a1a1a",
-                    fontWeight: 600,
-                    textTransform: "none",
-                    borderRadius: "12px",
-                    px: 3,
-                    "&:hover": {
-                      background: "linear-gradient(135deg, #B8941F, #D4AF37)",
-                      transform: "translateY(-2px)",
-                      boxShadow: "0 8px 24px rgba(212, 175, 55, 0.3)",
-                    },
-                    "&:disabled": {
-                      background: "rgba(212, 175, 55, 0.3)",
-                    },
-                  }}
-                >
-                  Request Verification Again
-                </Button>
-              </Box>
-            ) : (
-              <Button
-                variant="contained"
-                startIcon={
-                  requestingVerification ? (
-                    <CircularProgress size={16} color="inherit" />
-                  ) : (
-                    <HowToReg />
-                  )
-                }
-                onClick={handleRequestVerification}
-                disabled={requestingVerification}
-                fullWidth
-                sx={{
-                  background: "linear-gradient(135deg, #D4AF37, #B8941F)",
-                  color: "#1a1a1a",
-                  fontWeight: 600,
-                  textTransform: "none",
-                  borderRadius: "12px",
-                  py: 1.5,
-                  "&:hover": {
-                    background: "linear-gradient(135deg, #B8941F, #D4AF37)",
-                    transform: "translateY(-2px)",
-                    boxShadow: "0 8px 24px rgba(212, 175, 55, 0.3)",
-                  },
-                  "&:disabled": {
-                    background: "rgba(212, 175, 55, 0.3)",
-                  },
-                }}
-              >
-                {requestingVerification
-                  ? "Requesting..."
-                  : "Request Verification"}
-              </Button>
-            )}
-          </Box>
-        )}
 
         {/* Profile Views & Boost Section */}
         <Card
