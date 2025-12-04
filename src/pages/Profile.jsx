@@ -53,7 +53,6 @@ import {
   ChevronRight,
   Add,
   Warning,
-  NotificationsActive,
   Image,
   CheckCircleOutline,
 } from "@mui/icons-material";
@@ -468,7 +467,6 @@ export default function Profile({ user, setUser }) {
   });
   const [loadingBoostStatus, setLoadingBoostStatus] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
-  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [gallerySelectionDialogOpen, setGallerySelectionDialogOpen] =
     useState(false);
   const [selectingProfilePhoto, setSelectingProfilePhoto] = useState(false);
@@ -2238,32 +2236,6 @@ export default function Profile({ user, setUser }) {
     }
   };
 
-  // Fetch unread notification count
-  const fetchUnreadNotificationCount = useCallback(async () => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
-    try {
-      const response = await fetchWithTimeout(
-        "/api/notifications/stats",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        },
-        8000
-      );
-
-      const data = await response.json();
-      if (data.success && data.data) {
-        setUnreadNotificationCount(data.data.unread || 0);
-      }
-    } catch (error) {
-      // Error fetching notification count - silent fail for polling
-    }
-  }, []);
-
   // Use ref to track if boost status has been fetched to prevent refresh loops
   const boostStatusFetchedRef = useRef(false);
   const lastUserIdRef = useRef(user?.id);
@@ -2283,28 +2255,15 @@ export default function Profile({ user, setUser }) {
 
       setLoadingBoostStatus(true);
       try {
-        // Parallelize boost status and notification count for faster loading
-        const [boostResponse, notificationResponse] = await Promise.all([
-          fetchWithTimeout(
-            "/api/public/boosts/status",
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
+        const boostResponse = await fetchWithTimeout(
+          "/api/public/boosts/status",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
             },
-            8000
-          ),
-          fetchWithTimeout(
-            "/api/notifications/stats",
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
-            },
-            8000
-          ).catch(() => null), // Don't fail if notifications fail
-        ]);
+          },
+          8000
+        );
 
         // Process boost status
         if (boostResponse.ok) {
@@ -2319,19 +2278,8 @@ export default function Profile({ user, setUser }) {
         } else {
           setBoostStatus({ status: "inactive", boost: null });
         }
-
-        // Process notification count
-        if (notificationResponse && notificationResponse.ok) {
-          const notificationData = await notificationResponse.json();
-          if (notificationData.success && notificationData.data) {
-            setUnreadNotificationCount(notificationData.data.unread || 0);
-          }
-        }
       } catch (error) {
-        console.error(
-          "[Profile] Error fetching boost/notification status:",
-          error
-        );
+        console.error("[Profile] Error fetching boost status:", error);
         setBoostStatus({ status: "inactive", boost: null });
       } finally {
         setLoadingBoostStatus(false);
@@ -2342,18 +2290,6 @@ export default function Profile({ user, setUser }) {
 
     fetchBoostStatus();
   }, [user?.id]);
-
-  // Poll for unread notification count every 30 seconds
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
-    const interval = setInterval(() => {
-      fetchUnreadNotificationCount();
-    }, 30000); // Poll every 30 seconds
-
-    return () => clearInterval(interval);
-  }, [fetchUnreadNotificationCount]);
 
   return (
     <Box>
@@ -2405,41 +2341,6 @@ export default function Profile({ user, setUser }) {
                   flexShrink: 0,
                 }}
               >
-                <Tooltip title="Notifications" arrow>
-                  <span>
-                    <IconButton
-                      onClick={() => navigate("/notifications")}
-                      sx={{
-                        backgroundColor: "rgba(212, 175, 55, 0.12)",
-                        border: "1px solid rgba(212, 175, 55, 0.3)",
-                        "&:hover": {
-                          backgroundColor: "rgba(212, 175, 55, 0.22)",
-                        },
-                        flexShrink: 0,
-                        width: { xs: "36px", sm: "40px" },
-                        height: { xs: "36px", sm: "40px" },
-                        p: { xs: 0.75, sm: 1 },
-                      }}
-                    >
-                      <Badge
-                        badgeContent={
-                          unreadNotificationCount > 0
-                            ? unreadNotificationCount
-                            : null
-                        }
-                        color="error"
-                        overlap="circular"
-                      >
-                        <NotificationsActive
-                          sx={{
-                            color: "#D4AF37",
-                            fontSize: { xs: "1.25rem", sm: "1.5rem" },
-                          }}
-                        />
-                      </Badge>
-                    </IconButton>
-                  </span>
-                </Tooltip>
                 {!isEditing ? (
                   <Button
                     startIcon={<Edit />}

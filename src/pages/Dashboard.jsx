@@ -55,7 +55,6 @@ import {
   AccessTime,
   Favorite,
   LockOpen,
-  NotificationsActive,
   MyLocation,
   Insights,
   GpsFixed,
@@ -226,7 +225,6 @@ export default function Dashboard({ user, setUser }) {
   const [storyCreatorOpen, setStoryCreatorOpen] = useState(false);
   const [storyCreated, setStoryCreated] = useState(false);
   const storiesFeedRefreshRef = React.useRef(null);
-  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   // Cache refs to prevent unnecessary refetches on remount
   const dataFetchedRef = useRef(false);
   const lastFetchTimeRef = useRef(0);
@@ -423,32 +421,6 @@ export default function Dashboard({ user, setUser }) {
     },
     []
   );
-
-  // Fetch unread notification count
-  const fetchUnreadNotificationCount = useCallback(async () => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
-    try {
-      const response = await fetchWithTimeout(
-        "/api/notifications/stats",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        },
-        8000
-      );
-
-      const data = await response.json();
-      if (data.success && data.data) {
-        setUnreadNotificationCount(data.data.unread || 0);
-      }
-    } catch (error) {
-      console.error("Error fetching notification count:", error);
-    }
-  }, []);
 
   // Fetch subscription status
   const fetchSubscription = useCallback(async () => {
@@ -1045,31 +1017,13 @@ export default function Dashboard({ user, setUser }) {
         fetchFeaturedItems(),
         fetchFeaturedUsers(),
         fetchActiveBoosts(),
-        fetchUnreadNotificationCount(),
       ]).catch((error) => {
         console.error("[Dashboard] Error in parallel data fetch:", error);
       });
       dataFetchedRef.current = true;
       lastFetchTimeRef.current = now;
-    } else {
-      // Still fetch notification count as it changes frequently
-      fetchUnreadNotificationCount();
     }
-  }, [
-    fetchFeaturedItems,
-    fetchFeaturedUsers,
-    fetchActiveBoosts,
-    fetchUnreadNotificationCount,
-  ]);
-
-  // Poll for unread notification count every 30 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchUnreadNotificationCount();
-    }, 30000); // Poll every 30 seconds
-
-    return () => clearInterval(interval);
-  }, [fetchUnreadNotificationCount]);
+  }, [fetchFeaturedItems, fetchFeaturedUsers, fetchActiveBoosts]);
 
   // Auto-transition images for each featured user
   useEffect(() => {
@@ -2335,33 +2289,6 @@ export default function Dashboard({ user, setUser }) {
                     overlap="circular"
                   >
                     <GpsFixed sx={{ color: "#D4AF37" }} />
-                  </Badge>
-                </IconButton>
-              </span>
-            </Tooltip>
-            <Tooltip title="Notifications" arrow>
-              <span>
-                <IconButton
-                  onClick={() => navigate("/notifications")}
-                  sx={{
-                    backgroundColor: "rgba(212, 175, 55, 0.12)",
-                    border: "1px solid rgba(212, 175, 55, 0.3)",
-                    "&:hover": {
-                      backgroundColor: "rgba(212, 175, 55, 0.22)",
-                    },
-                    flexShrink: 0,
-                  }}
-                >
-                  <Badge
-                    badgeContent={
-                      unreadNotificationCount > 0
-                        ? unreadNotificationCount
-                        : null
-                    }
-                    color="error"
-                    overlap="circular"
-                  >
-                    <NotificationsActive sx={{ color: "#D4AF37" }} />
                   </Badge>
                 </IconButton>
               </span>

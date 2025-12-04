@@ -40,7 +40,6 @@ import {
   AccessTime,
   MyLocation,
   Circle,
-  NotificationsActive,
   AccountCircle,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
@@ -64,7 +63,6 @@ export default function Explore({ user }) {
   const [viewProfileOpen, setViewProfileOpen] = useState(false);
   const [viewingUserId, setViewingUserId] = useState(null);
   const [currentImageIndex, setCurrentImageIndex] = useState({}); // Track current image index for each user
-  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [incognitoStatus, setIncognitoStatus] = useState({
     active: false,
     remaining_minutes: 0,
@@ -221,47 +219,12 @@ export default function Explore({ user }) {
     }
   }, []);
 
-  // Fetch unread notification count
-  const fetchUnreadNotificationCount = useCallback(async () => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
-    try {
-      const response = await fetch("/api/notifications/stats", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      const data = await response.json();
-      if (data.success && data.data) {
-        setUnreadNotificationCount(data.data.unread || 0);
-      }
-    } catch (error) {
-      console.error("Error fetching notification count:", error);
-    }
-  }, []);
-
   useEffect(() => {
     fetchUsers();
     if (localStorage.getItem("token")) {
       fetchFavorites();
-      fetchUnreadNotificationCount();
     }
-  }, [page, filters, nearbyEnabled, radius, fetchUnreadNotificationCount]);
-
-  // Poll for unread notification count every 30 seconds
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
-    const interval = setInterval(() => {
-      fetchUnreadNotificationCount();
-    }, 30000); // Poll every 30 seconds
-
-    return () => clearInterval(interval);
-  }, [fetchUnreadNotificationCount]);
+  }, [page, filters, nearbyEnabled, radius]);
 
   // Fetch incognito status
   useEffect(() => {
@@ -904,41 +867,6 @@ export default function Explore({ user }) {
                   flexShrink: 0,
                 }}
               >
-                <Tooltip title="Notifications" arrow>
-                  <span>
-                    <IconButton
-                      onClick={() => navigate("/notifications")}
-                      sx={{
-                        backgroundColor: "rgba(212, 175, 55, 0.12)",
-                        border: "1px solid rgba(212, 175, 55, 0.3)",
-                        "&:hover": {
-                          backgroundColor: "rgba(212, 175, 55, 0.22)",
-                        },
-                        flexShrink: 0,
-                        width: { xs: "36px", sm: "40px" },
-                        height: { xs: "36px", sm: "40px" },
-                        p: { xs: 0.75, sm: 1 },
-                      }}
-                    >
-                      <Badge
-                        badgeContent={
-                          unreadNotificationCount > 0
-                            ? unreadNotificationCount
-                            : null
-                        }
-                        color="error"
-                        overlap="circular"
-                      >
-                        <NotificationsActive
-                          sx={{
-                            color: "#D4AF37",
-                            fontSize: { xs: "1.25rem", sm: "1.5rem" },
-                          }}
-                        />
-                      </Badge>
-                    </IconButton>
-                  </span>
-                </Tooltip>
                 <Tooltip title="Profile" arrow>
                   <span>
                     <IconButton

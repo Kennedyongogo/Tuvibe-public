@@ -32,7 +32,6 @@ import {
   Cancel,
   TrendingUp,
   Payment,
-  NotificationsActive,
   AccountCircle,
 } from "@mui/icons-material";
 import Swal from "sweetalert2";
@@ -62,8 +61,6 @@ export default function Wallet({ user, setUser }) {
   const [customAmountError, setCustomAmountError] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
-  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
-
   const quickBuyOptions = QUICK_TOKEN_PACKS.map((tokens) => ({
     tokens,
     label: `${tokens.toLocaleString()} Tokens`,
@@ -77,46 +74,9 @@ export default function Wallet({ user, setUser }) {
       ? formatKsh(convertTokensToKsh(parsedCustomAmount))
       : null;
 
-  // Fetch unread notification count
-  const fetchUnreadNotificationCount = useCallback(async () => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
-    try {
-      const response = await fetch("/api/notifications/stats", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      const data = await response.json();
-      if (data.success && data.data) {
-        setUnreadNotificationCount(data.data.unread || 0);
-      }
-    } catch (error) {
-      console.error("Error fetching notification count:", error);
-    }
-  }, []);
-
   useEffect(() => {
     fetchWallet();
-    if (localStorage.getItem("token")) {
-      fetchUnreadNotificationCount();
-    }
-  }, [fetchUnreadNotificationCount]);
-
-  // Poll for unread notification count every 30 seconds
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
-    const interval = setInterval(() => {
-      fetchUnreadNotificationCount();
-    }, 30000); // Poll every 30 seconds
-
-    return () => clearInterval(interval);
-  }, [fetchUnreadNotificationCount]);
+  }, []);
 
   const fetchWallet = async () => {
     setLoading(true);
@@ -500,41 +460,6 @@ export default function Wallet({ user, setUser }) {
                   flexShrink: 0,
                 }}
               >
-                <Tooltip title="Notifications" arrow>
-                  <span>
-                    <IconButton
-                      onClick={() => navigate("/notifications")}
-                      sx={{
-                        backgroundColor: "rgba(212, 175, 55, 0.12)",
-                        border: "1px solid rgba(212, 175, 55, 0.3)",
-                        "&:hover": {
-                          backgroundColor: "rgba(212, 175, 55, 0.22)",
-                        },
-                        flexShrink: 0,
-                        width: { xs: "36px", sm: "40px" },
-                        height: { xs: "36px", sm: "40px" },
-                        p: { xs: 0.75, sm: 1 },
-                      }}
-                    >
-                      <Badge
-                        badgeContent={
-                          unreadNotificationCount > 0
-                            ? unreadNotificationCount
-                            : null
-                        }
-                        color="error"
-                        overlap="circular"
-                      >
-                        <NotificationsActive
-                          sx={{
-                            color: "#D4AF37",
-                            fontSize: { xs: "1.25rem", sm: "1.5rem" },
-                          }}
-                        />
-                      </Badge>
-                    </IconButton>
-                  </span>
-                </Tooltip>
                 <Tooltip title="Profile" arrow>
                   <span>
                     <IconButton
