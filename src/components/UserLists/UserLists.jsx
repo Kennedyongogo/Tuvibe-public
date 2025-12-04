@@ -266,100 +266,43 @@ export default function UserLists({
     fetchSubscription();
   }, [token, user, fetchSubscription]);
 
-  // Set up SSE for real-time subscription updates
+  // Poll for subscription updates (replaces SSE for better performance)
   useEffect(() => {
     if (!token || !user?.id) return;
 
-    let sseEventSource = null;
+    let pollInterval = null;
 
-    try {
-      const isDev = import.meta.env.DEV;
-      const protocol = window.location.protocol;
-      const host = window.location.hostname;
-      const apiPort = isDev ? "4000" : window.location.port || "";
-      const sseUrl = isDev
-        ? `${protocol}//${host}:${apiPort}/api/sse/events?token=${encodeURIComponent(token)}`
-        : `${protocol}//${host}${apiPort ? `:${apiPort}` : ""}/api/sse/events?token=${encodeURIComponent(token)}`;
+    // Poll every 45 seconds - checks subscription status without blocking initial load
+    const startPolling = () => {
+      // Clear any existing interval first
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
 
-      sseEventSource = new EventSource(sseUrl);
-
-      sseEventSource.addEventListener("subscription:created", (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          console.log(
-            "📡 [UserLists] SSE: Subscription created event received",
-            data
-          );
-          if (data.subscription) {
-            setSubscription(data.subscription);
-          } else {
-            fetchSubscription();
-          }
-        } catch (err) {
-          console.error(
-            "❌ [UserLists] Error parsing SSE subscription:created event:",
-            err
-          );
+      pollInterval = setInterval(() => {
+        // Only poll if page is visible (don't waste resources on hidden tabs)
+        if (document.hidden) {
+          return;
         }
-      });
 
-      sseEventSource.addEventListener("subscription:updated", (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          console.log(
-            "📡 [UserLists] SSE: Subscription updated event received",
-            data
-          );
-          if (data.subscription) {
-            setSubscription(data.subscription);
-          } else {
-            fetchSubscription();
-          }
-        } catch (err) {
-          console.error(
-            "❌ [UserLists] Error parsing SSE subscription:updated event:",
-            err
-          );
-        }
-      });
+        // Non-blocking fetch - doesn't delay component loading
+        fetchSubscription().catch((err) => {
+          console.error("[UserLists] Polling error:", err);
+        });
+      }, 45000); // Check every 45 seconds
+    };
 
-      sseEventSource.addEventListener("subscription:expired", (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          console.log(
-            "📡 [UserLists] SSE: Subscription expired event received",
-            data
-          );
-          fetchSubscription();
-        } catch (err) {
-          console.error(
-            "❌ [UserLists] Error parsing SSE subscription:expired event:",
-            err
-          );
-        }
-      });
-
-      sseEventSource.onopen = () => {
-        console.log("✅ [UserLists] SSE connected for subscription updates");
-      };
-
-      sseEventSource.onerror = (error) => {
-        console.warn(
-          "⚠️ [UserLists] SSE error for subscription updates:",
-          error
-        );
-      };
-    } catch (err) {
-      console.warn(
-        "⚠️ [UserLists] SSE not available for subscription updates:",
-        err
-      );
-    }
+    // Start polling after initial load (delayed to avoid blocking)
+    const timeoutId = setTimeout(() => {
+      startPolling();
+    }, 2000); // Wait 2 seconds after mount before starting to poll
 
     return () => {
-      if (sseEventSource) {
-        sseEventSource.close();
-        sseEventSource = null;
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+      if (timeoutId) {
+        clearTimeout(timeoutId);
       }
     };
   }, [token, user?.id, fetchSubscription]);
