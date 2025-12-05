@@ -47,6 +47,7 @@ import {
   MIN_PUBLIC_USER_AGE,
 } from "../../utils/ageValidation";
 import { evaluatePhoneInput } from "../../utils/phoneValidation";
+import coupleImage from "../../assets/images/public/couple-5338310_1280.jpg";
 
 const SlideUpTransition = React.forwardRef(
   function SlideUpTransition(props, ref) {
@@ -809,7 +810,11 @@ export default function HeroSection() {
           right: { xs: 0, md: "50%" },
           bottom: { xs: "50%", md: 0 },
           borderRadius: 0,
-          backgroundColor: "rgba(255, 255, 255, 0.98)",
+          backgroundImage: `url(${coupleImage})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+          backgroundColor: "rgba(255, 255, 255, 0.85)",
           backdropFilter: "blur(20px)",
           WebkitBackdropFilter: "blur(20px)",
           boxShadow: `
@@ -935,7 +940,7 @@ export default function HeroSection() {
               sx={{
                 position: "relative",
                 zIndex: 3,
-                fontWeight: 400,
+                fontWeight: 700,
                 fontSize: {
                   xs: "0.75rem",
                   sm: "0.9rem",
@@ -953,7 +958,7 @@ export default function HeroSection() {
                 },
                 fontFamily:
                   '"Manrope", "Poppins", "Montserrat", "Inter", sans-serif',
-                color: "rgba(0, 0, 0, 0.85)",
+                color: "#000000",
                 textShadow:
                   "0 3px 15px rgba(255, 255, 255, 0.6), 0 2px 8px rgba(0, 0, 0, 0.2), 0 0 20px rgba(255, 215, 0, 0.15)",
                 lineHeight: 1.2,
@@ -964,7 +969,7 @@ export default function HeroSection() {
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 "&:hover": {
-                  color: "rgba(0, 0, 0, 0.95)",
+                  color: "#000000",
                   letterSpacing: {
                     xs: "2.5px",
                     sm: "3.5px",
@@ -979,35 +984,6 @@ export default function HeroSection() {
             >
               CONNECT. DISCOVER. VIBE.
             </Typography>
-
-            {/* Floating Love Emoji */}
-            <Box
-              sx={{
-                fontSize: {
-                  xs: "12rem",
-                  sm: "15rem",
-                  md: "18rem",
-                  lg: "21rem",
-                  xl: "24rem",
-                },
-                animation: "floatEmoji 3s ease-in-out infinite",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: "100%",
-                mt: { xs: -3, sm: -4, md: -5 },
-                filter: "drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1))",
-                transition: "transform 0.3s ease",
-                textAlign: "center",
-                willChange: "transform",
-                transform: "translateZ(0)",
-                "&:hover": {
-                  transform: "scale(1.1)",
-                },
-              }}
-            >
-              ❤️
-            </Box>
           </Box>
         </Fade>
       </Box>
@@ -1021,7 +997,8 @@ export default function HeroSection() {
           right: 0,
           bottom: 0,
           borderRadius: 0,
-          background: "linear-gradient(135deg, #f7c948 0%, #e6b800 25%, #d4af37 50%, #b8941f 75%, #8b6914 100%)",
+          background:
+            "linear-gradient(135deg, #f7c948 0%, #e6b800 25%, #d4af37 50%, #b8941f 75%, #8b6914 100%)",
           backdropFilter: "blur(20px)",
           WebkitBackdropFilter: "blur(20px)",
           boxShadow: `
@@ -1399,7 +1376,8 @@ export default function HeroSection() {
             borderRadius: "12px",
             backdropFilter: "blur(20px)",
             WebkitBackdropFilter: "blur(20px)",
-            background: "linear-gradient(135deg, #f7c948 0%, #e6b800 25%, #d4af37 50%, #b8941f 75%, #8b6914 100%)",
+            background:
+              "linear-gradient(135deg, #f7c948 0%, #e6b800 25%, #d4af37 50%, #b8941f 75%, #8b6914 100%)",
             border: "2px solid rgba(212, 175, 55, 0.8)",
             boxShadow: `
               0 10px 40px rgba(212, 175, 55, 0.4),
@@ -1425,7 +1403,8 @@ export default function HeroSection() {
               zIndex: 0,
             },
             "&:hover": {
-              background: "linear-gradient(135deg, #ffd700 0%, #f7c948 25%, #e6b800 50%, #d4af37 75%, #b8941f 100%)",
+              background:
+                "linear-gradient(135deg, #ffd700 0%, #f7c948 25%, #e6b800 50%, #d4af37 75%, #b8941f 100%)",
               borderColor: "rgba(212, 175, 55, 1)",
               boxShadow: `
                 0 0 30px rgba(255, 215, 0, 0.6),
@@ -1574,11 +1553,11 @@ export default function HeroSection() {
               <Typography sx={{ color: "rgba(0,0,0,0.75)" }}>
                 Welcome to TuVibe ("the Platform") accessible at
                 https://www.tuvibe.online. By creating an account, subscribing
-                to a plan, or browsing our website, you confirm that you have read
-                and agree to these Terms & Conditions ("Terms"). These Terms
-                clarify our role, outline user responsibilities, and ensure safe
-                and respectful interactions. If you do not agree, please
-                discontinue using the Platform immediately.
+                to a plan, or browsing our website, you confirm that you have
+                read and agree to these Terms & Conditions ("Terms"). These
+                Terms clarify our role, outline user responsibilities, and
+                ensure safe and respectful interactions. If you do not agree,
+                please discontinue using the Platform immediately.
               </Typography>
             </Box>
 
@@ -1646,33 +1625,35 @@ export default function HeroSection() {
                 sx={{ pl: 3, color: "rgba(0,0,0,0.75)" }}
               >
                 <li>
-                  Subscriptions can be purchased using supported payment channels
-                  (e.g., M-PESA, debit/credit cards via Paystack).
+                  Subscriptions can be purchased using supported payment
+                  channels (e.g., M-PESA, debit/credit cards via Paystack).
                 </li>
                 <li>
-                  Subscriptions are billed monthly and automatically renew unless
-                  cancelled. You may cancel your subscription at any time, and it
-                  will remain active until the end of the current billing period.
+                  Subscriptions are billed monthly and automatically renew
+                  unless cancelled. You may cancel your subscription at any
+                  time, and it will remain active until the end of the current
+                  billing period.
                 </li>
                 <li>
-                  Subscription fees are non-refundable except where required by law
-                  or at TuVibe's discretion.
+                  Subscription fees are non-refundable except where required by
+                  law or at TuVibe's discretion.
                 </li>
                 <li>
                   Pricing and subscription features may be updated at any time.
                   Existing subscribers will be notified of significant changes.
                 </li>
                 <li>
-                  You may upgrade or downgrade your subscription plan at any time.
-                  Upgrades take effect immediately with prorated billing. Downgrades
-                  take effect at the end of your current billing period.
+                  You may upgrade or downgrade your subscription plan at any
+                  time. Upgrades take effect immediately with prorated billing.
+                  Downgrades take effect at the end of your current billing
+                  period.
                 </li>
               </Typography>
               <Typography sx={{ color: "rgba(0,0,0,0.75)", mt: 1 }}>
-                Purchasing a subscription does not create a financial or investment
-                relationship. Users are responsible for ensuring payments originate
-                from their own accounts and for maintaining active subscriptions to
-                access premium features.
+                Purchasing a subscription does not create a financial or
+                investment relationship. Users are responsible for ensuring
+                payments originate from their own accounts and for maintaining
+                active subscriptions to access premium features.
               </Typography>
             </Box>
 
@@ -1909,9 +1890,9 @@ export default function HeroSection() {
                 </li>
                 <li>
                   Upon termination, active subscriptions will be cancelled and
-                  access will end at the conclusion of the current billing period.
-                  No refunds will be issued for the remaining subscription period,
-                  except where required by law.
+                  access will end at the conclusion of the current billing
+                  period. No refunds will be issued for the remaining
+                  subscription period, except where required by law.
                 </li>
               </Typography>
             </Box>
@@ -3178,15 +3159,6 @@ export default function HeroSection() {
             }
             100% {
               background-position: 0% 50%;
-            }
-          }
-          
-          @keyframes floatEmoji {
-            0%, 100% {
-              transform: translateY(0px);
-            }
-            50% {
-              transform: translateY(-20px);
             }
           }
           

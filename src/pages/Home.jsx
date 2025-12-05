@@ -1,7 +1,6 @@
 import React, { useEffect } from "react";
 import { Box } from "@mui/material";
 import HeroSection from "../components/Home/HeroSection";
-import Chatbot from "../components/Chatbot/Chatbot";
 
 export default function Home() {
   useEffect(() => {
@@ -35,7 +34,6 @@ export default function Home() {
       }}
     >
       <HeroSection />
-      <Chatbot />
     </Box>
   );
 }
