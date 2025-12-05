@@ -1355,16 +1355,16 @@ export default function HeroSection() {
         </Fade>
       </Box>
 
-      {/* Centered Card - Halfway between white and gold on large screens */}
+      {/* Centered Card - Halfway between white and gold on large screens, bottom of gold section on small screens */}
       <Box
         sx={{
-          position: "fixed",
-          bottom: 24,
+          position: { xs: "absolute", md: "fixed" },
+          bottom: { xs: 16, md: 24 },
           left: "50%",
           transform: "translateX(-50%)",
           zIndex: 999,
           transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-          display: { xs: "none", md: "block" },
+          display: "block",
           "&:hover": {
             transform: "translateX(-50%) translateY(-4px)",
           },
