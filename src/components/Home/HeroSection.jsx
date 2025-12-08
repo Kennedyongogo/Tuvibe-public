@@ -931,7 +931,7 @@ export default function HeroSection() {
           top: 0,
           left: 0,
           right: { xs: 0, md: "50%" },
-          bottom: { xs: "50%", md: 0 },
+          bottom: { xs: "35%", md: 0 },
           borderRadius: 0,
           backgroundImage: `url(${coupleImage})`,
           backgroundSize: "cover",
@@ -1115,7 +1115,7 @@ export default function HeroSection() {
       <Box
         sx={{
           position: "absolute",
-          top: { xs: "50%", md: 0 },
+          top: { xs: "35%", md: 0 },
           left: { xs: 0, md: "50%" },
           right: 0,
           bottom: 0,
@@ -1507,7 +1507,7 @@ export default function HeroSection() {
                   maxWidth: { xs: "100%", sm: "240px", md: "280px" },
                   px: { xs: 0.5, md: 0 },
                   mt: { xs: 0.5, md: 1 },
-                  mb: { xs: 3, sm: 2, md: 0 },
+                  mb: { xs: 12, sm: 8, md: 0 },
                 }}
               >
                 <Tooltip
