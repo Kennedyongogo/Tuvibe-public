@@ -60,6 +60,7 @@ import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
 import { getDisplayInitial, getDisplayName } from "../utils/userDisplay";
 import { fetchWithTimeout } from "../utils/fetchWithTimeout";
+import { evaluatePhoneInput } from "../utils/phoneValidation";
 
 // Photo card component with image loading state
 const GalleryPhotoCard = ({
@@ -465,6 +466,7 @@ export default function Profile({ user, setUser }) {
   });
   const [loadingBoostStatus, setLoadingBoostStatus] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [phoneError, setPhoneError] = useState("");
   const [gallerySelectionDialogOpen, setGallerySelectionDialogOpen] =
     useState(false);
   const [selectingProfilePhoto, setSelectingProfilePhoto] = useState(false);
@@ -981,6 +983,12 @@ export default function Profile({ user, setUser }) {
       ...prev,
       [name]: value,
     }));
+
+    // Validate phone number if it's being changed
+    if (name === "phone") {
+      const { error } = evaluatePhoneInput(value);
+      setPhoneError(error);
+    }
   };
 
   const handlePhotoChange = (e) => {
@@ -1605,7 +1613,29 @@ export default function Profile({ user, setUser }) {
         setLoading(false);
         return;
       }
+
+      // Validate phone number
+      if (formData.phone) {
+        const { normalized: normalizedPhone, error: phoneValidationError } =
+          evaluatePhoneInput(formData.phone);
+        if (phoneValidationError) {
+          setPhoneError(phoneValidationError);
+          Swal.fire({
+            icon: "error",
+            title: "Invalid Phone Number",
+            text: phoneValidationError,
+            confirmButtonColor: "#D4AF37",
+          });
+          setLoading(false);
+          return;
+        }
+        // Store normalized phone for sending
+        formData.phone = normalizedPhone;
+      }
       let response;
+
+      // Get the normalized phone value
+      const phoneToSend = formData.phone;
 
       // Check if there are any new File objects to upload
       const hasNewGalleryFiles = galleryPhotos.some(
@@ -1626,7 +1656,7 @@ export default function Profile({ user, setUser }) {
         if (formData.county) formDataToSend.append("county", formData.county);
         if (formData.bio) formDataToSend.append("bio", formData.bio);
         formDataToSend.append("email", formData.email);
-        formDataToSend.append("phone", formData.phone);
+        formDataToSend.append("phone", phoneToSend);
         if (formData.latitude)
           formDataToSend.append("latitude", parseFloat(formData.latitude));
         if (formData.longitude)
@@ -1785,10 +1815,20 @@ export default function Profile({ user, setUser }) {
           setGalleryPhotos([]);
           setGalleryPreviews([]);
 
+          // Check if profile was just completed (age added for Google users)
+          const wasIncomplete = !user.birth_year && !user.age;
+          const isNowComplete = data.data.birth_year || data.data.age;
+          const profileJustCompleted = wasIncomplete && isNowComplete;
+
           // Show appropriate message based on moderation status
           const hasPhotos = photoFile || galleryPhotos.length > 0;
-          const moderationMessage = needsModeration
-            ? hasPhotos
+          let successMessage = "Profile updated successfully!";
+
+          if (profileJustCompleted) {
+            successMessage =
+              "Profile completed successfully! You can now access all features.";
+          } else if (needsModeration) {
+            successMessage = hasPhotos
               ? data.data.bio_moderation_status === "pending"
                 ? galleryPhotos.length > 0
                   ? "Your profile photo, gallery photos, and bio have been saved and are pending admin approval. They will be visible to others once approved."
@@ -1796,16 +1836,18 @@ export default function Profile({ user, setUser }) {
                 : galleryPhotos.length > 0
                   ? "Your profile photo and gallery photos have been saved and are pending admin approval. They will be visible to others once approved."
                   : "Your profile photo has been saved and is pending admin approval. It will be visible to others once approved."
-              : "Your bio has been saved and is pending admin approval. It will be visible to others once approved."
-            : "Your profile has been updated successfully.";
+              : "Your bio has been saved and is pending admin approval. It will be visible to others once approved.";
+          }
 
           Swal.fire({
             icon: "success",
-            title: needsModeration
-              ? "Profile Updated - Awaiting Approval"
-              : "Profile Updated!",
+            title: profileJustCompleted
+              ? "Profile Completed!"
+              : needsModeration
+                ? "Profile Updated - Awaiting Approval"
+                : "Profile Updated!",
             html: `<div style="text-align: left;">
-              <p style="margin-bottom: 12px;">${moderationMessage}</p>
+              <p style="margin-bottom: 12px;">${successMessage}</p>
               ${needsModeration ? '<p style="font-size: 0.875rem; color: rgba(26, 26, 26, 0.7); margin: 0;">You can see your changes, but others won\'t until admin approval.</p>' : ""}
             </div>`,
             timer: needsModeration ? 5000 : 2000,
@@ -1988,76 +2030,129 @@ export default function Profile({ user, setUser }) {
       return;
     }
 
-    // Second confirmation with password
-    const { value: password } = await Swal.fire({
-      title: "Confirm Password",
-      html: `
-        <div style="text-align: left;">
-          <p style="margin-bottom: 12px;">Please enter your password to confirm account deletion:</p>
-        </div>
-      `,
-      input: "password",
-      inputPlaceholder: "Enter your password",
-      inputAttributes: {
-        autocapitalize: "off",
-        autocorrect: "off",
-      },
-      showCancelButton: true,
-      confirmButtonText: "Delete Account",
-      cancelButtonText: "Cancel",
-      confirmButtonColor: "#d33",
-      cancelButtonColor: "#D4AF37",
-      reverseButtons: true,
-      inputValidator: (value) => {
-        if (!value) {
-          return "Password is required to delete your account";
-        }
-      },
-      didOpen: () => {
-        const swal = document.querySelector(".swal2-popup");
-        if (swal) {
-          swal.style.borderRadius = "20px";
-          swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
-          swal.style.boxShadow = "0 20px 60px rgba(212, 175, 55, 0.25)";
-          swal.style.background =
-            "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)";
-          swal.style.backdropFilter = "blur(20px)";
-          // Responsive styling
-          const isMobile = window.innerWidth < 600;
-          if (isMobile) {
-            swal.style.width = "90%";
-            swal.style.maxWidth = "90%";
-            swal.style.padding = "1rem";
-          }
-        }
-        const title = document.querySelector(".swal2-title");
-        if (title) {
-          title.style.color = "#1a1a1a";
-          title.style.fontWeight = "700";
-          title.style.fontSize = window.innerWidth < 600 ? "1.25rem" : "1.5rem";
-          title.style.background = "linear-gradient(45deg, #d33, #c62828)";
-          title.style.webkitBackgroundClip = "text";
-          title.style.webkitTextFillColor = "transparent";
-          title.style.backgroundClip = "text";
-        }
-        const htmlContent = document.querySelector(".swal2-html-container");
-        if (htmlContent) {
-          htmlContent.style.fontSize =
-            window.innerWidth < 600 ? "0.875rem" : "1rem";
-          htmlContent.style.padding =
-            window.innerWidth < 600 ? "0.5rem" : "1rem 1.2em";
-        }
-        const input = document.querySelector(".swal2-input");
-        if (input) {
-          input.style.fontSize = window.innerWidth < 600 ? "0.875rem" : "1rem";
-          input.style.padding =
-            window.innerWidth < 600 ? "0.75rem" : "0.875rem 1rem";
-        }
-      },
-    });
+    // Check if user is a Google user (no password required)
+    const isGoogleUser = user?.auth_provider === "google";
+    let password = null;
 
-    if (!password) {
-      return;
+    if (isGoogleUser) {
+      // For Google users, show final confirmation without password
+      const finalConfirm = await Swal.fire({
+        title: "Final Confirmation",
+        html: `
+          <div style="text-align: left;">
+            <p style="margin-bottom: 12px;">This action cannot be undone. Are you absolutely sure you want to delete your account?</p>
+            <p style="font-size: 0.875rem; color: rgba(26, 26, 26, 0.7); margin: 0;">
+              All your data will be permanently deleted.
+            </p>
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: "Yes, Delete My Account",
+        cancelButtonText: "Cancel",
+        confirmButtonColor: "#d33",
+        cancelButtonColor: "#D4AF37",
+        reverseButtons: true,
+        didOpen: () => {
+          const swal = document.querySelector(".swal2-popup");
+          if (swal) {
+            swal.style.borderRadius = "20px";
+            swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
+            swal.style.boxShadow = "0 20px 60px rgba(212, 175, 55, 0.25)";
+            swal.style.background =
+              "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)";
+            swal.style.backdropFilter = "blur(20px)";
+          }
+          const title = document.querySelector(".swal2-title");
+          if (title) {
+            title.style.color = "#1a1a1a";
+            title.style.fontWeight = "700";
+            title.style.fontSize =
+              window.innerWidth < 600 ? "1.25rem" : "1.5rem";
+            title.style.background = "linear-gradient(45deg, #d33, #c62828)";
+            title.style.webkitBackgroundClip = "text";
+            title.style.webkitTextFillColor = "transparent";
+            title.style.backgroundClip = "text";
+          }
+        },
+      });
+
+      if (!finalConfirm.isConfirmed) {
+        return;
+      }
+    } else {
+      // For local users, require password confirmation
+      const passwordResult = await Swal.fire({
+        title: "Confirm Password",
+        html: `
+          <div style="text-align: left;">
+            <p style="margin-bottom: 12px;">Please enter your password to confirm account deletion:</p>
+          </div>
+        `,
+        input: "password",
+        inputPlaceholder: "Enter your password",
+        inputAttributes: {
+          autocapitalize: "off",
+          autocorrect: "off",
+        },
+        showCancelButton: true,
+        confirmButtonText: "Delete Account",
+        cancelButtonText: "Cancel",
+        confirmButtonColor: "#d33",
+        cancelButtonColor: "#D4AF37",
+        reverseButtons: true,
+        inputValidator: (value) => {
+          if (!value) {
+            return "Password is required to delete your account";
+          }
+        },
+        didOpen: () => {
+          const swal = document.querySelector(".swal2-popup");
+          if (swal) {
+            swal.style.borderRadius = "20px";
+            swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
+            swal.style.boxShadow = "0 20px 60px rgba(212, 175, 55, 0.25)";
+            swal.style.background =
+              "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)";
+            swal.style.backdropFilter = "blur(20px)";
+            const isMobile = window.innerWidth < 600;
+            if (isMobile) {
+              swal.style.width = "90%";
+              swal.style.maxWidth = "90%";
+              swal.style.padding = "1rem";
+            }
+          }
+          const title = document.querySelector(".swal2-title");
+          if (title) {
+            title.style.color = "#1a1a1a";
+            title.style.fontWeight = "700";
+            title.style.fontSize =
+              window.innerWidth < 600 ? "1.25rem" : "1.5rem";
+            title.style.background = "linear-gradient(45deg, #d33, #c62828)";
+            title.style.webkitBackgroundClip = "text";
+            title.style.webkitTextFillColor = "transparent";
+            title.style.backgroundClip = "text";
+          }
+          const htmlContent = document.querySelector(".swal2-html-container");
+          if (htmlContent) {
+            htmlContent.style.fontSize =
+              window.innerWidth < 600 ? "0.875rem" : "1rem";
+            htmlContent.style.padding =
+              window.innerWidth < 600 ? "0.5rem" : "1rem 1.2em";
+          }
+          const input = document.querySelector(".swal2-input");
+          if (input) {
+            input.style.fontSize =
+              window.innerWidth < 600 ? "0.875rem" : "1rem";
+            input.style.padding =
+              window.innerWidth < 600 ? "0.75rem" : "0.875rem 1rem";
+          }
+        },
+      });
+
+      password = passwordResult.value;
+      if (!password) {
+        return;
+      }
     }
 
     setDeletingAccount(true);
@@ -3965,9 +4060,18 @@ export default function Profile({ user, setUser }) {
               fullWidth
               label="Phone"
               name="phone"
+              type="tel"
               value={formData.phone}
               onChange={handleChange}
               disabled={!isEditing}
+              placeholder="+254798123456"
+              error={Boolean(phoneError)}
+              helperText={
+                phoneError ||
+                (isEditing
+                  ? "Use the full country code, e.g., +254798123456."
+                  : "")
+              }
               InputProps={{
                 startAdornment: (
                   <Phone

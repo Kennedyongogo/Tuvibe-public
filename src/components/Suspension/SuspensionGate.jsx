@@ -7,6 +7,7 @@ import {
   Stack,
   Typography,
   Chip,
+  Badge,
 } from "@mui/material";
 import LockPersonIcon from "@mui/icons-material/LockPerson";
 import SmsFailedIcon from "@mui/icons-material/SmsFailed";
@@ -148,25 +149,40 @@ export default function SuspensionGate({
         alignItems="center"
         justifyContent="center"
       >
-        <Button
-          variant="contained"
-          color="warning"
-          onClick={onAppealClick}
-          disabled={loading}
+        <Badge
+          badgeContent={
+            suspension?.unreadCount > 0 ? suspension.unreadCount : 0
+          }
+          color="primary"
           sx={{
-            minWidth: 220,
-            fontWeight: 700,
-            color: "#2c3e50",
-            textTransform: "none",
-            boxShadow: "0 10px 24px rgba(212, 175, 55, 0.35)",
-            "&:hover": {
-              backgroundColor: "#FFC700",
-              boxShadow: "0 12px 28px rgba(212, 175, 55, 0.45)",
+            "& .MuiBadge-badge": {
+              backgroundColor: "#008080", // Teal color
+              color: "#ffffff",
+              fontWeight: 700,
+              display: suspension?.unreadCount > 0 ? "flex" : "none",
             },
           }}
         >
-          Request Appeal Review
-        </Button>
+          <Button
+            variant="contained"
+            color="warning"
+            onClick={onAppealClick}
+            disabled={loading}
+            sx={{
+              minWidth: 220,
+              fontWeight: 700,
+              color: "#2c3e50",
+              textTransform: "none",
+              boxShadow: "0 10px 24px rgba(212, 175, 55, 0.35)",
+              "&:hover": {
+                backgroundColor: "#FFC700",
+                boxShadow: "0 12px 28px rgba(212, 175, 55, 0.45)",
+              },
+            }}
+          >
+            Request Appeal Review
+          </Button>
+        </Badge>
         <Button
           variant="outlined"
           color="warning"

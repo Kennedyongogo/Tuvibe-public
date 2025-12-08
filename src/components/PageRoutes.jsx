@@ -397,6 +397,40 @@ function PageRoutes() {
         initialSuspensionCheckRef.current = true;
         prevUserIdRef.current = user.id;
       }
+
+      // Check if user needs to complete profile (missing age/birth_year)
+      // Only check if not already on profile page
+      // Also check localStorage flag set during Google sign-in
+      const needsCompletion =
+        localStorage.getItem("needsProfileCompletion") === "true";
+      const isGoogleUser = user.auth_provider === "google";
+      const missingAge = !user.birth_year && !user.age;
+
+      if (
+        location.pathname !== "/profile" &&
+        missingAge &&
+        (isGoogleUser || needsCompletion)
+      ) {
+        // Clear the flag
+        localStorage.removeItem("needsProfileCompletion");
+        navigate("/profile", { replace: true });
+        // Only show alert if not coming from Google sign-in (to avoid double alerts)
+        if (!needsCompletion) {
+          Swal.fire({
+            icon: "info",
+            title: "Complete Your Profile",
+            text: "Please add your age and phone number to continue using TuVibe.",
+            confirmButtonColor: "#D4AF37",
+          });
+        }
+        return;
+      }
+
+      // Clear the flag if profile is complete
+      if (needsCompletion && !missingAge) {
+        localStorage.removeItem("needsProfileCompletion");
+      }
+
       // Parallelize suspension status and rating prompt checks for faster loading
       Promise.all([fetchSuspensionStatus(false), checkRatingPrompt()]).catch(
         (error) => {
@@ -415,7 +449,13 @@ function PageRoutes() {
       setRatingPromptOpen(false);
       setRatingPromptInfo(null);
     }
-  }, [user, fetchSuspensionStatus, checkRatingPrompt]);
+  }, [
+    user,
+    fetchSuspensionStatus,
+    checkRatingPrompt,
+    location.pathname,
+    navigate,
+  ]);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -551,15 +591,15 @@ function PageRoutes() {
 
       fetchInitialStatus();
     }
-    // Removed polling interval - SSE handles real-time updates
-  }, [user?.id]);
+    // Poll for suspension status updates (including unread counts)
+    if (user?.id) {
+      const pollInterval = setInterval(() => {
+        fetchSuspensionStatus(false);
+      }, 5000); // Poll every 5 seconds
 
-  // SSE handles filtering on the server side based on the authenticated user
-  // No need for explicit room joining (unlike WebSockets)
-  useEffect(() => {
-    // SSE connection is managed by useServerSentEvents hook
-    // Events are automatically filtered by user ID on the server side
-  }, [suspension?.id, sseConnection?.isConnected]);
+      return () => clearInterval(pollInterval);
+    }
+  }, [user?.id, fetchSuspensionStatus]);
 
   useEffect(() => {
     if (!suspension) {
@@ -667,7 +707,6 @@ function PageRoutes() {
         onClose={() => setAppealOpen(false)}
         suspension={suspension}
         token={authToken}
-        sseConnection={sseConnection}
         onSuspensionUpdated={handleSuspensionUpdated}
       />
       <RatingPromptDialog

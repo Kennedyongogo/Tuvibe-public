@@ -57,7 +57,6 @@ export default function SuspensionAppealModal({
   suspension,
   token,
   onSuspensionUpdated,
-  sseConnection,
 }) {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -146,65 +145,19 @@ export default function SuspensionAppealModal({
     }
   }, [open, suspensionId, fetchThread]);
 
-  // Listen for real-time message updates via SSE instead of polling
+  // Polling for real-time message updates (runs when modal is open)
   useEffect(() => {
-    if (!open || !suspensionId || !sseConnection?.eventSource) {
+    if (!open || !suspensionId || !token) {
       return;
     }
 
-    const eventSource = sseConnection.eventSource;
+    // Poll every 5 seconds to check for new messages from admin
+    const intervalId = setInterval(() => {
+      fetchThread(true); // Silent fetch to avoid showing loading state
+    }, 5000);
 
-    const handleNewMessage = (payload) => {
-      const messageSuspensionId =
-        payload?.suspensionId || payload?.message?.suspension_id;
-
-      // Only process messages for this suspension
-      if (messageSuspensionId === suspensionId && payload?.message) {
-        appendMessage(payload.message);
-
-        // Mark as read when new message arrives
-        if (token) {
-          fetch(`/api/suspensions/me/${suspensionId}/messages/read`, {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }).catch((err) => {
-            console.error("Failed to mark messages as read:", err);
-          });
-        }
-
-        // Update suspension unread count
-        if (typeof onSuspensionUpdated === "function") {
-          onSuspensionUpdated({
-            ...suspension,
-            unreadCount: 0,
-          });
-        }
-      }
-    };
-
-    // Listen for suspension message events
-    eventSource.addEventListener("suspension:message:new", (event) => {
-      try {
-        const payload = event.data ? JSON.parse(event.data) : {};
-        handleNewMessage(payload);
-      } catch (err) {
-        console.error("Error parsing SSE message event:", err);
-      }
-    });
-
-    // Cleanup is handled by the SSE hook
-  }, [
-    open,
-    suspensionId,
-    sseConnection?.eventSource,
-    appendMessage,
-    token,
-    onSuspensionUpdated,
-    suspension,
-  ]);
+    return () => clearInterval(intervalId);
+  }, [open, suspensionId, token, fetchThread]);
 
   const handleSendMessage = useCallback(async () => {
     if (!messageInput.trim() || !suspensionId || !token) return;
