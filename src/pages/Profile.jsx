@@ -55,6 +55,9 @@ import {
   Warning,
   Image,
   CheckCircleOutline,
+  Close,
+  ArrowBack,
+  ArrowForward,
 } from "@mui/icons-material";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
@@ -471,6 +474,8 @@ export default function Profile({ user, setUser }) {
     useState(false);
   const [selectingProfilePhoto, setSelectingProfilePhoto] = useState(false);
   const [selectedPhotoPath, setSelectedPhotoPath] = useState(null);
+  const [fullscreenViewerOpen, setFullscreenViewerOpen] = useState(false);
+  const [fullscreenViewerIndex, setFullscreenViewerIndex] = useState(0);
 
   // Debug logging when gallery dialog opens
   useEffect(() => {
@@ -1592,6 +1597,51 @@ export default function Profile({ user, setUser }) {
   const handleGalleryClick = () => {
     galleryInputRef.current?.click();
   };
+
+  const handleOpenFullscreenViewer = (index) => {
+    setFullscreenViewerIndex(index);
+    setFullscreenViewerOpen(true);
+  };
+
+  const handleCloseFullscreenViewer = () => {
+    setFullscreenViewerOpen(false);
+  };
+
+  const handleNextImage = useCallback(() => {
+    const existingCount =
+      user?.photos && Array.isArray(user.photos) ? user.photos.length : 0;
+    const totalPhotos = existingCount + galleryPhotos.length;
+    setFullscreenViewerIndex((prev) => {
+      if (prev < totalPhotos - 1) {
+        return prev + 1;
+      }
+      return prev;
+    });
+  }, [user?.photos, galleryPhotos.length]);
+
+  const handlePreviousImage = useCallback(() => {
+    setFullscreenViewerIndex((prev) => Math.max(0, prev - 1));
+  }, []);
+
+  // Keyboard navigation for fullscreen viewer
+  useEffect(() => {
+    if (!fullscreenViewerOpen) return;
+
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        handleCloseFullscreenViewer();
+      } else if (e.key === "ArrowRight") {
+        handleNextImage();
+      } else if (e.key === "ArrowLeft") {
+        handlePreviousImage();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [fullscreenViewerOpen, handleNextImage, handlePreviousImage]);
 
   const handleGetCurrentLocation = () => {
     getCurrentLocation(true);
@@ -3154,7 +3204,7 @@ export default function Profile({ user, setUser }) {
                         borderRadius: "12px",
                         overflow: "hidden",
                         aspectRatio: "1",
-                        maxHeight: { xs: "300px", sm: "400px", md: "500px" },
+                        maxHeight: { xs: "200px", sm: "250px", md: "300px" },
                         bgcolor: "rgba(212, 175, 55, 0.1)",
                       }}
                     >
@@ -3211,6 +3261,7 @@ export default function Profile({ user, setUser }) {
                                   ? `photo-existing-${item.photo.path}-${item.index}`
                                   : `photo-preview-${item.index}`
                               }
+                              onClick={() => handleOpenFullscreenViewer(displayIndex)}
                               sx={{
                                 position: "relative",
                                 flexShrink: 0,
@@ -3222,6 +3273,10 @@ export default function Profile({ user, setUser }) {
                                 aspectRatio: "1",
                                 overflow: "hidden",
                                 borderRadius: "8px",
+                                cursor: "pointer",
+                                "&:hover": {
+                                  opacity: 0.9,
+                                },
                               }}
                             >
                               {item.type === "existing" ? (
@@ -3250,9 +3305,10 @@ export default function Profile({ user, setUser }) {
                                   />
                                   {isEditing && (
                                     <IconButton
-                                      onClick={() =>
-                                        handleRemoveGalleryPhoto(item.index)
-                                      }
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleRemoveGalleryPhoto(item.index);
+                                      }}
                                       sx={{
                                         position: "absolute",
                                         top: 8,
@@ -3331,9 +3387,10 @@ export default function Profile({ user, setUser }) {
                                   />
                                   {isEditing && (
                                     <IconButton
-                                      onClick={() =>
-                                        handleRemoveGalleryPhoto(displayIndex)
-                                      }
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleRemoveGalleryPhoto(displayIndex);
+                                      }}
                                       sx={{
                                         position: "absolute",
                                         top: 8,
@@ -3395,13 +3452,13 @@ export default function Profile({ user, setUser }) {
                 textAlign: "center",
                 py: 4,
                 color: "rgba(26, 26, 26, 0.5)",
-                minHeight: { xs: "300px", sm: "400px", md: "500px" },
+                minHeight: { xs: "200px", sm: "250px", md: "300px" },
                 display: "flex",
                 flexDirection: "column",
                 justifyContent: "center",
                 alignItems: "center",
                 aspectRatio: "1",
-                maxHeight: { xs: "300px", sm: "400px", md: "500px" },
+                maxHeight: { xs: "200px", sm: "250px", md: "300px" },
                 borderRadius: "12px",
                 bgcolor: "rgba(212, 175, 55, 0.05)",
               }}
@@ -4541,6 +4598,220 @@ export default function Profile({ user, setUser }) {
             Cancel
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Fullscreen Image Viewer */}
+      <Dialog
+        open={fullscreenViewerOpen}
+        onClose={handleCloseFullscreenViewer}
+        maxWidth={false}
+        fullWidth
+        PaperProps={{
+          sx: {
+            m: 0,
+            maxWidth: "100%",
+            width: "100%",
+            height: "100%",
+            maxHeight: "100%",
+            borderRadius: 0,
+            bgcolor: "rgba(0, 0, 0, 0.95)",
+            boxShadow: "none",
+          },
+        }}
+        sx={{
+          "& .MuiDialog-container": {
+            alignItems: "stretch",
+          },
+        }}
+      >
+        <Box
+          sx={{
+            position: "relative",
+            width: "100%",
+            height: "100vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            bgcolor: "rgba(0, 0, 0, 0.95)",
+          }}
+        >
+          {/* Close Button */}
+          <IconButton
+            onClick={handleCloseFullscreenViewer}
+            sx={{
+              position: "absolute",
+              top: 16,
+              right: 16,
+              zIndex: 10,
+              bgcolor: "rgba(255, 255, 255, 0.1)",
+              color: "#fff",
+              "&:hover": {
+                bgcolor: "rgba(255, 255, 255, 0.2)",
+              },
+              width: 48,
+              height: 48,
+            }}
+          >
+            <Close sx={{ fontSize: 28 }} />
+          </IconButton>
+
+          {/* Previous Button */}
+          {fullscreenViewerIndex > 0 && (
+            <IconButton
+              onClick={handlePreviousImage}
+              sx={{
+                position: "absolute",
+                left: 16,
+                top: "50%",
+                transform: "translateY(-50%)",
+                zIndex: 10,
+                bgcolor: "rgba(255, 255, 255, 0.1)",
+                color: "#fff",
+                "&:hover": {
+                  bgcolor: "rgba(255, 255, 255, 0.2)",
+                },
+                width: 48,
+                height: 48,
+              }}
+            >
+              <ArrowBack sx={{ fontSize: 28 }} />
+            </IconButton>
+          )}
+
+          {/* Next Button */}
+          {(() => {
+            const existingCount =
+              user?.photos && Array.isArray(user.photos)
+                ? user.photos.length
+                : 0;
+            const totalPhotos = existingCount + galleryPhotos.length;
+            return (
+              fullscreenViewerIndex < totalPhotos - 1 && (
+                <IconButton
+                  onClick={handleNextImage}
+                  sx={{
+                    position: "absolute",
+                    right: 16,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    zIndex: 10,
+                    bgcolor: "rgba(255, 255, 255, 0.1)",
+                    color: "#fff",
+                    "&:hover": {
+                      bgcolor: "rgba(255, 255, 255, 0.2)",
+                    },
+                    width: 48,
+                    height: 48,
+                  }}
+                >
+                  <ArrowForward sx={{ fontSize: 28 }} />
+                </IconButton>
+              )
+            );
+          })()}
+
+          {/* Image Display */}
+          <Box
+            sx={{
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              p: { xs: 2, sm: 4 },
+            }}
+          >
+            {(() => {
+              const existingCount =
+                user?.photos && Array.isArray(user.photos)
+                  ? user.photos.length
+                  : 0;
+              const allPhotos = [];
+              // Add existing photos
+              if (user?.photos && Array.isArray(user.photos)) {
+                user.photos.forEach((photo, index) => {
+                  if (typeof photo === "object" && photo.path) {
+                    allPhotos.push({
+                      type: "existing",
+                      photo,
+                      index,
+                    });
+                  }
+                });
+              }
+              // Add new photo previews
+              galleryPreviews.forEach((preview, index) => {
+                allPhotos.push({
+                  type: "preview",
+                  preview,
+                  index,
+                });
+              });
+
+              const currentPhoto = allPhotos[fullscreenViewerIndex];
+              if (!currentPhoto) return null;
+
+              if (currentPhoto.type === "existing") {
+                const photoUrl = currentPhoto.photo.path.startsWith("/uploads/")
+                  ? currentPhoto.photo.path
+                  : `/uploads/${currentPhoto.photo.path}`;
+                return (
+                  <Box
+                    component="img"
+                    src={photoUrl}
+                    alt={`Gallery photo ${fullscreenViewerIndex + 1}`}
+                    sx={{
+                      maxWidth: "100%",
+                      maxHeight: "100%",
+                      objectFit: "contain",
+                      borderRadius: "8px",
+                    }}
+                  />
+                );
+              } else {
+                return (
+                  <Box
+                    component="img"
+                    src={currentPhoto.preview}
+                    alt={`New photo ${fullscreenViewerIndex + 1}`}
+                    sx={{
+                      maxWidth: "100%",
+                      maxHeight: "100%",
+                      objectFit: "contain",
+                      borderRadius: "8px",
+                    }}
+                  />
+                );
+              }
+            })()}
+          </Box>
+
+          {/* Image Counter */}
+          <Box
+            sx={{
+              position: "absolute",
+              bottom: 16,
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 10,
+              bgcolor: "rgba(0, 0, 0, 0.6)",
+              color: "#fff",
+              px: 2,
+              py: 1,
+              borderRadius: "20px",
+              fontSize: "0.875rem",
+            }}
+          >
+            {(() => {
+              const existingCount =
+                user?.photos && Array.isArray(user.photos)
+                  ? user.photos.length
+                  : 0;
+              const totalPhotos = existingCount + galleryPhotos.length;
+              return `${fullscreenViewerIndex + 1} / ${totalPhotos}`;
+            })()}
+          </Box>
+        </Box>
       </Dialog>
     </Box>
   );
