@@ -1507,7 +1507,7 @@ export default function HeroSection() {
                   maxWidth: { xs: "100%", sm: "240px", md: "280px" },
                   px: { xs: 0.5, md: 0 },
                   mt: { xs: 0.5, md: 1 },
-                  mb: { xs: 12, sm: 8, md: 0 },
+                  mb: { xs: 7.5, sm: 4, md: 0 },
                 }}
               >
                 <Tooltip
