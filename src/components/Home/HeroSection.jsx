@@ -784,58 +784,61 @@ export default function HeroSection() {
                     confirmButtonColor: "#D4AF37",
                   });
                 },
-                callback: async (paystackResponse) => {
-                  try {
-                    Swal.fire({
-                      title: "Verifying Payment...",
-                      allowOutsideClick: false,
-                      didOpen: () => {
-                        Swal.showLoading();
-                      },
-                    });
-                    
-                    // Verify payment - this will create account if successful
-                    const verifyResponse = await fetch(
-                      `/api/subscriptions/paystack/verify?reference=${paystackResponse.reference}`
-                    );
-                    const verifyData = await verifyResponse.json();
-                    
-                    if (verifyResponse.ok && verifyData.success && verifyData.data?.token && verifyData.data?.user) {
-                      // Account created and logged in
-                      localStorage.setItem("token", verifyData.data.token);
-                      localStorage.setItem("user", JSON.stringify(verifyData.data.user));
-                      
-                      // Store subscription data for immediate access (if provided)
-                      if (verifyData.data?.subscription) {
-                        localStorage.setItem("subscription", JSON.stringify({
-                          ...verifyData.data.subscription,
-                          // Mark as cached so components know to refetch for fresh data
-                          _cached: true
-                        }));
-                      }
-                      
+                callback: function (paystackResponse) {
+                  // Wrap async logic in an immediately invoked async function
+                  (async () => {
+                    try {
                       Swal.fire({
-                        icon: "success",
-                        title: "Registration & Payment Successful!",
-                        text: "Your account has been created and subscription activated.",
-                        timer: 2000,
-                        showConfirmButton: false,
-                        confirmButtonColor: "#D4AF37",
-                      }).then(() => {
-                        window.location.href = "/home";
+                        title: "Verifying Payment...",
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                          Swal.showLoading();
+                        },
                       });
-                    } else {
-                      throw new Error(verifyData.message || "Payment verification failed");
+                      
+                      // Verify payment - this will create account if successful
+                      const verifyResponse = await fetch(
+                        `/api/subscriptions/paystack/verify?reference=${paystackResponse.reference}`
+                      );
+                      const verifyData = await verifyResponse.json();
+                      
+                      if (verifyResponse.ok && verifyData.success && verifyData.data?.token && verifyData.data?.user) {
+                        // Account created and logged in
+                        localStorage.setItem("token", verifyData.data.token);
+                        localStorage.setItem("user", JSON.stringify(verifyData.data.user));
+                        
+                        // Store subscription data for immediate access (if provided)
+                        if (verifyData.data?.subscription) {
+                          localStorage.setItem("subscription", JSON.stringify({
+                            ...verifyData.data.subscription,
+                            // Mark as cached so components know to refetch for fresh data
+                            _cached: true
+                          }));
+                        }
+                        
+                        Swal.fire({
+                          icon: "success",
+                          title: "Registration & Payment Successful!",
+                          text: "Your account has been created and subscription activated.",
+                          timer: 2000,
+                          showConfirmButton: false,
+                          confirmButtonColor: "#D4AF37",
+                        }).then(() => {
+                          window.location.href = "/home";
+                        });
+                      } else {
+                        throw new Error(verifyData.message || "Payment verification failed");
+                      }
+                    } catch (error) {
+                      console.error("Payment verification error:", error);
+                      Swal.fire({
+                        icon: "error",
+                        title: "Verification Failed",
+                        text: error.message || "Failed to verify payment. Please contact support.",
+                        confirmButtonColor: "#D4AF37",
+                      });
                     }
-                  } catch (error) {
-                    console.error("Payment verification error:", error);
-                    Swal.fire({
-                      icon: "error",
-                      title: "Verification Failed",
-                      text: error.message || "Failed to verify payment. Please contact support.",
-                      confirmButtonColor: "#D4AF37",
-                    });
-                  }
+                  })();
                 },
               });
               
