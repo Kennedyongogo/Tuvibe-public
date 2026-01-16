@@ -39,7 +39,6 @@ import {
   AutoAwesome,
   PhotoCamera,
   Security,
-  Explore,
 } from "@mui/icons-material";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { GoogleLogin } from "@react-oauth/google";
@@ -107,6 +106,7 @@ export default function HeroSection() {
     phone: "",
     email: "",
     password: "",
+    selectedPlan: "Silver",
     gender: "",
     birthYear: "",
     bio: "",
@@ -195,9 +195,6 @@ export default function HeroSection() {
     navigate("/");
   };
 
-  const handleExplore = () => {
-    navigate("/explore-pricing");
-  };
 
   const handlePhotoChange = (e) => {
     const file = e.target.files?.[0];
@@ -547,81 +544,94 @@ export default function HeroSection() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // Only submit if we're on step 2
-    if (registerStep !== 2) {
-      return;
-    }
+    // Step 2: Validate and move to Step 3
+    if (registerStep === 2) {
+      const { normalized: normalizedPhone, error: phoneValidationError } =
+        evaluatePhoneInput(formData.phone);
 
-    const { normalized: normalizedPhone, error: phoneValidationError } =
-      evaluatePhoneInput(formData.phone);
-
-    if (phoneValidationError) {
-      setPhoneError(phoneValidationError);
-      Swal.fire({
-        icon: "error",
-        title: "Invalid Phone Number",
-        text: phoneValidationError,
-        confirmButtonColor: "#D4AF37",
-      });
-      return;
-    }
-
-    const { normalized: normalizedBirthYear, error: birthYearValidationError } =
-      evaluateBirthYearInput(formData.birthYear);
-
-    if (birthYearValidationError) {
-      setBirthYearError(birthYearValidationError);
-      handleRegisterClose();
-      setTimeout(() => {
+      if (phoneValidationError) {
+        setPhoneError(phoneValidationError);
         Swal.fire({
           icon: "error",
-          title: "Age Verification Required",
-          text: birthYearValidationError,
+          title: "Invalid Phone Number",
+          text: phoneValidationError,
           confirmButtonColor: "#D4AF37",
         });
-      }, 0);
+        return;
+      }
+
+      const { normalized: normalizedBirthYear, error: birthYearValidationError } =
+        evaluateBirthYearInput(formData.birthYear);
+
+      if (birthYearValidationError) {
+        setBirthYearError(birthYearValidationError);
+        handleRegisterClose();
+        setTimeout(() => {
+          Swal.fire({
+            icon: "error",
+            title: "Age Verification Required",
+            text: birthYearValidationError,
+            confirmButtonColor: "#D4AF37",
+          });
+        }, 0);
+        return;
+      }
+
+      const normalizedUsername = formData.username.trim();
+      if (!normalizedUsername) {
+        Swal.fire({
+          icon: "error",
+          title: "Username Required",
+          text: "Please provide a username so other members can recognise you.",
+          confirmButtonColor: "#D4AF37",
+        });
+        setRegisterStep(1);
+        return;
+      }
+
+      const photoToUpload = photoFile;
+
+      if (!photoToUpload) {
+        setPhotoError("Profile photo is required to complete registration.");
+        Swal.fire({
+          icon: "info",
+          title: "Profile Photo Needed",
+          text: "Please upload a clear profile photo to complete your registration.",
+          confirmButtonColor: "#D4AF37",
+        });
+        return;
+      }
+
+      setPhotoError("");
+      setRegisterStep(3);
       return;
     }
 
+    // Only submit if we're on step 3
+    if (registerStep !== 3) {
+      return;
+    }
+
+    // Step 3: Handle subscription payment
+    const { normalized: normalizedPhone } = evaluatePhoneInput(formData.phone);
+    const { normalized: normalizedBirthYear } = evaluateBirthYearInput(formData.birthYear);
     const normalizedUsername = formData.username.trim();
-    if (!normalizedUsername) {
-      Swal.fire({
-        icon: "error",
-        title: "Username Required",
-        text: "Please provide a username so other members can recognise you.",
-        confirmButtonColor: "#D4AF37",
-      });
-      setRegisterStep(1);
-      return;
-    }
-
     const photoToUpload = photoFile;
 
-    if (!photoToUpload) {
-      setPhotoError("Profile photo is required to complete registration.");
-      Swal.fire({
-        icon: "info",
-        title: "Profile Photo Needed",
-        text: "Please upload a clear profile photo to complete your registration.",
-        confirmButtonColor: "#D4AF37",
-      });
-      return;
-    }
-
-    setPhotoError("");
-
-    const submitData = {
-      name: formData.name,
-      username: normalizedUsername,
-      phone: normalizedPhone,
-      email: formData.email,
-      password: formData.password,
+    // Get selected subscription plan (default to Silver if not selected)
+    const selectedPlan = formData.selectedPlan || "Silver";
+    const userCategory = formData.category || "Regular";
+    
+    // Calculate plan price based on user category
+    const getPlanPrice = (category, plan) => {
+      if (category === "Regular") {
+        return plan === "Silver" ? 149 : 249;
+      } else {
+        return plan === "Silver" ? 199 : 349;
+      }
     };
-    if (formData.gender) submitData.gender = formData.gender;
-    if (formData.category) submitData.category = formData.category;
-    if (normalizedBirthYear !== null) {
-      submitData.birth_year = normalizedBirthYear;
-    }
+    
+    const planAmount = getPlanPrice(userCategory, selectedPlan);
 
     handleRegisterClose();
 
@@ -654,50 +664,42 @@ export default function HeroSection() {
       });
 
       try {
-        let response;
-        // If photo file is selected, use FormData for multipart upload
-        if (photoToUpload) {
-          const formDataToSend = new FormData();
-          // Add all form fields
-          formDataToSend.append("name", formData.name);
-          formDataToSend.append("username", normalizedUsername);
-          formDataToSend.append("phone", normalizedPhone);
-          formDataToSend.append("email", formData.email);
-          formDataToSend.append("password", formData.password);
-          if (formData.gender) formDataToSend.append("gender", formData.gender);
-          if (formData.category)
-            formDataToSend.append("category", formData.category);
-          if (normalizedBirthYear !== null) {
-            formDataToSend.append("birth_year", normalizedBirthYear);
-          }
-          if (formData.bio) formDataToSend.append("bio", formData.bio);
-          // Add photo file
-          formDataToSend.append("profile_image", photoToUpload);
-
-          response = await fetch("/api/public/register", {
-            method: "POST",
-            headers: {
-              Accept: "application/json",
-              // Don't set Content-Type - browser will set it with boundary
-            },
-            body: formDataToSend,
-          });
-        } else {
-          // No photo, use JSON
-          if (formData.bio) submitData.bio = formData.bio;
-          response = await fetch("/api/public/register", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
-            body: JSON.stringify(submitData),
-          });
+        // Prepare FormData with registration and subscription data
+        const formDataToSend = new FormData();
+        // Add registration fields
+        formDataToSend.append("name", formData.name);
+        formDataToSend.append("username", normalizedUsername);
+        formDataToSend.append("phone", normalizedPhone);
+        formDataToSend.append("email", formData.email);
+        formDataToSend.append("password", formData.password);
+        if (formData.gender) formDataToSend.append("gender", formData.gender);
+        if (formData.category) formDataToSend.append("category", formData.category);
+        if (normalizedBirthYear !== null) {
+          formDataToSend.append("birth_year", normalizedBirthYear);
         }
+        if (formData.bio) formDataToSend.append("bio", formData.bio);
+        if (formData.latitude) formDataToSend.append("latitude", formData.latitude);
+        if (formData.longitude) formDataToSend.append("longitude", formData.longitude);
+        // Add subscription fields
+        formDataToSend.append("plan", selectedPlan);
+        formDataToSend.append("amount", planAmount.toString());
+        // Add photo file
+        formDataToSend.append("profile_image", photoToUpload);
+
+        // Initialize subscription with registration
+        const response = await fetch("/api/subscriptions/paystack/initialize-with-registration", {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            // Don't set Content-Type - browser will set it with boundary
+          },
+          body: formDataToSend,
+        });
 
         const data = await response.json();
 
         if (!response.ok) {
+          Swal.close();
           Swal.fire({
             icon: "error",
             title: "Registration Failed",
@@ -726,65 +728,114 @@ export default function HeroSection() {
               }
             },
           });
-        } else {
-          if (data.success) {
+        } else if (data.success) {
+          // Check if payment was bypassed (development mode)
+          if (data.bypassed && data.token && data.user) {
+            // Account already created, log in directly
+            Swal.close();
+            localStorage.setItem("token", data.token);
+            localStorage.setItem("user", JSON.stringify(data.user));
+            
             Swal.fire({
               icon: "success",
               title: "Registration Successful!",
-              text:
-                data.message || "Your account has been created successfully.",
-              timer: 5000,
-              timerProgressBar: true,
+              text: "Your account has been created and subscription activated.",
+              timer: 2000,
               showConfirmButton: false,
               confirmButtonColor: "#D4AF37",
-              didOpen: () => {
-                const swal = document.querySelector(".swal2-popup");
-                if (swal) {
-                  swal.style.borderRadius = "20px";
-                  swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
-                  swal.style.boxShadow = "0 20px 60px rgba(212, 175, 55, 0.25)";
-                  swal.style.background =
-                    "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)";
-                  swal.style.backdropFilter = "blur(20px)";
-                }
-                const title = document.querySelector(".swal2-title");
-                if (title) {
-                  title.style.color = "#1a1a1a";
-                  title.style.fontWeight = "700";
-                  title.style.fontSize = "1.75rem";
-                  title.style.background =
-                    "linear-gradient(45deg, #D4AF37, #B8941F)";
-                  title.style.webkitBackgroundClip = "text";
-                  title.style.webkitTextFillColor = "transparent";
-                  title.style.backgroundClip = "text";
-                }
-                const icon = document.querySelector(".swal2-success");
-                if (icon) {
-                  icon.style.color = "#D4AF37";
-                  const circles = icon.querySelectorAll("circle");
-                  circles.forEach((circle) => {
-                    circle.style.stroke = "#D4AF37";
-                  });
-                  const paths = icon.querySelectorAll("path");
-                  paths.forEach((path) => {
-                    path.style.stroke = "#D4AF37";
-                    path.style.fill = "#D4AF37";
-                  });
-                }
-                const timerBar = document.querySelector(
-                  ".swal2-timer-progress-bar"
-                );
-                if (timerBar) {
-                  timerBar.style.background =
-                    "linear-gradient(45deg, #D4AF37, #B8941F)";
-                }
-              },
+            }).then(() => {
+              window.location.href = "/home";
             });
-
-            setTimeout(() => {
-              handleLogin();
-            }, 5000);
+          } else if (data.authorization_url) {
+            // Redirect to Paystack payment
+            Swal.close();
+            
+            // Store reference for verification after payment
+            const paymentReference = data.reference;
+            
+            // Open Paystack payment
+            if (window.PaystackPop && window.PaystackPop.setup) {
+              const PAYSTACK_PUBLIC_KEY = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || "";
+              
+              const handler = window.PaystackPop.setup({
+                key: PAYSTACK_PUBLIC_KEY,
+                email: formData.email,
+                amount: data.paystack_amount || planAmount * 100,
+                currency: data.currency || "KES",
+                ref: paymentReference,
+                metadata: {
+                  type: "subscription_with_registration",
+                  plan: selectedPlan,
+                },
+                onClose: () => {
+                  Swal.fire({
+                    icon: "info",
+                    title: "Payment Cancelled",
+                    text: "You can complete your registration and payment later.",
+                    confirmButtonColor: "#D4AF37",
+                  });
+                },
+                callback: async (paystackResponse) => {
+                  try {
+                    Swal.fire({
+                      title: "Verifying Payment...",
+                      allowOutsideClick: false,
+                      didOpen: () => {
+                        Swal.showLoading();
+                      },
+                    });
+                    
+                    // Verify payment - this will create account if successful
+                    const verifyResponse = await fetch(
+                      `/api/subscriptions/paystack/verify?reference=${paystackResponse.reference}`
+                    );
+                    const verifyData = await verifyResponse.json();
+                    
+                    if (verifyResponse.ok && verifyData.success && verifyData.data?.token && verifyData.data?.user) {
+                      // Account created and logged in
+                      localStorage.setItem("token", verifyData.data.token);
+                      localStorage.setItem("user", JSON.stringify(verifyData.data.user));
+                      
+                      Swal.fire({
+                        icon: "success",
+                        title: "Registration & Payment Successful!",
+                        text: "Your account has been created and subscription activated.",
+                        timer: 2000,
+                        showConfirmButton: false,
+                        confirmButtonColor: "#D4AF37",
+                      }).then(() => {
+                        window.location.href = "/home";
+                      });
+                    } else {
+                      throw new Error(verifyData.message || "Payment verification failed");
+                    }
+                  } catch (error) {
+                    console.error("Payment verification error:", error);
+                    Swal.fire({
+                      icon: "error",
+                      title: "Verification Failed",
+                      text: error.message || "Failed to verify payment. Please contact support.",
+                      confirmButtonColor: "#D4AF37",
+                    });
+                  }
+                },
+              });
+              
+              handler.openIframe();
+            } else {
+              // Fallback to redirect if PaystackPop not available
+              window.location.href = data.authorization_url;
+            }
           } else {
+            Swal.close();
+            Swal.fire({
+              icon: "error",
+              title: "Unexpected Response",
+              text: "Unable to process registration. Please try again.",
+              confirmButtonColor: "#D4AF37",
+            });
+          }
+        } else {
             Swal.fire({
               icon: "error",
               title: "Registration Failed",
@@ -1387,112 +1438,6 @@ export default function HeroSection() {
                 }}
               >
                 Sign In
-              </Button>
-              <Button
-                variant="contained"
-                startIcon={
-                  <Explore
-                    sx={{
-                      fontSize: { xs: "0.9rem", md: "1rem" },
-                      transition: "transform 0.3s ease",
-                    }}
-                  />
-                }
-                onClick={handleExplore}
-                fullWidth
-                sx={{
-                  position: "relative",
-                  zIndex: 3,
-                  color: "rgba(0, 0, 0, 0.9)",
-                  fontSize: { xs: "0.8rem", sm: "0.875rem", md: "0.95rem" },
-                  fontWeight: 700,
-                  letterSpacing: "0.5px",
-                  px: { xs: 2, md: 2.5 },
-                  py: { xs: 1.1, md: 1.25 },
-                  borderRadius: "12px",
-                  textTransform: "none",
-                  // Enhanced gradient with metallic finish
-                  background:
-                    "linear-gradient(135deg, #f7c948 0%, #e6b800 25%, #d4af37 50%, #b8941f 75%, #8b6914 100%)",
-                  border: "2px solid rgba(255, 255, 255, 0.3)",
-                  boxShadow: `
-                    0 10px 40px rgba(212, 175, 55, 0.4),
-                    0 0 0 1px rgba(255, 255, 255, 0.1) inset,
-                    0 2px 0 rgba(255, 255, 255, 0.5) inset,
-                    0 -2px 10px rgba(0, 0, 0, 0.3) inset
-                  `,
-                  transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
-                  overflow: "hidden",
-                  outline: "none",
-                  "&:focus": {
-                    outline: "none",
-                  },
-                  "&:focus-visible": {
-                    outline: "none",
-                  },
-                  "&::before": {
-                    content: '""',
-                    position: "absolute",
-                    top: 0,
-                    left: "-100%",
-                    width: "100%",
-                    height: "100%",
-                    background:
-                      "linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent)",
-                    transition: "left 0.6s ease",
-                  },
-                  "&::after": {
-                    content: '""',
-                    position: "absolute",
-                    top: "50%",
-                    left: "50%",
-                    width: 0,
-                    height: 0,
-                    borderRadius: "50%",
-                    background:
-                      "radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, transparent 70%)",
-                    transform: "translate(-50%, -50%)",
-                    transition: "width 0.6s ease, height 0.6s ease",
-                  },
-                  "&:hover": {
-                    background:
-                      "linear-gradient(135deg, #ffd700 0%, #f7c948 25%, #e6b800 50%, #d4af37 75%, #b8941f 100%)",
-                    transform: "translateY(-2px) scale(1.02)",
-                    boxShadow: `
-                      0 0 30px rgba(255, 215, 0, 0.6),
-                      0 15px 50px rgba(212, 175, 55, 0.5),
-                      0 0 0 1px rgba(255, 255, 255, 0.2) inset,
-                      0 3px 0 rgba(255, 255, 255, 0.6) inset,
-                      0 -2px 15px rgba(0, 0, 0, 0.3) inset
-                    `,
-                    "&::before": {
-                      left: "100%",
-                    },
-                    "&::after": {
-                      width: "300px",
-                      height: "300px",
-                    },
-                    "& .MuiButton-startIcon": {
-                      transform: "rotate(360deg) scale(1.2)",
-                    },
-                  },
-                  "&:active": {
-                    transform: "translateY(0) scale(1)",
-                    boxShadow: `
-                      0 0 20px rgba(255, 215, 0, 0.5),
-                      0 8px 30px rgba(212, 175, 55, 0.4),
-                      0 0 0 1px rgba(255, 255, 255, 0.1) inset,
-                      0 1px 0 rgba(255, 255, 255, 0.4) inset
-                    `,
-                  },
-                  "& .MuiButton-startIcon": {
-                    marginRight: { xs: "6px", md: "8px" },
-                    marginLeft: 0,
-                    transition: "transform 0.4s ease",
-                  },
-                }}
-              >
-                Explore
               </Button>
 
               {/* Social Login Buttons */}
@@ -2290,7 +2235,7 @@ export default function HeroSection() {
           }}
         >
           Create Account{" "}
-          {registerStep === 1 ? "(Step 1 of 2)" : "(Step 2 of 2)"}
+          {registerStep === 1 ? "(Step 1 of 3)" : registerStep === 2 ? "(Step 2 of 3)" : "(Step 3 of 3)"}
         </DialogTitle>
         <form onSubmit={handleSubmit}>
           <DialogContent
@@ -2558,7 +2503,7 @@ export default function HeroSection() {
                   }}
                 />
               </Box>
-            ) : (
+            ) : registerStep === 2 ? (
               <Box
                 sx={{
                   display: "flex",
@@ -2582,8 +2527,8 @@ export default function HeroSection() {
                     textAlign: "center",
                   }}
                 >
-                  Step 2 of 2: Choose your category and upload your profile
-                  photo to complete registration.
+                  Step 2 of 3: Choose your category and upload your profile
+                  photo.
                 </Alert>
                 <FormControl fullWidth>
                   <InputLabel sx={{ "&.Mui-focused": { color: "#D4AF37" } }}>
@@ -2730,6 +2675,141 @@ export default function HeroSection() {
                   </Typography>
                 )}
               </Box>
+            ) : (
+              // Step 3: Subscription Preview and Selection
+              <Box
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 3,
+                  py: 2,
+                  width: "100%",
+                }}
+              >
+                <Alert
+                  severity="info"
+                  sx={{
+                    width: "100%",
+                    borderRadius: "12px",
+                    background: "rgba(212, 175, 55, 0.12)",
+                    color: "rgba(26, 26, 26, 0.9)",
+                    border: "1px solid rgba(212, 175, 55, 0.35)",
+                    fontWeight: 600,
+                    textAlign: "center",
+                  }}
+                >
+                  Step 3 of 3: Choose your subscription plan and complete payment
+                </Alert>
+
+                {/* Blurred Profile Pictures */}
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    gap: 2,
+                    px: 2,
+                    py: 2,
+                    width: "100%",
+                  }}
+                >
+                  {[1, 2, 3, 4, 5, 6].map((index) => (
+                    <Avatar
+                      key={index}
+                      sx={{
+                        width: { xs: 60, sm: 70 },
+                        height: { xs: 60, sm: 70 },
+                        filter: "blur(10px)",
+                        border: "2px solid rgba(212, 175, 55, 0.3)",
+                        borderRadius: "50%",
+                        backgroundColor: "rgba(212, 175, 55, 0.2)",
+                        transition: "all 0.3s ease",
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          width: "100%",
+                          height: "100%",
+                          background:
+                            "linear-gradient(135deg, rgba(212, 175, 55, 0.3) 0%, rgba(184, 148, 31, 0.2) 100%)",
+                          borderRadius: "50%",
+                        }}
+                      />
+                    </Avatar>
+                  ))}
+                </Box>
+
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: "rgba(26, 26, 26, 0.8)",
+                    textAlign: "center",
+                    fontWeight: 500,
+                    px: 2,
+                  }}
+                >
+                  To continue exploring, chatting and connecting please subscribe to the premium version
+                </Typography>
+
+                {/* Subscription Plan Selection */}
+                <FormControl fullWidth>
+                  <InputLabel sx={{ "&.Mui-focused": { color: "#D4AF37" } }}>
+                    Subscription Plan
+                  </InputLabel>
+                  <Select
+                    value={formData.selectedPlan || "Silver"}
+                    onChange={handleInputChange("selectedPlan")}
+                    label="Subscription Plan"
+                    sx={{
+                      borderRadius: "12px",
+                      "& .MuiSelect-select": {
+                        py: 1.5,
+                        lineHeight: 1.5,
+                      },
+                      "& .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "rgba(212, 175, 55, 0.3)",
+                      },
+                      "&:hover .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "rgba(212, 175, 55, 0.6)",
+                      },
+                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "#D4AF37",
+                        borderWidth: "2px",
+                      },
+                    }}
+                  >
+                    <MenuItem value="Silver">
+                      Silver - KES {formData.category === "Regular" ? "149" : "199"}
+                    </MenuItem>
+                    <MenuItem value="Gold">
+                      Gold - KES {formData.category === "Regular" ? "249" : "349"}
+                    </MenuItem>
+                  </Select>
+                </FormControl>
+
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: "rgba(26, 26, 26, 0.65)",
+                    textAlign: "center",
+                    px: 2,
+                  }}
+                >
+                  Selected plan: <strong>{formData.selectedPlan || "Silver"}</strong> - 
+                  KES {(() => {
+                    const category = formData.category || "Regular";
+                    const plan = formData.selectedPlan || "Silver";
+                    if (category === "Regular") {
+                      return plan === "Silver" ? "149" : "249";
+                    } else {
+                      return plan === "Silver" ? "199" : "349";
+                    }
+                  })()}/month
+                </Typography>
+              </Box>
             )}
           </DialogContent>
           <DialogActions
@@ -2843,7 +2923,7 @@ export default function HeroSection() {
                   Next
                 </Button>
               </>
-            ) : (
+            ) : registerStep === 2 ? (
               <>
                 <Button
                   onClick={() => setRegisterStep(1)}
@@ -2882,7 +2962,49 @@ export default function HeroSection() {
                     },
                   }}
                 >
-                  Register
+                  Next
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  onClick={() => setRegisterStep(2)}
+                  variant="outlined"
+                  sx={{
+                    borderRadius: "25px",
+                    px: { xs: 3, sm: 4 },
+                    py: 1,
+                    textTransform: "none",
+                    fontWeight: 600,
+                    fontSize: { xs: "0.875rem", sm: "1rem" },
+                    borderColor: "primary.main",
+                    color: "primary.main",
+                    "&:hover": {
+                      borderColor: "primary.dark",
+                      backgroundColor: "rgba(212, 175, 55, 0.1)",
+                    },
+                  }}
+                >
+                  Back
+                </Button>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  sx={{
+                    borderRadius: "25px",
+                    px: { xs: 3, sm: 4 },
+                    py: 1,
+                    textTransform: "none",
+                    fontWeight: 600,
+                    fontSize: { xs: "0.875rem", sm: "1rem" },
+                    background: "linear-gradient(45deg, #D4AF37, #B8941F)",
+                    "&:hover": {
+                      background: "linear-gradient(45deg, #B8941F, #D4AF37)",
+                      boxShadow: "0 8px 25px rgba(212, 175, 55, 0.4)",
+                    },
+                  }}
+                >
+                  Complete Payment & Create Account
                 </Button>
               </>
             )}

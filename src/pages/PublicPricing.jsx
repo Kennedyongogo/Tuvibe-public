@@ -1271,6 +1271,82 @@ export default function PublicPricing() {
         </CardContent>
       </Card>
 
+      {/* Blurred Profiles Section */}
+      <Box
+        sx={{
+          mt: 5,
+          mb: 4,
+        }}
+      >
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 3,
+          }}
+        >
+          {/* Blurred Profile Pictures */}
+          <Box
+            sx={{
+              display: "flex",
+              flexWrap: "wrap",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: { xs: 2, sm: 3, md: 4 },
+              px: { xs: 2, sm: 3 },
+            }}
+          >
+            {/* Dummy profile pictures - hardcoded for now */}
+            {[1, 2, 3, 4, 5, 6].map((index) => (
+              <Avatar
+                key={index}
+                sx={{
+                  width: { xs: 70, sm: 80, md: 90 },
+                  height: { xs: 70, sm: 80, md: 90 },
+                  filter: "blur(10px)",
+                  border: "2px solid rgba(212, 175, 55, 0.3)",
+                  borderRadius: "50%",
+                  backgroundColor: "rgba(212, 175, 55, 0.2)",
+                  transition: "all 0.3s ease",
+                  "&:hover": {
+                    filter: "blur(8px)",
+                    borderColor: "rgba(212, 175, 55, 0.5)",
+                    transform: "scale(1.05)",
+                  },
+                }}
+              >
+                <Box
+                  sx={{
+                    width: "100%",
+                    height: "100%",
+                    background:
+                      "linear-gradient(135deg, rgba(212, 175, 55, 0.3) 0%, rgba(184, 148, 31, 0.2) 100%)",
+                    borderRadius: "50%",
+                  }}
+                />
+              </Avatar>
+            ))}
+          </Box>
+
+          {/* Subscription Prompt Text */}
+          <Typography
+            sx={{
+              fontSize: { xs: "0.95rem", sm: "1.05rem", md: "1.15rem" },
+              fontWeight: 600,
+              color: "rgba(0, 0, 0, 0.8)",
+              textAlign: "center",
+              lineHeight: 1.6,
+              maxWidth: { xs: "90%", sm: "80%", md: "600px" },
+              px: { xs: 2, sm: 0 },
+            }}
+          >
+            To continue exploring, chatting and connecting please subscribe to
+            the premium version
+          </Typography>
+        </Box>
+      </Box>
+
       {/* Testimonials Section */}
       <>
         <Box
