@@ -736,6 +736,15 @@ export default function HeroSection() {
             localStorage.setItem("token", data.token);
             localStorage.setItem("user", JSON.stringify(data.user));
             
+            // Store subscription data for immediate access (if provided)
+            if (data.subscription) {
+              localStorage.setItem("subscription", JSON.stringify({
+                ...data.subscription,
+                // Mark as cached so components know to refetch for fresh data
+                _cached: true
+              }));
+            }
+            
             Swal.fire({
               icon: "success",
               title: "Registration Successful!",
@@ -796,6 +805,15 @@ export default function HeroSection() {
                       localStorage.setItem("token", verifyData.data.token);
                       localStorage.setItem("user", JSON.stringify(verifyData.data.user));
                       
+                      // Store subscription data for immediate access (if provided)
+                      if (verifyData.data?.subscription) {
+                        localStorage.setItem("subscription", JSON.stringify({
+                          ...verifyData.data.subscription,
+                          // Mark as cached so components know to refetch for fresh data
+                          _cached: true
+                        }));
+                      }
+                      
                       Swal.fire({
                         icon: "success",
                         title: "Registration & Payment Successful!",
@@ -833,36 +851,6 @@ export default function HeroSection() {
               title: "Unexpected Response",
               text: "Unable to process registration. Please try again.",
               confirmButtonColor: "#D4AF37",
-            });
-          }
-        } else {
-            Swal.fire({
-              icon: "error",
-              title: "Registration Failed",
-              text: data.message || "Something went wrong. Please try again.",
-              confirmButtonColor: "#D4AF37",
-              didOpen: () => {
-                const swal = document.querySelector(".swal2-popup");
-                if (swal) {
-                  swal.style.borderRadius = "20px";
-                  swal.style.border = "1px solid rgba(212, 175, 55, 0.3)";
-                  swal.style.boxShadow = "0 20px 60px rgba(212, 175, 55, 0.25)";
-                  swal.style.background =
-                    "linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 230, 211, 0.2) 100%)";
-                  swal.style.backdropFilter = "blur(20px)";
-                }
-                const title = document.querySelector(".swal2-title");
-                if (title) {
-                  title.style.color = "#1a1a1a";
-                  title.style.fontWeight = "700";
-                  title.style.fontSize = "1.5rem";
-                  title.style.background =
-                    "linear-gradient(45deg, #D4AF37, #B8941F)";
-                  title.style.webkitBackgroundClip = "text";
-                  title.style.webkitTextFillColor = "transparent";
-                  title.style.backgroundClip = "text";
-                }
-              },
             });
           }
         }
