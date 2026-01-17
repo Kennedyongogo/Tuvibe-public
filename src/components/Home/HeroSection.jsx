@@ -39,6 +39,7 @@ import {
   AutoAwesome,
   PhotoCamera,
   Security,
+  CheckCircle,
 } from "@mui/icons-material";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { GoogleLogin } from "@react-oauth/google";
@@ -121,6 +122,8 @@ export default function HeroSection() {
   });
   const [termsDialogOpen, setTermsDialogOpen] = useState(false);
   const [termsChecked, setTermsChecked] = useState(false);
+  const [googleRegistrationData, setGoogleRegistrationData] = useState(null); // Store Google data for subscription flow
+  const [fakeProfiles, setFakeProfiles] = useState([]); // Store fake profiles for display
 
   useEffect(() => {
     // Use requestAnimationFrame for better performance
@@ -142,6 +145,24 @@ export default function HeroSection() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
+
+  // Fetch fake profiles for display in registration Step 3
+  useEffect(() => {
+    const fetchFakeProfiles = async () => {
+      try {
+        const response = await fetch("/api/public/fake-profiles?limit=6");
+        const data = await response.json();
+        if (data.success && data.data) {
+          setFakeProfiles(data.data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch fake profiles:", error);
+        // Fallback to empty array - will show placeholder cards
+      }
+    };
+
+    fetchFakeProfiles();
+  }, []);
 
   const handleLogin = () => {
     setResetDialogOpen(false);
@@ -173,6 +194,7 @@ export default function HeroSection() {
       birthYear: "",
       bio: "",
       category: "Regular",
+      selectedPlan: "Silver",
     });
     setPhoneError("");
     setBirthYearError("");
@@ -180,6 +202,7 @@ export default function HeroSection() {
     setPhotoFile(null);
     setPhotoPreview(null);
     setRegisterStep(1);
+    setGoogleRegistrationData(null); // Clear Google data
   };
 
   const handleTermsAgree = () => {
@@ -250,14 +273,15 @@ export default function HeroSection() {
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
       Swal.fire({
-        title: "Signing in with Google...",
+        title: "Verifying Google account...",
         allowOutsideClick: false,
         didOpen: () => {
           Swal.showLoading();
         },
       });
 
-      const response = await fetch("/api/public/auth/google", {
+      // First, verify token without creating account (check if user exists or get Google data)
+      const verifyResponse = await fetch("/api/public/auth/google/verify", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -268,11 +292,61 @@ export default function HeroSection() {
         }),
       });
 
-      const data = await response.json();
+      const verifyData = await verifyResponse.json();
 
-      if (!response.ok) {
+      if (!verifyResponse.ok) {
+        // If user already exists, try normal login flow
+        if (verifyResponse.status === 409) {
+          // User exists - use normal Google auth for login
+          const loginResponse = await fetch("/api/public/auth/google", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify({
+              idToken: credentialResponse.credential,
+            }),
+          });
+
+          const loginData = await loginResponse.json();
+
+          if (loginResponse.ok && loginData.success) {
+            localStorage.setItem("token", loginData.data.token);
+            localStorage.setItem("user", JSON.stringify(loginData.data.user));
+
+            if (loginData.data.needsProfileCompletion) {
+              localStorage.setItem("needsProfileCompletion", "true");
+              Swal.fire({
+                icon: "info",
+                title: "Welcome!",
+                text: "Please complete your profile by adding your age and phone number to continue.",
+                confirmButtonText: "Go to Profile",
+                confirmButtonColor: "#D4AF37",
+              }).then(() => {
+                window.location.href = "/profile";
+              });
+            } else {
+              localStorage.removeItem("needsProfileCompletion");
+              Swal.fire({
+                icon: "success",
+                title: "Success!",
+                text: "Signed in with Google successfully!",
+                timer: 1500,
+                showConfirmButton: false,
+                confirmButtonColor: "#D4AF37",
+              });
+              setTimeout(() => {
+                window.location.href = "/home";
+              }, 1500);
+            }
+            return;
+          }
+        }
+
+        // Error during verification
         const errorMessage =
-          data.message || "Google sign-in failed. Please try again.";
+          verifyData.message || "Google sign-in failed. Please try again.";
         Swal.fire({
           icon: "error",
           title: "Sign-In Failed",
@@ -282,44 +356,37 @@ export default function HeroSection() {
         return;
       }
 
-      if (data.success) {
-        localStorage.setItem("token", data.data.token);
-        localStorage.setItem("user", JSON.stringify(data.data.user));
+      // New user - store Google data and show subscription dialog
+      if (verifyData.success && verifyData.data) {
+        Swal.close();
+        
+        // Store Google registration data
+        setGoogleRegistrationData({
+          ...verifyData.data,
+          idToken: credentialResponse.credential, // Store for later use
+        });
 
-        // Check if profile completion is needed
-        if (data.data.needsProfileCompletion) {
-          // Store the flag in localStorage so PageRoutes can check it
-          localStorage.setItem("needsProfileCompletion", "true");
+        // Initialize form data with Google info
+        setFormData({
+          name: verifyData.data.name,
+          username: verifyData.data.username,
+          email: verifyData.data.email,
+          phone: "", // Phone required but not from Google
+          password: "", // No password for Google users
+          selectedPlan: "Silver",
+          gender: "",
+          birthYear: "", // Required for age verification
+          bio: "",
+          category: "Regular",
+        });
 
-          Swal.fire({
-            icon: "info",
-            title: "Welcome!",
-            text: "Please complete your profile by adding your age and phone number to continue.",
-            confirmButtonText: "Go to Profile",
-            confirmButtonColor: "#D4AF37",
-          }).then(() => {
-            // Use window.location for a full page navigation to ensure state is reset
-            window.location.href = "/profile";
-          });
-        } else {
-          // Clear the flag if it exists
-          localStorage.removeItem("needsProfileCompletion");
-
-          Swal.fire({
-            icon: "success",
-            title: "Success!",
-            text: "Signed in with Google successfully!",
-            timer: 1500,
-            showConfirmButton: false,
-            confirmButtonColor: "#D4AF37",
-          });
-
-          setTimeout(() => {
-            window.location.href = "/home";
-          }, 1500);
-        }
+        // Open registration dialog at Step 3 (subscription selection)
+        // But first, we need phone and birth year - show step 2 for these
+        setRegisterStep(2); // Step 2 to collect phone and birth year
+        setRegisterDialogOpen(true);
       }
     } catch (error) {
+      console.error("Google auth error:", error);
       Swal.fire({
         icon: "error",
         title: "Sign-In Failed",
@@ -546,35 +613,42 @@ export default function HeroSection() {
     e.preventDefault();
     // Step 2: Validate and move to Step 3
     if (registerStep === 2) {
-      const { normalized: normalizedPhone, error: phoneValidationError } =
-        evaluatePhoneInput(formData.phone);
+      // For Google users, skip phone/birthYear validation here (they'll be validated before payment)
+      // For regular registration, validate phone and birthYear in Step 1
+      const isGoogleUser = !!googleRegistrationData;
 
-      if (phoneValidationError) {
-        setPhoneError(phoneValidationError);
-        Swal.fire({
-          icon: "error",
-          title: "Invalid Phone Number",
-          text: phoneValidationError,
-          confirmButtonColor: "#D4AF37",
-        });
-        return;
-      }
+      // Only validate phone/birthYear for regular registration (they're in Step 1)
+      if (!isGoogleUser) {
+        const { normalized: normalizedPhone, error: phoneValidationError } =
+          evaluatePhoneInput(formData.phone);
 
-      const { normalized: normalizedBirthYear, error: birthYearValidationError } =
-        evaluateBirthYearInput(formData.birthYear);
-
-      if (birthYearValidationError) {
-        setBirthYearError(birthYearValidationError);
-        handleRegisterClose();
-        setTimeout(() => {
+        if (phoneValidationError) {
+          setPhoneError(phoneValidationError);
           Swal.fire({
             icon: "error",
-            title: "Age Verification Required",
-            text: birthYearValidationError,
+            title: "Invalid Phone Number",
+            text: phoneValidationError,
             confirmButtonColor: "#D4AF37",
           });
-        }, 0);
-        return;
+          return;
+        }
+
+        const { normalized: normalizedBirthYear, error: birthYearValidationError } =
+          evaluateBirthYearInput(formData.birthYear);
+
+        if (birthYearValidationError) {
+          setBirthYearError(birthYearValidationError);
+          handleRegisterClose();
+          setTimeout(() => {
+            Swal.fire({
+              icon: "error",
+              title: "Age Verification Required",
+              text: birthYearValidationError,
+              confirmButtonColor: "#D4AF37",
+            });
+          }, 0);
+          return;
+        }
       }
 
       const normalizedUsername = formData.username.trim();
@@ -589,9 +663,11 @@ export default function HeroSection() {
         return;
       }
 
+      // For Google users, photo is optional (they have Google picture)
+      // For regular registration, photo is required
       const photoToUpload = photoFile;
 
-      if (!photoToUpload) {
+      if (!isGoogleUser && !photoToUpload) {
         setPhotoError("Profile photo is required to complete registration.");
         Swal.fire({
           icon: "info",
@@ -613,8 +689,39 @@ export default function HeroSection() {
     }
 
     // Step 3: Handle subscription payment
-    const { normalized: normalizedPhone } = evaluatePhoneInput(formData.phone);
-    const { normalized: normalizedBirthYear } = evaluateBirthYearInput(formData.birthYear);
+    // Validate phone and birthYear BEFORE payment (required for both regular and Google users)
+    const { normalized: normalizedPhone, error: phoneValidationError } =
+      evaluatePhoneInput(formData.phone);
+
+    if (phoneValidationError) {
+      Swal.fire({
+        icon: "error",
+        title: "Invalid Phone Number",
+        text: "Please provide a valid phone number to complete registration.",
+        confirmButtonColor: "#D4AF37",
+      });
+      // Go back to Step 2 to collect phone (for Google users) or Step 1 (for regular users)
+      setRegisterStep(googleRegistrationData ? 2 : 1);
+      setPhoneError(phoneValidationError);
+      return;
+    }
+
+    const { normalized: normalizedBirthYear, error: birthYearValidationError } =
+      evaluateBirthYearInput(formData.birthYear);
+
+    if (birthYearValidationError) {
+      Swal.fire({
+        icon: "error",
+        title: "Age Verification Required",
+        text: "Please provide your birth year to complete registration.",
+        confirmButtonColor: "#D4AF37",
+      });
+      // Go back to Step 2 to collect birthYear (for Google users) or Step 1 (for regular users)
+      setRegisterStep(googleRegistrationData ? 2 : 1);
+      setBirthYearError(birthYearValidationError);
+      return;
+    }
+
     const normalizedUsername = formData.username.trim();
     const photoToUpload = photoFile;
 
@@ -671,7 +778,20 @@ export default function HeroSection() {
         formDataToSend.append("username", normalizedUsername);
         formDataToSend.append("phone", normalizedPhone);
         formDataToSend.append("email", formData.email);
-        formDataToSend.append("password", formData.password);
+        
+        // For Google users, password is null
+        if (googleRegistrationData) {
+          formDataToSend.append("password", ""); // No password for Google
+          formDataToSend.append("google_id", googleRegistrationData.googleId);
+          formDataToSend.append("auth_provider", "google");
+          // Google picture URL will be stored in registrationData
+          if (googleRegistrationData.picture) {
+            formDataToSend.append("google_picture_url", googleRegistrationData.picture);
+          }
+        } else {
+          formDataToSend.append("password", formData.password);
+        }
+        
         if (formData.gender) formDataToSend.append("gender", formData.gender);
         if (formData.category) formDataToSend.append("category", formData.category);
         if (normalizedBirthYear !== null) {
@@ -683,8 +803,10 @@ export default function HeroSection() {
         // Add subscription fields
         formDataToSend.append("plan", selectedPlan);
         formDataToSend.append("amount", planAmount.toString());
-        // Add photo file
-        formDataToSend.append("profile_image", photoToUpload);
+        // Add photo file (only if uploaded, Google users use Google picture)
+        if (photoToUpload) {
+          formDataToSend.append("profile_image", photoToUpload);
+        }
 
         // Initialize subscription with registration
         const response = await fetch("/api/subscriptions/paystack/initialize-with-registration", {
@@ -2518,9 +2640,91 @@ export default function HeroSection() {
                     textAlign: "center",
                   }}
                 >
-                  Step 2 of 3: Choose your category and upload your profile
-                  photo.
+                  Step 2 of 3: {googleRegistrationData ? "Complete your profile information" : "Choose your category and upload your profile photo"}
                 </Alert>
+                {/* For Google users, show phone and birthYear fields */}
+                {googleRegistrationData && (
+                  <>
+                    <TextField
+                      required
+                      label="Phone"
+                      type="tel"
+                      value={formData.phone}
+                      onChange={handleInputChange("phone")}
+                      error={Boolean(phoneError)}
+                      helperText={
+                        phoneError ||
+                        "Use the full country code, e.g., +254798123456."
+                      }
+                      fullWidth
+                      variant="outlined"
+                      placeholder="+254798123456"
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          borderRadius: "12px",
+                          "& fieldset": {
+                            borderColor: phoneError ? "#d32f2f" : "rgba(212, 175, 55, 0.3)",
+                          },
+                          "&:hover fieldset": {
+                            borderColor: phoneError ? "#d32f2f" : "rgba(212, 175, 55, 0.6)",
+                          },
+                          "&.Mui-focused fieldset": {
+                            borderColor: phoneError ? "#d32f2f" : "#D4AF37",
+                            borderWidth: "2px",
+                          },
+                        },
+                        "& .MuiInputBase-input": {
+                          py: 1.5,
+                          lineHeight: 1.5,
+                        },
+                        "& .MuiInputLabel-root": {
+                          "&.Mui-focused": {
+                            color: "#D4AF37",
+                          },
+                        },
+                      }}
+                    />
+                    <TextField
+                      label="Year of Birth"
+                      type="number"
+                      value={formData.birthYear}
+                      onChange={handleInputChange("birthYear")}
+                      required
+                      error={Boolean(birthYearError)}
+                      helperText={birthYearError || " "}
+                      fullWidth
+                      variant="outlined"
+                      inputProps={{
+                        min: 1900,
+                        max: new Date().getFullYear(),
+                      }}
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          borderRadius: "12px",
+                          "& fieldset": {
+                            borderColor: birthYearError ? "#d32f2f" : "rgba(212, 175, 55, 0.3)",
+                          },
+                          "&:hover fieldset": {
+                            borderColor: birthYearError ? "#d32f2f" : "rgba(212, 175, 55, 0.6)",
+                          },
+                          "&.Mui-focused fieldset": {
+                            borderColor: birthYearError ? "#d32f2f" : "#D4AF37",
+                            borderWidth: "2px",
+                          },
+                        },
+                        "& .MuiInputBase-input": {
+                          py: 1.5,
+                          lineHeight: 1.5,
+                        },
+                        "& .MuiInputLabel-root": {
+                          "&.Mui-focused": {
+                            color: "#D4AF37",
+                          },
+                        },
+                      }}
+                    />
+                  </>
+                )}
                 <FormControl fullWidth>
                   <InputLabel sx={{ "&.Mui-focused": { color: "#D4AF37" } }}>
                     Category
@@ -2694,43 +2898,136 @@ export default function HeroSection() {
                   Step 3 of 3: Choose your subscription plan and complete payment
                 </Alert>
 
-                {/* Blurred Profile Pictures */}
+                {/* Profile Cards - Visible frames with blurred content */}
                 <Box
                   sx={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    justifyContent: "center",
-                    alignItems: "center",
+                    display: "grid",
+                    gridTemplateColumns: { xs: "repeat(2, 1fr)", sm: "repeat(3, 1fr)" },
                     gap: 2,
                     px: 2,
                     py: 2,
                     width: "100%",
+                    maxWidth: "600px",
                   }}
                 >
-                  {[1, 2, 3, 4, 5, 6].map((index) => (
-                    <Avatar
-                      key={index}
-                      sx={{
-                        width: { xs: 60, sm: 70 },
-                        height: { xs: 60, sm: 70 },
-                        filter: "blur(10px)",
-                        border: "2px solid rgba(212, 175, 55, 0.3)",
-                        borderRadius: "50%",
-                        backgroundColor: "rgba(212, 175, 55, 0.2)",
-                        transition: "all 0.3s ease",
-                      }}
-                    >
-                      <Box
+                  {fakeProfiles.slice(0, 6).map((profile, index) => {
+                    // Build image URL from backend path
+                    const buildImageUrl = (imagePath) => {
+                      if (!imagePath) return null;
+                      if (imagePath.startsWith("http")) return imagePath;
+                      if (imagePath.startsWith("profiles/")) return `/uploads/${imagePath}`;
+                      if (imagePath.startsWith("/uploads/")) return imagePath;
+                      return imagePath;
+                    };
+
+                    const profilePhoto = buildImageUrl(profile.photo);
+
+                    return (
+                      <Card
+                        key={profile?.id || index}
                         sx={{
-                          width: "100%",
-                          height: "100%",
-                          background:
-                            "linear-gradient(135deg, rgba(212, 175, 55, 0.3) 0%, rgba(184, 148, 31, 0.2) 100%)",
-                          borderRadius: "50%",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          padding: 1.5,
+                          borderRadius: "16px",
+                          border: "2px solid rgba(212, 175, 55, 0.3)",
+                          backgroundColor: "rgba(255, 255, 255, 0.9)",
+                          boxShadow: "0 4px 12px rgba(212, 175, 55, 0.15)",
+                          transition: "all 0.3s ease",
+                          "&:hover": {
+                            transform: "translateY(-4px)",
+                            boxShadow: "0 8px 20px rgba(212, 175, 55, 0.25)",
+                            borderColor: "rgba(212, 175, 55, 0.5)",
+                          },
                         }}
-                      />
-                    </Avatar>
-                  ))}
+                      >
+                        <CardContent
+                          sx={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            gap: 1,
+                            p: "8px !important",
+                            width: "100%",
+                          }}
+                        >
+                          {/* Profile Image Frame - Clearly visible with light privacy veil */}
+                          <Box
+                            sx={{
+                              width: { xs: 60, sm: 70 },
+                              height: { xs: 60, sm: 70 },
+                              borderRadius: "50%",
+                              border: "3px solid rgba(212, 175, 55, 0.4)",
+                              boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+                              overflow: "hidden",
+                              position: "relative",
+                              background:
+                                "linear-gradient(135deg, rgba(212, 175, 55, 0.3) 0%, rgba(184, 148, 31, 0.2) 100%)",
+                            }}
+                          >
+                            {/* Profile Image - Light blur, clearly visible faces */}
+                            {profilePhoto ? (
+                              <Box
+                                component="img"
+                                src={profilePhoto}
+                                alt={profile?.name || `Member ${index + 1}`}
+                                onError={(e) => {
+                                  // Hide image if it fails to load
+                                  e.target.style.display = "none";
+                                }}
+                                sx={{
+                                  position: "absolute",
+                                  top: 0,
+                                  left: 0,
+                                  width: "100%",
+                                  height: "100%",
+                                  objectFit: "cover",
+                                  filter: "blur(0.8px)", // Very light blur - faces clearly visible
+                                  opacity: 1,
+                                }}
+                              />
+                            ) : (
+                              <Box
+                                sx={{
+                                  width: "100%",
+                                  height: "100%",
+                                  background: "linear-gradient(135deg, rgba(212, 175, 55, 0.4) 0%, rgba(184, 148, 31, 0.3) 100%)",
+                                }}
+                              />
+                            )}
+                            {/* Semi-transparent privacy overlay */}
+                            <Box
+                              sx={{
+                                position: "absolute",
+                                top: 0,
+                                left: 0,
+                                width: "100%",
+                                height: "100%",
+                                background: "rgba(255, 255, 255, 0.1)", // Light overlay
+                                borderRadius: "50%",
+                                pointerEvents: "none",
+                              }}
+                            />
+                          </Box>
+                          {/* Name - Blurred for privacy */}
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              fontWeight: 600,
+                              color: "rgba(26, 26, 26, 0.8)",
+                              textAlign: "center",
+                              filter: "blur(2px)", // Blurred name as requested
+                              letterSpacing: "0.5px",
+                              fontSize: "0.75rem",
+                            }}
+                          >
+                            {profile?.name || ""}
+                          </Typography>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </Box>
 
                 <Typography
@@ -2745,61 +3042,946 @@ export default function HeroSection() {
                   To continue exploring, chatting and connecting please subscribe to the premium version
                 </Typography>
 
-                {/* Subscription Plan Selection */}
-                <FormControl fullWidth>
-                  <InputLabel sx={{ "&.Mui-focused": { color: "#D4AF37" } }}>
-                    Subscription Plan
-                  </InputLabel>
-                  <Select
-                    value={formData.selectedPlan || "Silver"}
-                    onChange={handleInputChange("selectedPlan")}
-                    label="Subscription Plan"
+                {/* Subscription Plan Selection with Benefits */}
+                <Typography
+                  variant="h6"
+                  sx={{
+                    fontWeight: 600,
+                    textAlign: "center",
+                    mb: 2,
+                    color: "rgba(26, 26, 26, 0.9)",
+                  }}
+                >
+                  Choose Your Plan
+                </Typography>
+
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexDirection: { xs: "column", sm: "row" },
+                    gap: 2,
+                    mb: 2,
+                  }}
+                >
+                  {/* Silver Plan Card */}
+                  <Card
+                    onClick={() => {
+                      handleInputChange("selectedPlan")({
+                        target: { value: "Silver" },
+                      });
+                    }}
                     sx={{
-                      borderRadius: "12px",
-                      "& .MuiSelect-select": {
-                        py: 1.5,
-                        lineHeight: 1.5,
-                      },
-                      "& .MuiOutlinedInput-notchedOutline": {
-                        borderColor: "rgba(212, 175, 55, 0.3)",
-                      },
-                      "&:hover .MuiOutlinedInput-notchedOutline": {
-                        borderColor: "rgba(212, 175, 55, 0.6)",
-                      },
-                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                        borderColor: "#D4AF37",
-                        borderWidth: "2px",
+                      flex: 1,
+                      cursor: "pointer",
+                      borderRadius: "16px",
+                      border:
+                        formData.selectedPlan === "Silver"
+                          ? "3px solid #A9A9A9"
+                          : "2px solid rgba(169, 169, 169, 0.3)",
+                      background:
+                        formData.selectedPlan === "Silver"
+                          ? "linear-gradient(135deg, rgba(192, 192, 192, 0.2) 0%, rgba(230, 230, 230, 0.95) 100%)"
+                          : "rgba(255, 255, 255, 0.9)",
+                      boxShadow:
+                        formData.selectedPlan === "Silver"
+                          ? "0 4px 20px rgba(169, 169, 169, 0.4)"
+                          : "0 2px 8px rgba(0, 0, 0, 0.1)",
+                      transition: "all 0.3s ease",
+                      "&:hover": {
+                        transform: "translateY(-2px)",
+                        boxShadow: "0 6px 20px rgba(169, 169, 169, 0.3)",
+                        borderColor: "#A9A9A9",
                       },
                     }}
                   >
-                    <MenuItem value="Silver">
-                      Silver - KES {formData.category === "Regular" ? "149" : "199"}
-                    </MenuItem>
-                    <MenuItem value="Gold">
-                      Gold - KES {formData.category === "Regular" ? "249" : "349"}
-                    </MenuItem>
-                  </Select>
-                </FormControl>
+                    <CardContent sx={{ p: 2 }}>
+                      <Box sx={{ textAlign: "center", mb: 2 }}>
+                        <Typography
+                          variant="h6"
+                          sx={{
+                            fontWeight: 700,
+                            color: "#5a5a5a",
+                            mb: 0.5,
+                          }}
+                        >
+                          Silver
+                        </Typography>
+                        <Typography
+                          variant="h5"
+                          sx={{
+                            fontWeight: 700,
+                            background:
+                              "linear-gradient(45deg, #808080, #A9A9A9)",
+                            backgroundClip: "text",
+                            WebkitBackgroundClip: "text",
+                            WebkitTextFillColor: "transparent",
+                          }}
+                        >
+                          KES{" "}
+                          {formData.category === "Regular" ? "149" : "199"}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: "rgba(0,0,0,0.6)" }}>
+                          /month
+                        </Typography>
+                      </Box>
+                      <Box
+                        component="ul"
+                        sx={{
+                          pl: 0,
+                          m: 0,
+                          listStyle: "none",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 1,
+                        }}
+                      >
+                        {formData.category === "Regular" ? (
+                          <>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 1,
+                              }}
+                            >
+                              <CheckCircle
+                                sx={{
+                                  color: "#A9A9A9",
+                                  fontSize: "1rem",
+                                  mt: 0.25,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "rgba(0, 0, 0, 0.75)",
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                25 WhatsApp contacts/day
+                              </Typography>
+                            </Box>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 1,
+                              }}
+                            >
+                              <CheckCircle
+                                sx={{
+                                  color: "#A9A9A9",
+                                  fontSize: "1rem",
+                                  mt: 0.25,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "rgba(0, 0, 0, 0.75)",
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                3 "who viewed" daily
+                              </Typography>
+                            </Box>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 1,
+                              }}
+                            >
+                              <CheckCircle
+                                sx={{
+                                  color: "#A9A9A9",
+                                  fontSize: "1rem",
+                                  mt: 0.25,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "rgba(0, 0, 0, 0.75)",
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                5 premium unlocks/day
+                              </Typography>
+                            </Box>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 1,
+                              }}
+                            >
+                              <CheckCircle
+                                sx={{
+                                  color: "#A9A9A9",
+                                  fontSize: "1rem",
+                                  mt: 0.25,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "rgba(0, 0, 0, 0.75)",
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                40 favorite profiles
+                              </Typography>
+                            </Box>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 1,
+                              }}
+                            >
+                              <CheckCircle
+                                sx={{
+                                  color: "#A9A9A9",
+                                  fontSize: "1rem",
+                                  mt: 0.25,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "rgba(0, 0, 0, 0.75)",
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                50 unlocked profiles
+                              </Typography>
+                            </Box>
+                          </>
+                        ) : (
+                          <>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 1,
+                              }}
+                            >
+                              <CheckCircle
+                                sx={{
+                                  color: "#A9A9A9",
+                                  fontSize: "1rem",
+                                  mt: 0.25,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "rgba(0, 0, 0, 0.75)",
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                35 WhatsApp contacts/day
+                              </Typography>
+                            </Box>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 1,
+                              }}
+                            >
+                              <CheckCircle
+                                sx={{
+                                  color: "#A9A9A9",
+                                  fontSize: "1rem",
+                                  mt: 0.25,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "rgba(0, 0, 0, 0.75)",
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                2× 1hr boosts/day
+                              </Typography>
+                            </Box>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 1,
+                              }}
+                            >
+                              <CheckCircle
+                                sx={{
+                                  color: "#A9A9A9",
+                                  fontSize: "1rem",
+                                  mt: 0.25,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "rgba(0, 0, 0, 0.75)",
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                6 "who viewed" daily
+                              </Typography>
+                            </Box>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 1,
+                              }}
+                            >
+                              <CheckCircle
+                                sx={{
+                                  color: "#A9A9A9",
+                                  fontSize: "1rem",
+                                  mt: 0.25,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "rgba(0, 0, 0, 0.75)",
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                10 premium unlocks/day
+                              </Typography>
+                            </Box>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 1,
+                              }}
+                            >
+                              <CheckCircle
+                                sx={{
+                                  color: "#A9A9A9",
+                                  fontSize: "1rem",
+                                  mt: 0.25,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "rgba(0, 0, 0, 0.75)",
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                60 favorite & unlocked
+                              </Typography>
+                            </Box>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 1,
+                              }}
+                            >
+                              <CheckCircle
+                                sx={{
+                                  color: "#A9A9A9",
+                                  fontSize: "1rem",
+                                  mt: 0.25,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "rgba(0, 0, 0, 0.75)",
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                Private profile mode
+                              </Typography>
+                            </Box>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 1,
+                              }}
+                            >
+                              <CheckCircle
+                                sx={{
+                                  color: "#A9A9A9",
+                                  fontSize: "1rem",
+                                  mt: 0.25,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "rgba(0, 0, 0, 0.75)",
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                Silver badge
+                              </Typography>
+                            </Box>
+                          </>
+                        )}
+                      </Box>
+                    </CardContent>
+                  </Card>
 
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: "rgba(26, 26, 26, 0.65)",
-                    textAlign: "center",
-                    px: 2,
-                  }}
-                >
-                  Selected plan: <strong>{formData.selectedPlan || "Silver"}</strong> - 
-                  KES {(() => {
-                    const category = formData.category || "Regular";
-                    const plan = formData.selectedPlan || "Silver";
-                    if (category === "Regular") {
-                      return plan === "Silver" ? "149" : "249";
-                    } else {
-                      return plan === "Silver" ? "199" : "349";
-                    }
-                  })()}/month
-                </Typography>
+                  {/* Gold Plan Card */}
+                  <Box
+                    sx={{
+                      flex: 1,
+                      position: "relative",
+                      overflow: "visible",
+                    }}
+                  >
+                    {formData.selectedPlan === "Gold" && (
+                      <Box
+                        sx={{
+                          position: "absolute",
+                          top: -12,
+                          right: 10,
+                          zIndex: 1,
+                          bgcolor: "#D4AF37",
+                          color: "#fff",
+                          px: 1.5,
+                          py: 0.5,
+                          borderRadius: "12px",
+                          fontSize: "0.7rem",
+                          fontWeight: 700,
+                          boxShadow: "0 2px 8px rgba(212, 175, 55, 0.4)",
+                        }}
+                      >
+                        POPULAR
+                      </Box>
+                    )}
+                    <Card
+                      onClick={() => {
+                        handleInputChange("selectedPlan")({
+                          target: { value: "Gold" },
+                        });
+                      }}
+                      sx={{
+                        cursor: "pointer",
+                        borderRadius: "16px",
+                        border:
+                          formData.selectedPlan === "Gold"
+                            ? "3px solid #D4AF37"
+                            : "2px solid rgba(212, 175, 55, 0.3)",
+                        background:
+                          formData.selectedPlan === "Gold"
+                            ? "linear-gradient(135deg, rgba(212, 175, 55, 0.2) 0%, rgba(255, 215, 0, 0.1) 100%)"
+                            : "rgba(255, 255, 255, 0.9)",
+                        boxShadow:
+                          formData.selectedPlan === "Gold"
+                            ? "0 4px 20px rgba(212, 175, 55, 0.4)"
+                            : "0 2px 8px rgba(0, 0, 0, 0.1)",
+                        transition: "all 0.3s ease",
+                        position: "relative",
+                        "&:hover": {
+                          transform: "translateY(-2px)",
+                          boxShadow: "0 6px 20px rgba(212, 175, 55, 0.3)",
+                          borderColor: "#D4AF37",
+                        },
+                      }}
+                    >
+                      <CardContent sx={{ p: 2 }}>
+                      <Box sx={{ textAlign: "center", mb: 2 }}>
+                        <Typography
+                          variant="h6"
+                          sx={{
+                            fontWeight: 700,
+                            color: "#B8941F",
+                            mb: 0.5,
+                          }}
+                        >
+                          Gold
+                        </Typography>
+                        <Typography
+                          variant="h5"
+                          sx={{
+                            fontWeight: 700,
+                            background:
+                              "linear-gradient(45deg, #D4AF37, #B8941F)",
+                            backgroundClip: "text",
+                            WebkitBackgroundClip: "text",
+                            WebkitTextFillColor: "transparent",
+                          }}
+                        >
+                          KES{" "}
+                          {formData.category === "Regular" ? "249" : "349"}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: "rgba(0,0,0,0.6)" }}>
+                          /month
+                        </Typography>
+                      </Box>
+                      <Box
+                        component="ul"
+                        sx={{
+                          pl: 0,
+                          m: 0,
+                          listStyle: "none",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 1,
+                        }}
+                      >
+                        {formData.category === "Regular" ? (
+                          <>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 1,
+                              }}
+                            >
+                              <CheckCircle
+                                sx={{
+                                  color: "#D4AF37",
+                                  fontSize: "1rem",
+                                  mt: 0.25,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "rgba(0, 0, 0, 0.75)",
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                Unlimited WhatsApp contacts
+                              </Typography>
+                            </Box>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 1,
+                              }}
+                            >
+                              <CheckCircle
+                                sx={{
+                                  color: "#D4AF37",
+                                  fontSize: "1rem",
+                                  mt: 0.25,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "rgba(0, 0, 0, 0.75)",
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                3× 2hr boosts/day
+                              </Typography>
+                            </Box>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 1,
+                              }}
+                            >
+                              <CheckCircle
+                                sx={{
+                                  color: "#D4AF37",
+                                  fontSize: "1rem",
+                                  mt: 0.25,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "rgba(0, 0, 0, 0.75)",
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                Unlimited premium unlocks
+                              </Typography>
+                            </Box>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 1,
+                              }}
+                            >
+                              <CheckCircle
+                                sx={{
+                                  color: "#D4AF37",
+                                  fontSize: "1rem",
+                                  mt: 0.25,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "rgba(0, 0, 0, 0.75)",
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                Unlimited saved profiles
+                              </Typography>
+                            </Box>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 1,
+                              }}
+                            >
+                              <CheckCircle
+                                sx={{
+                                  color: "#D4AF37",
+                                  fontSize: "1rem",
+                                  mt: 0.25,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "rgba(0, 0, 0, 0.75)",
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                Gold Verification badge
+                              </Typography>
+                            </Box>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 1,
+                              }}
+                            >
+                              <CheckCircle
+                                sx={{
+                                  color: "#D4AF37",
+                                  fontSize: "1rem",
+                                  mt: 0.25,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "rgba(0, 0, 0, 0.75)",
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                4hr incognito mode/day
+                              </Typography>
+                            </Box>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 1,
+                              }}
+                            >
+                              <CheckCircle
+                                sx={{
+                                  color: "#D4AF37",
+                                  fontSize: "1rem",
+                                  mt: 0.25,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "rgba(0, 0, 0, 0.75)",
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                5 suggested matches/day
+                              </Typography>
+                            </Box>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 1,
+                              }}
+                            >
+                              <CheckCircle
+                                sx={{
+                                  color: "#D4AF37",
+                                  fontSize: "1rem",
+                                  mt: 0.25,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "rgba(0, 0, 0, 0.75)",
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                Unlimited "who viewed"
+                              </Typography>
+                            </Box>
+                          </>
+                        ) : (
+                          <>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 1,
+                              }}
+                            >
+                              <CheckCircle
+                                sx={{
+                                  color: "#D4AF37",
+                                  fontSize: "1rem",
+                                  mt: 0.25,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "rgba(0, 0, 0, 0.75)",
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                Unlimited WhatsApp contacts
+                              </Typography>
+                            </Box>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 1,
+                              }}
+                            >
+                              <CheckCircle
+                                sx={{
+                                  color: "#D4AF37",
+                                  fontSize: "1rem",
+                                  mt: 0.25,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "rgba(0, 0, 0, 0.75)",
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                4× 3hr boosts/day
+                              </Typography>
+                            </Box>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 1,
+                              }}
+                            >
+                              <CheckCircle
+                                sx={{
+                                  color: "#D4AF37",
+                                  fontSize: "1rem",
+                                  mt: 0.25,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "rgba(0, 0, 0, 0.75)",
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                Unlimited premium unlocks
+                              </Typography>
+                            </Box>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 1,
+                              }}
+                            >
+                              <CheckCircle
+                                sx={{
+                                  color: "#D4AF37",
+                                  fontSize: "1rem",
+                                  mt: 0.25,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "rgba(0, 0, 0, 0.75)",
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                Unlimited saved profiles
+                              </Typography>
+                            </Box>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 1,
+                              }}
+                            >
+                              <CheckCircle
+                                sx={{
+                                  color: "#D4AF37",
+                                  fontSize: "1rem",
+                                  mt: 0.25,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "rgba(0, 0, 0, 0.75)",
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                Gold Verification badge
+                              </Typography>
+                            </Box>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 1,
+                              }}
+                            >
+                              <CheckCircle
+                                sx={{
+                                  color: "#D4AF37",
+                                  fontSize: "1rem",
+                                  mt: 0.25,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "rgba(0, 0, 0, 0.75)",
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                8hr incognito mode/day
+                              </Typography>
+                            </Box>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 1,
+                              }}
+                            >
+                              <CheckCircle
+                                sx={{
+                                  color: "#D4AF37",
+                                  fontSize: "1rem",
+                                  mt: 0.25,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "rgba(0, 0, 0, 0.75)",
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                10 suggested matches/day
+                              </Typography>
+                            </Box>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 1,
+                              }}
+                            >
+                              <CheckCircle
+                                sx={{
+                                  color: "#D4AF37",
+                                  fontSize: "1rem",
+                                  mt: 0.25,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "rgba(0, 0, 0, 0.75)",
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                Unlimited "who viewed"
+                              </Typography>
+                            </Box>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 1,
+                              }}
+                            >
+                              <CheckCircle
+                                sx={{
+                                  color: "#D4AF37",
+                                  fontSize: "1rem",
+                                  mt: 0.25,
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "rgba(0, 0, 0, 0.75)",
+                                  fontSize: "0.75rem",
+                                }}
+                              >
+                                Private profile mode
+                              </Typography>
+                            </Box>
+                          </>
+                        )}
+                      </Box>
+                    </CardContent>
+                  </Card>
+                  </Box>
+                </Box>
               </Box>
             )}
           </DialogContent>
