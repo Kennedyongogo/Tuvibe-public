@@ -237,52 +237,56 @@ export default function Pricing() {
 
       let paymentCompleted = false;
 
-      const handlePaystackVerification = async (paystackResponse) => {
-        if (paymentCompleted) return;
+      // Paystack requires a regular function, not an async arrow function
+      const handlePaystackVerification = function (paystackResponse) {
+        // Immediately invoke async function inside regular function
+        (async () => {
+          if (paymentCompleted) return;
 
-        try {
-          const verifyResponse = await fetch(
-            `/api/subscriptions/upgrade/verify?reference=${paystackResponse.reference}`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
+          try {
+            const verifyResponse = await fetch(
+              `/api/subscriptions/upgrade/verify?reference=${paystackResponse.reference}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
+
+            const verifyData = await verifyResponse.json();
+
+            if (verifyResponse.ok && verifyData.success) {
+              paymentCompleted = true;
+              setSubscribing(false);
+              Swal.fire({
+                icon: "success",
+                title: "Upgrade Successful!",
+                html: `
+                  <p>Your subscription has been upgraded to <strong>${plan}</strong>!</p>
+                  <p style="font-size: 0.9em; color: #666; margin-top: 8px;">
+                    All ${plan} features are now active.
+                  </p>
+                `,
+                confirmButtonColor: "#D4AF37",
+              }).then(() => {
+                window.location.reload();
+              });
+            } else {
+              throw new Error(
+                verifyData.message || "Payment verification failed"
+              );
             }
-          );
-
-          const verifyData = await verifyResponse.json();
-
-          if (verifyResponse.ok && verifyData.success) {
-            paymentCompleted = true;
+          } catch (error) {
+            console.error("Upgrade verification error:", error);
             setSubscribing(false);
             Swal.fire({
-              icon: "success",
-              title: "Upgrade Successful!",
-              html: `
-                <p>Your subscription has been upgraded to <strong>${plan}</strong>!</p>
-                <p style="font-size: 0.9em; color: #666; margin-top: 8px;">
-                  All ${plan} features are now active.
-                </p>
-              `,
+              icon: "error",
+              title: "Verification Failed",
+              text: error.message || "Failed to verify upgrade payment",
               confirmButtonColor: "#D4AF37",
-            }).then(() => {
-              window.location.reload();
             });
-          } else {
-            throw new Error(
-              verifyData.message || "Payment verification failed"
-            );
           }
-        } catch (error) {
-          console.error("Upgrade verification error:", error);
-          setSubscribing(false);
-          Swal.fire({
-            icon: "error",
-            title: "Verification Failed",
-            text: error.message || "Failed to verify upgrade payment",
-            confirmButtonColor: "#D4AF37",
-          });
-        }
+        })();
       };
 
       // Get user email safely
