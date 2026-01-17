@@ -27,6 +27,9 @@ import {
   FormControlLabel,
   Alert,
   Tooltip,
+  Tabs,
+  Tab,
+  Paper,
 } from "@mui/material";
 import {
   Login,
@@ -40,6 +43,8 @@ import {
   PhotoCamera,
   Security,
   CheckCircle,
+  Star as StarIcon,
+  Verified,
 } from "@mui/icons-material";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { GoogleLogin } from "@react-oauth/google";
@@ -124,6 +129,9 @@ export default function HeroSection() {
   const [termsChecked, setTermsChecked] = useState(false);
   const [googleRegistrationData, setGoogleRegistrationData] = useState(null); // Store Google data for subscription flow
   const [fakeProfiles, setFakeProfiles] = useState([]); // Store fake profiles for display
+  const [previewTab, setPreviewTab] = useState(0); // Tab state for Step 3 (0 = Profiles, 1 = Testimonials)
+  const [testimonials, setTestimonials] = useState([]); // Store testimonials for display
+  const [loadingTestimonials, setLoadingTestimonials] = useState(false);
 
   useEffect(() => {
     // Use requestAnimationFrame for better performance
@@ -150,7 +158,7 @@ export default function HeroSection() {
   useEffect(() => {
     const fetchFakeProfiles = async () => {
       try {
-        const response = await fetch("/api/public/fake-profiles?limit=6");
+        const response = await fetch("/api/public/fake-profiles?limit=4");
         const data = await response.json();
         if (data.success && data.data) {
           setFakeProfiles(data.data);
@@ -162,6 +170,30 @@ export default function HeroSection() {
     };
 
     fetchFakeProfiles();
+  }, []);
+
+  // Fetch testimonials for display in registration Step 3
+  useEffect(() => {
+    const fetchTestimonials = async () => {
+      try {
+        setLoadingTestimonials(true);
+        const response = await fetch("/api/ratings/testimonials?limit=3");
+        const data = await response.json();
+        if (data.success && data.data) {
+          setTestimonials(data.data);
+        } else {
+          console.error("Failed to fetch testimonials:", data.message);
+          setTestimonials([]);
+        }
+      } catch (error) {
+        console.error("Error fetching testimonials:", error);
+        setTestimonials([]);
+      } finally {
+        setLoadingTestimonials(false);
+      }
+    };
+
+    fetchTestimonials();
   }, []);
 
   const handleLogin = () => {
@@ -203,6 +235,7 @@ export default function HeroSection() {
     setPhotoPreview(null);
     setRegisterStep(1);
     setGoogleRegistrationData(null); // Clear Google data
+    setPreviewTab(0); // Reset to Profiles tab
   };
 
   const handleTermsAgree = () => {
@@ -2898,149 +2931,391 @@ export default function HeroSection() {
                   Step 3 of 3: Choose your subscription plan and complete payment
                 </Alert>
 
-                {/* Profile Cards - Visible frames with blurred content */}
-                <Box
-                  sx={{
-                    display: "grid",
-                    gridTemplateColumns: { xs: "repeat(2, 1fr)", sm: "repeat(3, 1fr)" },
-                    gap: 2,
-                    px: 2,
-                    py: 2,
-                    width: "100%",
-                    maxWidth: "600px",
-                  }}
-                >
-                  {fakeProfiles.slice(0, 6).map((profile, index) => {
-                    // Build image URL from backend path
-                    const buildImageUrl = (imagePath) => {
-                      if (!imagePath) return null;
-                      if (imagePath.startsWith("http")) return imagePath;
-                      if (imagePath.startsWith("profiles/")) return `/uploads/${imagePath}`;
-                      if (imagePath.startsWith("/uploads/")) return imagePath;
-                      return imagePath;
-                    };
+                {/* Tabs for Profiles and Testimonials */}
+                <Box sx={{ width: "100%", maxWidth: "800px" }}>
+                  <Tabs
+                    value={previewTab}
+                    onChange={(e, newValue) => setPreviewTab(newValue)}
+                    variant="fullWidth"
+                    sx={{
+                      mb: 2,
+                      "& .MuiTabs-indicator": {
+                        backgroundColor: "#D4AF37",
+                        height: 3,
+                        borderRadius: "3px 3px 0 0",
+                      },
+                      "& .MuiTab-root": {
+                        textTransform: "none",
+                        fontWeight: 600,
+                        fontSize: { xs: "0.875rem", sm: "1rem" },
+                        color: "rgba(0, 0, 0, 0.6)",
+                        minHeight: 48,
+                        "&:hover": {
+                          color: "#D4AF37",
+                          backgroundColor: "rgba(212, 175, 55, 0.08)",
+                        },
+                        "&.Mui-selected": {
+                          color: "#D4AF37",
+                          fontWeight: 700,
+                        },
+                      },
+                    }}
+                  >
+                    <Tab label="Profiles" />
+                    <Tab label="Testimonials" />
+                  </Tabs>
 
-                    const profilePhoto = buildImageUrl(profile.photo);
-
-                    return (
-                      <Card
-                        key={profile?.id || index}
+                  {/* Tab Panel: Profiles */}
+                  {previewTab === 0 && (
+                    <Box>
+                      {/* Profile Cards - Visible frames with blurred content */}
+                      <Box
                         sx={{
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          padding: 1.5,
-                          borderRadius: "16px",
-                          border: "2px solid rgba(212, 175, 55, 0.3)",
-                          backgroundColor: "rgba(255, 255, 255, 0.9)",
-                          boxShadow: "0 4px 12px rgba(212, 175, 55, 0.15)",
-                          transition: "all 0.3s ease",
-                          "&:hover": {
-                            transform: "translateY(-4px)",
-                            boxShadow: "0 8px 20px rgba(212, 175, 55, 0.25)",
-                            borderColor: "rgba(212, 175, 55, 0.5)",
-                          },
+                          display: "grid",
+                          gridTemplateColumns: { xs: "repeat(2, 1fr)", sm: "repeat(2, 1fr)" },
+                          gap: 2,
+                          px: 2,
+                          py: 2,
+                          width: "100%",
+                          maxWidth: "500px",
+                          mx: "auto",
                         }}
                       >
-                        <CardContent
+                        {fakeProfiles.slice(0, 4).map((profile, index) => {
+                          // Build image URL from backend path
+                          const buildImageUrl = (imagePath) => {
+                            if (!imagePath) return null;
+                            if (imagePath.startsWith("http")) return imagePath;
+                            if (imagePath.startsWith("profiles/")) return `/uploads/${imagePath}`;
+                            if (imagePath.startsWith("/uploads/")) return imagePath;
+                            return imagePath;
+                          };
+
+                          const profilePhoto = buildImageUrl(profile.photo);
+
+                          return (
+                            <Card
+                              key={profile?.id || index}
+                              sx={{
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "center",
+                                padding: 1.5,
+                                borderRadius: "16px",
+                                border: "2px solid rgba(212, 175, 55, 0.3)",
+                                backgroundColor: "rgba(255, 255, 255, 0.9)",
+                                boxShadow: "0 4px 12px rgba(212, 175, 55, 0.15)",
+                                transition: "all 0.3s ease",
+                                "&:hover": {
+                                  transform: "translateY(-4px)",
+                                  boxShadow: "0 8px 20px rgba(212, 175, 55, 0.25)",
+                                  borderColor: "rgba(212, 175, 55, 0.5)",
+                                },
+                              }}
+                            >
+                              <CardContent
+                                sx={{
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  alignItems: "center",
+                                  gap: 1,
+                                  p: "8px !important",
+                                  width: "100%",
+                                }}
+                              >
+                                {/* Profile Image Frame - Clearly visible with light privacy veil */}
+                                <Box
+                                  sx={{
+                                    width: { xs: 60, sm: 70 },
+                                    height: { xs: 60, sm: 70 },
+                                    borderRadius: "50%",
+                                    border: "3px solid rgba(212, 175, 55, 0.4)",
+                                    boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+                                    overflow: "hidden",
+                                    position: "relative",
+                                    background:
+                                      "linear-gradient(135deg, rgba(212, 175, 55, 0.3) 0%, rgba(184, 148, 31, 0.2) 100%)",
+                                  }}
+                                >
+                                  {/* Profile Image - Light blur, clearly visible faces */}
+                                  {profilePhoto ? (
+                                    <Box
+                                      component="img"
+                                      src={profilePhoto}
+                                      alt={profile?.name || `Member ${index + 1}`}
+                                      onError={(e) => {
+                                        // Hide image if it fails to load
+                                        e.target.style.display = "none";
+                                      }}
+                                      sx={{
+                                        position: "absolute",
+                                        top: 0,
+                                        left: 0,
+                                        width: "100%",
+                                        height: "100%",
+                                        objectFit: "cover",
+                                        filter: "blur(0.8px)", // Very light blur - faces clearly visible
+                                        opacity: 1,
+                                      }}
+                                    />
+                                  ) : (
+                                    <Box
+                                      sx={{
+                                        width: "100%",
+                                        height: "100%",
+                                        background: "linear-gradient(135deg, rgba(212, 175, 55, 0.4) 0%, rgba(184, 148, 31, 0.3) 100%)",
+                                      }}
+                                    />
+                                  )}
+                                  {/* Semi-transparent privacy overlay */}
+                                  <Box
+                                    sx={{
+                                      position: "absolute",
+                                      top: 0,
+                                      left: 0,
+                                      width: "100%",
+                                      height: "100%",
+                                      background: "rgba(255, 255, 255, 0.1)", // Light overlay
+                                      borderRadius: "50%",
+                                      pointerEvents: "none",
+                                    }}
+                                  />
+                                </Box>
+                                {/* Name - Blurred for privacy */}
+                                <Typography
+                                  variant="caption"
+                                  sx={{
+                                    fontWeight: 600,
+                                    color: "rgba(26, 26, 26, 0.8)",
+                                    textAlign: "center",
+                                    filter: "blur(2px)", // Blurred name as requested
+                                    letterSpacing: "0.5px",
+                                    fontSize: "0.75rem",
+                                  }}
+                                >
+                                  {profile?.name || ""}
+                                </Typography>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </Box>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: "rgba(26, 26, 26, 0.8)",
+                          textAlign: "center",
+                          fontWeight: 500,
+                          px: 2,
+                          mt: 2,
+                        }}
+                      >
+                        To continue exploring, chatting and connecting please subscribe to the premium version
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {/* Tab Panel: Testimonials */}
+                  {previewTab === 1 && (
+                    <Box sx={{ maxHeight: "450px", overflowY: "auto", px: 1 }}>
+                      {loadingTestimonials ? (
+                        <Box
                           sx={{
                             display: "flex",
-                            flexDirection: "column",
+                            justifyContent: "center",
                             alignItems: "center",
-                            gap: 1,
-                            p: "8px !important",
-                            width: "100%",
+                            py: 4,
                           }}
                         >
-                          {/* Profile Image Frame - Clearly visible with light privacy veil */}
-                          <Box
-                            sx={{
-                              width: { xs: 60, sm: 70 },
-                              height: { xs: 60, sm: 70 },
-                              borderRadius: "50%",
-                              border: "3px solid rgba(212, 175, 55, 0.4)",
-                              boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
-                              overflow: "hidden",
-                              position: "relative",
-                              background:
-                                "linear-gradient(135deg, rgba(212, 175, 55, 0.3) 0%, rgba(184, 148, 31, 0.2) 100%)",
-                            }}
-                          >
-                            {/* Profile Image - Light blur, clearly visible faces */}
-                            {profilePhoto ? (
-                              <Box
-                                component="img"
-                                src={profilePhoto}
-                                alt={profile?.name || `Member ${index + 1}`}
-                                onError={(e) => {
-                                  // Hide image if it fails to load
-                                  e.target.style.display = "none";
-                                }}
-                                sx={{
-                                  position: "absolute",
-                                  top: 0,
-                                  left: 0,
-                                  width: "100%",
-                                  height: "100%",
-                                  objectFit: "cover",
-                                  filter: "blur(0.8px)", // Very light blur - faces clearly visible
-                                  opacity: 1,
-                                }}
-                              />
-                            ) : (
-                              <Box
-                                sx={{
-                                  width: "100%",
-                                  height: "100%",
-                                  background: "linear-gradient(135deg, rgba(212, 175, 55, 0.4) 0%, rgba(184, 148, 31, 0.3) 100%)",
-                                }}
-                              />
-                            )}
-                            {/* Semi-transparent privacy overlay */}
-                            <Box
-                              sx={{
-                                position: "absolute",
-                                top: 0,
-                                left: 0,
-                                width: "100%",
-                                height: "100%",
-                                background: "rgba(255, 255, 255, 0.1)", // Light overlay
-                                borderRadius: "50%",
-                                pointerEvents: "none",
-                              }}
-                            />
-                          </Box>
-                          {/* Name - Blurred for privacy */}
+                          <CircularProgress sx={{ color: "#D4AF37" }} />
+                        </Box>
+                      ) : testimonials.length === 0 ? (
+                        <Box sx={{ textAlign: "center", py: 4 }}>
                           <Typography
-                            variant="caption"
+                            variant="body2"
                             sx={{
-                              fontWeight: 600,
-                              color: "rgba(26, 26, 26, 0.8)",
-                              textAlign: "center",
-                              filter: "blur(2px)", // Blurred name as requested
-                              letterSpacing: "0.5px",
-                              fontSize: "0.75rem",
+                              color: "rgba(0, 0, 0, 0.6)",
+                              fontSize: { xs: "0.9375rem", sm: "1rem" },
                             }}
                           >
-                            {profile?.name || ""}
+                            No testimonials yet.
                           </Typography>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </Box>
+                        </Box>
+                      ) : (
+                        <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                          {testimonials.slice(0, 3).map((testimonial, index) => {
+                            const user = testimonial.user || {};
+                            const getPhotoUrl = (photoPath) => {
+                              if (!photoPath) return null;
+                              if (photoPath.startsWith("http")) return photoPath;
+                              if (photoPath.startsWith("profiles/")) return `/uploads/${photoPath}`;
+                              if (photoPath.startsWith("/uploads/")) return photoPath;
+                              return `/uploads/${photoPath}`;
+                            };
+                            const getUserInitials = (name) => {
+                              if (!name) return "??";
+                              const parts = name.trim().split(" ");
+                              if (parts.length >= 2) {
+                                return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+                              }
+                              return parts[0].substring(0, 2).toUpperCase();
+                            };
+                            const photoUrl = getPhotoUrl(user.photo);
+                            const initials = getUserInitials(user.name || user.username);
+                            const displayName = user.username || user.name || "Anonymous User";
+                            const category = user.category || "Member";
+                            const county = user.county || "";
+                            const location = county ? ` • ${county}` : "";
+                            const isVerified = user.isVerified || false;
 
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: "rgba(26, 26, 26, 0.8)",
-                    textAlign: "center",
-                    fontWeight: 500,
-                    px: 2,
-                  }}
-                >
-                  To continue exploring, chatting and connecting please subscribe to the premium version
-                </Typography>
+                            return (
+                              <React.Fragment key={testimonial.id || index}>
+                                {index > 0 && (
+                                  <Divider sx={{ borderColor: "rgba(212, 175, 55, 0.2)" }} />
+                                )}
+                                <Box>
+                                  <Box
+                                    sx={{
+                                      display: "flex",
+                                      alignItems: "flex-start",
+                                      gap: 2,
+                                      mb: 1,
+                                    }}
+                                  >
+                                    <Avatar
+                                      src={photoUrl}
+                                      sx={{
+                                        width: { xs: 40, sm: 48 },
+                                        height: { xs: 40, sm: 48 },
+                                        bgcolor: "#D4AF37",
+                                        fontSize: { xs: "1rem", sm: "1.25rem" },
+                                        fontWeight: 700,
+                                      }}
+                                    >
+                                      {!photoUrl && initials}
+                                    </Avatar>
+                                    <Box sx={{ flex: 1 }}>
+                                      <Box
+                                        sx={{
+                                          display: "flex",
+                                          alignItems: "center",
+                                          gap: 1,
+                                          mb: 0.5,
+                                          flexWrap: "wrap",
+                                        }}
+                                      >
+                                        <Typography
+                                          variant="body1"
+                                          sx={{
+                                            fontWeight: 600,
+                                            color: "rgba(0, 0, 0, 0.9)",
+                                            fontSize: { xs: "0.875rem", sm: "0.9375rem" },
+                                          }}
+                                        >
+                                          {displayName}
+                                        </Typography>
+                                        {isVerified && (
+                                          <Verified
+                                            sx={{
+                                              fontSize: "0.875rem",
+                                              color: "#D4AF37",
+                                            }}
+                                          />
+                                        )}
+                                      </Box>
+                                      <Typography
+                                        variant="caption"
+                                        sx={{
+                                          color: "rgba(0, 0, 0, 0.6)",
+                                          fontSize: "0.75rem",
+                                        }}
+                                      >
+                                        {category}
+                                        {location}
+                                        {testimonial.rating && (
+                                          <>
+                                            {" • "}
+                                            <Box
+                                              component="span"
+                                              sx={{
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: 0.25,
+                                              }}
+                                            >
+                                              {Array.from({ length: 5 }).map((_, i) => (
+                                                <StarIcon
+                                                  key={i}
+                                                  sx={{
+                                                    fontSize: "0.75rem",
+                                                    color:
+                                                      i < testimonial.rating
+                                                        ? "#D4AF37"
+                                                        : "rgba(0, 0, 0, 0.2)",
+                                                  }}
+                                                />
+                                              ))}
+                                            </Box>
+                                          </>
+                                        )}
+                                      </Typography>
+                                    </Box>
+                                  </Box>
+                                  {testimonial.testimonial ? (
+                                    <Paper
+                                      elevation={0}
+                                      sx={{
+                                        borderRadius: "12px",
+                                        backgroundColor: "rgba(212, 175, 55, 0.05)",
+                                        border: "1px solid rgba(212, 175, 55, 0.2)",
+                                        p: { xs: 1.5, sm: 2 },
+                                      }}
+                                    >
+                                      <Typography
+                                        variant="body2"
+                                        sx={{
+                                          color: "rgba(0, 0, 0, 0.75)",
+                                          fontSize: { xs: "0.8125rem", sm: "0.875rem" },
+                                          lineHeight: 1.6,
+                                          fontStyle: "italic",
+                                          whiteSpace: "pre-wrap",
+                                        }}
+                                      >
+                                        "{testimonial.testimonial}"
+                                      </Typography>
+                                    </Paper>
+                                  ) : (
+                                    <Paper
+                                      elevation={0}
+                                      sx={{
+                                        borderRadius: "12px",
+                                        backgroundColor: "rgba(212, 175, 55, 0.05)",
+                                        border: "1px solid rgba(212, 175, 55, 0.2)",
+                                        p: { xs: 1.5, sm: 2 },
+                                        textAlign: "center",
+                                      }}
+                                    >
+                                      <Typography
+                                        variant="caption"
+                                        sx={{
+                                          color: "rgba(0, 0, 0, 0.5)",
+                                          fontSize: "0.75rem",
+                                          fontStyle: "italic",
+                                        }}
+                                      >
+                                        Rating only - no testimonial provided
+                                      </Typography>
+                                    </Paper>
+                                  )}
+                                </Box>
+                              </React.Fragment>
+                            );
+                          })}
+                        </Box>
+                      )}
+                    </Box>
+                  )}
+                </Box>
 
                 {/* Subscription Plan Selection with Benefits */}
                 <Typography
