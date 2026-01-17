@@ -55,12 +55,24 @@ export default function Pricing() {
   const calculateProratedAmount = (currentPlan, newPlan) => {
     if (!currentSubscription) return null;
 
-    const currentPlanPrice = currentSubscription.amount;
+    // Get plan prices based on user category
     const amounts = {
       Silver: effectiveCategoryIndex === 0 ? 149 : 199,
       Gold: effectiveCategoryIndex === 0 ? 249 : 349,
     };
+    
+    // Use stored amount if available, otherwise fallback to expected price for current plan
+    const currentPlanPrice = currentSubscription.amount && currentSubscription.amount > 0
+      ? currentSubscription.amount
+      : amounts[currentPlan] || 0;
+    
     const newPlanPrice = amounts[newPlan];
+
+    // Validate prices
+    if (!currentPlanPrice || !newPlanPrice || currentPlanPrice <= 0 || newPlanPrice <= 0) {
+      console.warn("Invalid plan prices for prorated calculation:", { currentPlanPrice, newPlanPrice });
+      return null;
+    }
 
     // Calculate remaining days
     const now = new Date();
@@ -804,6 +816,7 @@ export default function Pricing() {
       ) {
         const subscriptionData = {
           plan: data.data.subscription.plan,
+          amount: data.data.subscription.amount || 0,
           status: data.data.subscription.status,
           expires_at: data.data.subscription.expires_at,
           remainingDays: data.data.subscription.remainingDays || 0,
