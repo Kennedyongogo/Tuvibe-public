@@ -3174,12 +3174,21 @@ export default function HeroSection() {
                                   <Divider sx={{ borderColor: "rgba(212, 175, 55, 0.2)" }} />
                                 )}
                                 <Box>
+                                <Box
+                                  sx={{
+                                    display: "flex",
+                                    alignItems: "flex-start",
+                                    gap: 2,
+                                    mb: 1,
+                                  }}
+                                >
                                   <Box
                                     sx={{
-                                      display: "flex",
-                                      alignItems: "flex-start",
-                                      gap: 2,
-                                      mb: 1,
+                                      position: "relative",
+                                      width: { xs: 40, sm: 48 },
+                                      height: { xs: 40, sm: 48 },
+                                      borderRadius: "50%",
+                                      overflow: "hidden",
                                     }}
                                   >
                                     <Avatar
@@ -3190,10 +3199,30 @@ export default function HeroSection() {
                                         bgcolor: "#D4AF37",
                                         fontSize: { xs: "1rem", sm: "1.25rem" },
                                         fontWeight: 700,
+                                        "& img": {
+                                          filter: "blur(0.8px)", // Same blur as profile tab
+                                          opacity: 1,
+                                        },
                                       }}
                                     >
                                       {!photoUrl && initials}
                                     </Avatar>
+                                    {/* Semi-transparent privacy overlay - same as profile tab */}
+                                    {photoUrl && (
+                                      <Box
+                                        sx={{
+                                          position: "absolute",
+                                          top: 0,
+                                          left: 0,
+                                          width: "100%",
+                                          height: "100%",
+                                          background: "rgba(255, 255, 255, 0.1)", // Light overlay
+                                          borderRadius: "50%",
+                                          pointerEvents: "none",
+                                        }}
+                                      />
+                                    )}
+                                  </Box>
                                     <Box sx={{ flex: 1 }}>
                                       <Box
                                         sx={{
